@@ -12,8 +12,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DottedSeparator } from "@/components/dotted-separator";
-
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+} from "@/components/ui/form";
+const formSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
 export const SignInCard = () => {
+  const form = useForm({
+    resolver: zodResolver(formSchema),
+    defaultValues: { email: "", password: "" },
+  });
+  const onSubmit = (values: z.infer<typeof formSchema>) => {
+    console.log(values);
+  };
   return (
     <Card className="w-[450px] h-full md:w-[700px] border-none shadow-none">
       {" "}
@@ -23,7 +43,7 @@ export const SignInCard = () => {
             src="/sign-in.png"
             alt="Welcome Back"
             width={200}
-            height={200}        
+            height={200}
             className="rounded-full"
           />
           <CardTitle className="text-2xl font-bold">Welcome Back!</CardTitle>
@@ -32,24 +52,45 @@ export const SignInCard = () => {
           </CardDescription>
         </div>
       </CardHeader>
+      <div className="px-7 ">
+        <DottedSeparator />
+      </div>
       <CardContent className="p-7">
-        <form className="flex flex-col gap-y-4">
-          <Input
-            placeholder="Email"
-            type="email"
-            value={""}
-            onChange={() => {}}
-          />
-          <Input
-            placeholder="Password"
-            type="password"
-            value={""}
-            onChange={() => {}}
-          />
-          <Button size="lg" className="w-full">
-            Sign In
-          </Button>
-        </form>
+        <Form {...form}>
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex flex-col gap-y-4"
+          >
+            <FormField
+              name="email"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input {...field} placeholder="Email" type="email" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              name="password"
+              control={form.control}
+              render={({ field }) => (
+                <FormItem>
+                  <FormControl>
+                    <Input {...field} placeholder="Password" type="password" />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Button size="lg" className="w-full">
+              Sign In
+            </Button>
+          </form>
+        </Form>
       </CardContent>
       <div className="px-7">
         <DottedSeparator />
@@ -64,6 +105,9 @@ export const SignInCard = () => {
             <FaGithub className="size-6 mr-2" />
             Login with Github
           </Button>
+        </div>
+        <div className="px-7">
+          <DottedSeparator />
         </div>
         <div className="text-center text-sm text-muted-foreground">
           Don't have an account?{" "}
