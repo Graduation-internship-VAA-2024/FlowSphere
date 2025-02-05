@@ -22,17 +22,16 @@ import {
   FormItem,
   FormMessage,
 } from "@/components/ui/form";
-const formSchema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
-});
+import { loginSchema } from "../schemas";
+import { useLogin } from "../api/use-login";
 export const SignInCard = () => {
-  const form = useForm({
-    resolver: zodResolver(formSchema),
+  const { mutate } = useLogin();
+  const form = useForm<z.infer<typeof loginSchema>>({
+    resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
   });
-  const onSubmit = (values: z.infer<typeof formSchema>) => {
-    console.log(values);
+  const onSubmit = (values: z.infer<typeof loginSchema>) => {
+    mutate({ json: values });
   };
   return (
     <Card className="w-[450px] h-full md:w-[700px] border-none shadow-none">
