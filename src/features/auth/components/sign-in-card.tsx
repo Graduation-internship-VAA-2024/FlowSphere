@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { FaGithub } from "react-icons/fa";
@@ -25,7 +27,7 @@ import {
 import { loginSchema } from "../schemas";
 import { useLogin } from "../api/use-login";
 export const SignInCard = () => {
-  const { mutate } = useLogin();
+  const { mutate, isPending } = useLogin();
   const form = useForm<z.infer<typeof loginSchema>>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
@@ -85,7 +87,7 @@ export const SignInCard = () => {
               )}
             />
 
-            <Button size="lg" className="w-full">
+            <Button disabled={isPending} size="lg" className="w-full">
               Sign In
             </Button>
           </form>
@@ -96,11 +98,21 @@ export const SignInCard = () => {
       </div>
       <CardContent className="p-7 space-y-4">
         <div className="flex flex-col gap-y-4">
-          <Button size="lg" className="w-full" variant="secondary">
+          <Button
+            disabled={isPending}
+            size="lg"
+            className="w-full"
+            variant="secondary"
+          >
             <FcGoogle className="size-6 mr-2" />
             Login with Google
           </Button>
-          <Button size="lg" className="w-full" variant="secondary">
+          <Button
+            disabled={isPending}
+            size="lg"
+            className="w-full"
+            variant="secondary"
+          >
             <FaGithub className="size-6 mr-2" />
             Login with Github
           </Button>
