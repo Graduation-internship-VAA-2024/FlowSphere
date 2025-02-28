@@ -36,7 +36,7 @@ const routes = [
 
 export const Navigation = () => {
   return (
-    <ul className="flex flex-col gap-y-4">
+    <ul className="flex flex-col gap-y-2">
       {routes.map((item) => {
         const isActive = false;
         const Icon = isActive ? item.activeIcon : item.icon;
