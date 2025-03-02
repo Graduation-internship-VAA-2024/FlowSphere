@@ -10,9 +10,11 @@ import {
 } from "./ui/select";
 import { WorkspaceAvatar } from "@/features/workspaces/components/workspace-avatar";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
 
 export const WorkspaceSwitcher = () => {
   const { data: workspaces } = useGetWorkspaces();
+
   return (
     <div className="flex flex-col gap-y-4 relative">
       {/* Header */}
@@ -76,41 +78,58 @@ export const WorkspaceSwitcher = () => {
           )}
         >
           <div className="max-h-[320px] overflow-y-auto p-2 space-y-1">
-            {workspaces?.documents.map((workspace) => (
-              <SelectItem
-                key={workspace.$id}
-                value={workspace.$id}
-                className={cn(
-                  "rounded-xl transition-all duration-300",
-                  "hover:bg-gradient-to-r hover:from-primary/10 hover:to-transparent",
-                  "data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-primary/20 data-[state=checked]:to-transparent",
-                  "group relative overflow-hidden",
-                  "after:absolute after:inset-0 after:rounded-xl",
-                  "after:bg-gradient-to-r after:from-white/40 after:to-transparent",
-                  "after:opacity-0 hover:after:opacity-100",
-                  "after:transition-opacity after:duration-300"
-                )}
-              >
-                <div className="flex items-center gap-4 p-3">
-                  <WorkspaceAvatar
-                    image={workspace.imageUrl}
-                    name={workspace.name}
-                    className="size-10 transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg"
-                  />
-                  <div className="flex flex-col gap-0.5">
-                    <span
-                      className="font-semibold text-neutral-800 transition-colors duration-300 
-                        group-hover:text-primary"
-                    >
-                      {workspace.name}
-                    </span>
-                    <span className="text-xs text-neutral-500">
-                      {workspace.members || 0} members
-                    </span>
+            {workspaces?.documents && workspaces.documents.length > 0 ? (
+              workspaces.documents.map((workspace) => (
+                <SelectItem
+                  key={workspace.$id}
+                  value={workspace.$id}
+                  className={cn(
+                    "rounded-xl transition-all duration-300",
+                    "hover:bg-gradient-to-r hover:from-primary/10 hover:to-transparent",
+                    "data-[state=checked]:bg-gradient-to-r data-[state=checked]:from-primary/20 data-[state=checked]:to-transparent",
+                    "group relative overflow-hidden",
+                    "after:absolute after:inset-0 after:rounded-xl",
+                    "after:bg-gradient-to-r after:from-white/40 after:to-transparent",
+                    "after:opacity-0 hover:after:opacity-100",
+                    "after:transition-opacity after:duration-300"
+                  )}
+                >
+                  <div className="flex items-center gap-4 p-3">
+                    <WorkspaceAvatar
+                      image={workspace.imageUrl}
+                      name={workspace.name}
+                      className="size-10 transition-all duration-300 group-hover:scale-105 group-hover:shadow-lg"
+                    />
+                    <div className="flex flex-col gap-0.5">
+                      <span
+                        className="font-semibold text-neutral-800 transition-colors duration-300 
+                          group-hover:text-primary"
+                      >
+                        {workspace.name}
+                      </span>
+                    </div>
                   </div>
+                </SelectItem>
+              ))
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8 px-4">
+                <div className="relative w-32 h-32 mb-4">
+                  <Image
+                    src="/no-items.jpg"
+                    alt="No workspaces"
+                    fill
+                    className="object-contain"
+                    priority
+                  />
                 </div>
-              </SelectItem>
-            ))}
+                <p className="text-sm text-neutral-600 text-center font-medium">
+                  No workspaces found
+                </p>
+                <p className="text-xs text-neutral-500 text-center mt-1">
+                  Create a new workspace to get started
+                </p>
+              </div>
+            )}
           </div>
         </SelectContent>
       </Select>
