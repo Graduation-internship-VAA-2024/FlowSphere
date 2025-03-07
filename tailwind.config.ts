@@ -51,6 +51,38 @@ const config: Config = {
           "4": "hsl(var(--chart-4))",
           "5": "hsl(var(--chart-5))",
         },
+        animation: {
+          progress: "progress 5s linear infinite",
+          "arrow-bounce": "arrow-bounce 2s infinite",
+          "step-ping": "step-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite",
+          shimmer: "shimmer 2s linear infinite",
+        },
+        perspective: {
+          "1000": "1000px",
+        },
+        rotate: {
+          "x-12": "rotateX(12deg)",
+          "x-2": "rotateX(2deg)",
+        },
+        keyframes: {
+          progress: {
+            "0%": { width: "0%" },
+            "100%": { width: "100%" },
+          },
+          "arrow-bounce": {
+            "0%, 100%": { transform: "translateX(0)" },
+            "50%": { transform: "translateX(25%)" },
+          },
+          "step-ping": {
+            "75%, 100%": {
+              transform: "scale(1.1)",
+              opacity: "0",
+            },
+          },
+          shimmer: {
+            "100%": { transform: "translateX(100%)" },
+          },
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

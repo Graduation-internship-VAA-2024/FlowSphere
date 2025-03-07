@@ -1,4 +1,5 @@
 "use client";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { createWorkspaceSchema } from "../schema";
@@ -19,8 +20,9 @@ import { Button } from "@/components/ui/button";
 import { useCreateWorkspace } from "../api/use-create-workspace";
 import Image from "next/image";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 interface CreateWorkspaceFormProps {
   onCancel?: () => void;
@@ -29,7 +31,6 @@ interface CreateWorkspaceFormProps {
 export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
   const router = useRouter();
   const { mutate, isPending } = useCreateWorkspace();
-
   const inputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof createWorkspaceSchema>>({
@@ -61,61 +62,127 @@ export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
   };
 
   return (
-    <Card className="w-full h-full border-none shadow-none">
-      <CardHeader className="flex p-7">
-        <CardTitle className="text-2xl font-bold">
-          Create a new workspace
-        </CardTitle>
-      </CardHeader>
-      <div className="px-7">
-        <DottedSeparator />
-      </div>
-      <CardContent className="p-7">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <div className="flex flex-col space-y-4">
+    <div className="relative w-full transform perspective-1000">
+      {/* 3D Floating Effect Container */}
+      <div
+        className="absolute inset-0 bg-gradient-to-br from-primary/10 to-blue-500/10 
+        rounded-2xl blur-2xl opacity-50 transform -rotate-x-12 scale-95"
+      />
+
+      <Card
+        className="relative w-full border-none shadow-none overflow-hidden
+        bg-white/80 backdrop-blur-xl rounded-2xl
+        transform transition-all duration-500 hover:-rotate-x-2 hover:translate-y-[-2px]"
+      >
+        {/* Animated Gradient Border */}
+        <div
+          className="absolute inset-0 bg-gradient-to-r from-primary/20 via-blue-500/20 
+          to-primary/20 rounded-2xl opacity-50 group-hover:opacity-100 transition-opacity"
+        />
+
+        <CardHeader className="relative p-7 pb-0">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <CardTitle
+                className="text-2xl font-bold bg-gradient-to-r from-primary 
+                to-blue-600 bg-clip-text text-transparent"
+              >
+                Create a new workspace
+              </CardTitle>
+              <p className="text-sm text-neutral-500">
+                Set up your collaborative environment in seconds
+              </p>
+            </div>
+            <Sparkles className="w-5 h-5 text-primary/50 animate-pulse" />
+          </div>
+        </CardHeader>
+
+        <div className="px-7 py-4">
+          <DottedSeparator className="opacity-50" />
+        </div>
+
+        <CardContent className="p-7">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              {/* Workspace Name Field */}
               <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Workspace Name</FormLabel>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-neutral-800 font-medium">
+                      Workspace Name
+                    </FormLabel>
                     <FormControl>
-                      <Input {...field} placeholder="Enter workspace name" />
+                      <div className="relative group">
+                        <div
+                          className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 
+                          to-blue-500/20 rounded-lg blur opacity-75 group-hover:opacity-100 
+                          transition duration-300"
+                        />
+                        <Input
+                          {...field}
+                          placeholder="Enter workspace name"
+                          className="relative bg-white/80 border-white/20 h-11
+                            focus:ring-2 focus:ring-primary/20 focus:border-primary/30
+                            hover:border-primary/30 transition duration-300"
+                        />
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* Workspace Icon Field */}
               <FormField
                 control={form.control}
                 name="image"
                 render={({ field }) => (
-                  <div className="flex flex-col gap-y-2">
+                  <div
+                    className="relative group rounded-xl p-4 
+                    bg-neutral-50/50 border border-neutral-100/50
+                    hover:bg-white/50 transition duration-300"
+                  >
                     <div className="flex items-center gap-x-5">
-                      {field.value ? (
-                        <div className="w-[72px] h-[72px] relative rounded-md overflow-hidden">
-                          <Image
-                            alt="logo"
-                            fill
-                            className="object-cover"
-                            src={
-                              field.value instanceof File
-                                ? URL.createObjectURL(field.value)
-                                : field.value
-                            }
-                          />
-                        </div>
-                      ) : (
-                        <Avatar className="w-[72px] h-[72px]">
-                          <AvatarFallback>
-                            <ImageIcon className="w-[36px] h-[36px] text-neutral-400" />
-                          </AvatarFallback>
-                        </Avatar>
-                      )}
+                      {/* Image Preview */}
+                      <div className="relative">
+                        {field.value ? (
+                          <div
+                            className="w-[72px] h-[72px] relative rounded-xl overflow-hidden
+                            ring-2 ring-neutral-200/50 ring-offset-2 group-hover:ring-primary/30
+                            transition duration-300"
+                          >
+                            <Image
+                              alt="logo"
+                              fill
+                              className="object-cover"
+                              src={
+                                field.value instanceof File
+                                  ? URL.createObjectURL(field.value)
+                                  : field.value
+                              }
+                            />
+                          </div>
+                        ) : (
+                          <Avatar
+                            className="w-[72px] h-[72px] rounded-xl
+                            ring-2 ring-neutral-200/50 ring-offset-2 group-hover:ring-primary/30
+                            transition duration-300"
+                          >
+                            <AvatarFallback className="bg-neutral-100/50">
+                              <ImageIcon className="w-8 h-8 text-neutral-400" />
+                            </AvatarFallback>
+                          </Avatar>
+                        )}
+                      </div>
+
+                      {/* Upload Controls */}
                       <div className="flex flex-col">
-                        <p className="text-sm">Workspace Icon</p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm font-medium text-neutral-800">
+                          Workspace Icon
+                        </p>
+                        <p className="text-xs text-neutral-500">
                           JPG, PNG, SVG, GIF, max 1MB
                         </p>
                         <input
@@ -131,7 +198,8 @@ export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
                           onClick={() => inputRef.current?.click()}
                           variant="teritary"
                           size="xs"
-                          className="w-fit mt-2"
+                          className="w-fit mt-2 group-hover:bg-primary/10 
+                            transition duration-300"
                         >
                           Upload Image
                         </Button>
@@ -140,25 +208,64 @@ export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
                   </div>
                 )}
               />
-              <DottedSeparator className="py-7" />
-              <div className="flex items-center justify-between">
+
+              <DottedSeparator className="py-7 opacity-50" />
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-2">
                 <Button
                   type="button"
                   onClick={onCancel}
                   variant="secondary"
                   size="lg"
                   disabled={isPending}
+                  className={cn(
+                    "hover:bg-neutral-100/80 transition duration-300",
+                    !onCancel && "invisible"
+                  )}
                 >
                   Cancel
                 </Button>
-                <Button type="submit" size="lg" disabled={isPending}>
-                  Create Workspace
+                <Button
+                  type="submit"
+                  size="lg"
+                  disabled={isPending}
+                  className={cn(
+                    "relative w-full md:w-auto min-w-[160px] overflow-hidden",
+                    "bg-gradient-to-r from-primary to-blue-600",
+                    "text-white font-medium",
+                    "shadow-lg shadow-primary/20",
+                    "transition-all duration-300",
+                    "hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5",
+                    "active:shadow-md active:translate-y-0",
+                    "disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:transform-none",
+                    // Add focus states for better accessibility
+                    "focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2",
+                    // Add touch states for mobile
+                    "touch-none select-none"
+                  )}
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    {isPending ? (
+                      <>
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        <span>Creating...</span>
+                      </>
+                    ) : (
+                      "Create Workspace"
+                    )}
+                  </span>
+                  {/* Interactive background effect */}
+                  <div
+                    className="absolute inset-0 bg-gradient-to-r from-primary/0 via-white/10 to-primary/0 
+                      translate-x-[-100%] animate-shimmer"
+                  />
                 </Button>
               </div>
-            </div>
-          </form>
-        </Form>
-      </CardContent>
-    </Card>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
