@@ -11,10 +11,20 @@ import {
 import { WorkspaceAvatar } from "@/features/workspaces/components/workspace-avatar";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+import { useCreateWorkspaceModal } from "@/features/workspaces/hooks/use-create-workspace-modal";
 
 export const WorkspaceSwitcher = () => {
+  const router = useRouter();
+  const workspaceId = useWorkspaceId();
+  const { open } = useCreateWorkspaceModal();
+
   const { data: workspaces } = useGetWorkspaces();
 
+  const onSelect = (id: string) => {
+    router.push(`/workspaces/${id}`);
+  };
   return (
     <div className="flex flex-col gap-y-4 relative">
       {/* Header */}
@@ -25,7 +35,7 @@ export const WorkspaceSwitcher = () => {
             WORKSPACE
           </p>
         </div>
-        <button className="group relative p-1">
+        <button onClick={open} className="group relative p-1">
           <div
             className="absolute inset-0 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 opacity-0 
               transition-all duration-300 group-hover:opacity-100 group-hover:scale-110"
@@ -38,7 +48,7 @@ export const WorkspaceSwitcher = () => {
       </div>
 
       {/* Select */}
-      <Select>
+      <Select onValueChange={onSelect} value={workspaceId}>
         <SelectTrigger
           className={cn(
             "relative w-full overflow-hidden rounded-2xl border-0",
