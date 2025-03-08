@@ -1,3 +1,4 @@
+"use client";
 import { cn } from "@/lib/utils";
 import { SettingsIcon, User2Icon } from "lucide-react";
 import Link from "next/link";
@@ -7,6 +8,8 @@ import {
   GoHome,
   GoHomeFill,
 } from "react-icons/go";
+import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+import { usePathname } from "next/navigation";
 const routes = [
   {
     label: "Home",
@@ -35,13 +38,16 @@ const routes = [
 ];
 
 export const Navigation = () => {
+  const workspaceId = useWorkspaceId();
+  const pathname = usePathname();
   return (
     <ul className="flex flex-col gap-y-2">
       {routes.map((item) => {
-        const isActive = false;
+        const fullHref = `/workspaces/${workspaceId}${item.href}`;
+        const isActive = pathname === fullHref;
         const Icon = isActive ? item.activeIcon : item.icon;
         return (
-          <Link key={item.href} href={item.href}>
+          <Link key={item.href} href={fullHref}>
             <div
               className={cn(
                 "group relative overflow-hidden",
