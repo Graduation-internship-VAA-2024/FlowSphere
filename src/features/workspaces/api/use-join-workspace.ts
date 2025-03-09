@@ -4,33 +4,36 @@ import { client } from "@/lib/rpc";
 import { toast } from "sonner";
 
 type ResponseType = InferResponseType<
-  (typeof client.api.workspaces)[":workspaceId"]["$delete"],
+  (typeof client.api.workspaces)[":workspaceId"]["join"]["$post"],
   200
 >;
 type RequestType = InferRequestType<
-  (typeof client.api.workspaces)[":workspaceId"]["$delete"]
+  (typeof client.api.workspaces)[":workspaceId"]["join"]["$post"]
 >;
 
-export const useDeleteWorkspace = () => {
+export const useJoinWorkspace = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation<ResponseType, Error, RequestType>({
-    mutationFn: async ({ param }) => {
-      const response = await client.api.workspaces[":workspaceId"]["$delete"]({
+    mutationFn: async ({ param, json }) => {
+      const response = await client.api.workspaces[":workspaceId"]["join"][
+        "$post"
+      ]({
         param,
+        json,
       });
       if (!response.ok) {
-        throw new Error("Failed to delete workspace. Please try again later.");
+        throw new Error("Failed to join workspace. Please try again later.");
       }
       return await response.json();
     },
     onSuccess: (data) => {
-      toast.success("Workspace deleted successfully.");
+      toast.success("Workspace joined successfully.");
 
       queryClient.invalidateQueries({ queryKey: ["workspaces"] });
-      queryClient.invalidateQueries({ queryKey: ["workspace", data.$id] });
+      queryClient.invalidateQueries({ queryKey: ["workspace", data.data.$id] });
     },
     onError: () => {
-      toast.error("Failed to  delete workspace. Please try again later.");
+      toast.error("Failed to join workspace. Please try again later.");
     },
   });
 

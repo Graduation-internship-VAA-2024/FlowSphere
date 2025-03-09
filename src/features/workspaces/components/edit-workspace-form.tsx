@@ -3,7 +3,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { updateWorkspaceSchema } from "../schema";
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -22,9 +22,11 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   AlertTriangle,
   ArrowLeftIcon,
-  CopyIcon,
   ImageIcon,
   Sparkles,
+  Copy,
+  KeyRound,
+  Users,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
@@ -120,12 +122,33 @@ export const EditWorkspaceForm = ({
       form.setValue("image", file);
     }
   };
-  const fullInviteLink = `${window.location.origin}/workspaces/${initiaValues.$id}/join/${initiaValues.inviteCode}`;
-  const handleCopyInviteLink = () => {
-    navigator.clipboard
-      .writeText(fullInviteLink)
-      .then(() => toast.success("Invite link copied to clipboard"));
+
+  // Add state for invite link and copying state
+  const [inviteLink, setInviteLink] = useState<string>("");
+  const [isCopying, setIsCopying] = useState(false);
+
+  // Handle window object with useEffect
+  useEffect(() => {
+    setInviteLink(
+      `${window.location.origin}/workspaces/${initiaValues.$id}/join/${initiaValues.inviteCode}`
+    );
+  }, [initiaValues.$id, initiaValues.inviteCode]);
+
+  // Updated copy handler
+  const handleCopyInviteLink = async () => {
+    if (!inviteLink) return;
+
+    try {
+      setIsCopying(true);
+      await navigator.clipboard.writeText(inviteLink);
+      toast.success("Invite link copied to clipboard!");
+    } catch (err) {
+      toast.error("Failed to copy invite link");
+    } finally {
+      setIsCopying(false);
+    }
   };
+
   return (
     <div className="relative w-full  transform perspective-1000">
       <DeleteDialog />
@@ -428,49 +451,77 @@ export const EditWorkspaceForm = ({
           </CardContent>
         </Card>
       </div>
-      {/* Invite code */}
-      <div className="xl:col-span-4 mt-8 xl:mt-0">
+      {/* Invite Members Card */}
+      <div className="xl:col-span-4 mt-6">
         <Card
           className="relative overflow-hidden bg-white/80 backdrop-blur-xl 
-              border-red-100/20 shadow-xl shadow-black/[0.02]
-              transform transition-all duration-500 hover:-translate-y-1"
+          border-primary/20 shadow-xl shadow-black/[0.02]
+          transform transition-all duration-500 hover:-translate-y-1"
         >
           <div
-            className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-orange-500/5 
-                opacity-50"
+            className="absolute inset-0 bg-gradient-to-br from-primary/5 to-blue-500/5 
+            opacity-50"
           />
 
           <CardContent className="p-6">
             <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
-                <h3 className="font-semibold text-lg text-red-500">
-                  Invite Members{" "}
-                </h3>
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Users className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold text-lg text-neutral-800">
+                    Invite Members
+                  </h3>
+                </div>
+                <KeyRound className="w-5 h-5 text-primary/50 animate-pulse" />
               </div>
 
               <DottedSeparator className="opacity-30" />
 
-              <div className="space-y-4 ">
-                <div className="p-4 bg-red-50/50 rounded-lg border border-red-100/50">
-                  <ul className="text-sm text-neutral-600 space-y-2">
-                    <li className="flex items-start gap-2">
-                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
-                      <span>Use the invite code to invite members</span>
-                    </li>
-                  </ul>
+              {/* Content */}
+              <div className="space-y-4">
+                <div className="p-4 bg-primary/5 rounded-lg border border-primary/10">
+                  <p className="text-sm text-neutral-600">
+                    Share this link with team members you want to invite to your
+                    workspace
+                  </p>
                 </div>
-                <div className="mt-4">
-                  <div className="flex items-center gap-x-2">
-                    <Input disabled value={fullInviteLink} />
-                    <Button
-                      onClick={handleCopyInviteLink}
-                      variant="secondary"
-                      className="size-12"
-                    >
-                      <CopyIcon className="size-5" />
-                    </Button>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1 group">
+                    <div
+                      className="absolute -inset-0.5 bg-gradient-to-r from-primary/20 
+                      to-blue-500/20 rounded-lg blur opacity-75 group-hover:opacity-100 
+                      transition duration-300"
+                    />
+                    <Input
+                      readOnly
+                      value={inviteLink}
+                      className="relative bg-white/80 border-neutral-200/50
+                        focus:ring-2 focus:ring-primary/20 focus:border-primary/30
+                        hover:border-primary/30 transition duration-300"
+                    />
                   </div>
+
+                  <Button
+                    onClick={handleCopyInviteLink}
+                    variant="secondary"
+                    size="icon"
+                    className="h-10 w-10 shrink-0 bg-white hover:bg-neutral-50
+                      active:bg-neutral-100 cursor-pointer disabled:cursor-not -allowed
+                      border border-neutral-200/50 hover:border-primary/30
+                      transition-all duration-200 relative"
+                    disabled={isCopying}
+                  >
+                    {isCopying ? (
+                      <span
+                        className="w-4 h-4 border-2 border-primary/30 
+                        border-t-primary rounded-full animate-spin"
+                      />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
                 </div>
 
                 <Button
@@ -482,10 +533,10 @@ export const EditWorkspaceForm = ({
                   disabled={isPending || isResettingInviteCode}
                 >
                   <span
-                    className="relative inline-flex items-center gap-2 text-red-500 
-                        group-hover:text-red-600 transition-colors"
+                    className="relative inline-flex items-center gap-2 
+                        group-hover:text-primary transition-colors"
                   >
-                    <AlertTriangle className="w-4 h-4" />
+                    <KeyRound className="w-4 h-4" />
                     Reset Invite Code
                   </span>
                 </Button>
