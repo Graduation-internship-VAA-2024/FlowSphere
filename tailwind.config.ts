@@ -7,6 +7,7 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/features/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/hooks/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
     extend: {
@@ -56,6 +57,7 @@ const config: Config = {
           "arrow-bounce": "arrow-bounce 2s infinite",
           "step-ping": "step-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite",
           shimmer: "shimmer 2s linear infinite",
+          gradient: "gradient 6s ease-in-out infinite",
         },
         perspective: {
           "1000": "1000px",
@@ -81,6 +83,10 @@ const config: Config = {
           },
           shimmer: {
             "100%": { transform: "translateX(100%)" },
+          },
+          gradient: {
+            "0%, 100%": { opacity: "1" },
+            "50%": { opacity: "0.5" },
           },
         },
       },

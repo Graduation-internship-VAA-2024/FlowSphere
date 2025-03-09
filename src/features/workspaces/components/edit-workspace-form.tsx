@@ -19,11 +19,18 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { ArrowLeftIcon, ImageIcon, Sparkles } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeftIcon,
+  ImageIcon,
+  Sparkles,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Workspace } from "../type";
 import { useUpateWorkspace } from "../api/use-update-workspace";
+import { useConfirm } from "@/hooks/use-confirm";
+import { useDeleteWorkspace } from "../api/use-delete-workspace ";
 
 interface EditWorkspaceFormProps {
   onCancel?: () => void;
@@ -36,12 +43,33 @@ export const EditWorkspaceForm = ({
 }: EditWorkspaceFormProps) => {
   const router = useRouter();
   const { mutate, isPending } = useUpateWorkspace();
+  const { mutate: deleteWorkspace, isPending: isDeletingWorkspace } =
+    useDeleteWorkspace();
+  const [DeleteDialog, confirmDelete] = useConfirm(
+    "Delete Workspace",
+    "Are you sure you want to delete this workspace? This action cannot be undone.",
+    "destructive"
+  );
   const inputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof updateWorkspaceSchema>>({
     resolver: zodResolver(updateWorkspaceSchema),
     defaultValues: { ...initiaValues, image: initiaValues.imageUrl ?? "" },
   });
+  const handleDelete = async () => {
+    const ok = await confirmDelete();
+    if (!ok) return;
+    deleteWorkspace(
+      {
+        param: { workspaceId: initiaValues.$id },
+      },
+      {
+        onSuccess: () => {
+          window.location.href = "/";
+        },
+      }
+    );
+  };
 
   const onSubmit = (values: z.infer<typeof updateWorkspaceSchema>) => {
     const finalValues = {
@@ -68,6 +96,7 @@ export const EditWorkspaceForm = ({
 
   return (
     <div className="relative w-full  transform perspective-1000">
+      <DeleteDialog />
       {/* 3D Floating Effect Container */}
       <div
         className="absolute inset-0 bg-gradient-to-br from-primary/10 to-blue-500/10 
@@ -300,6 +329,72 @@ export const EditWorkspaceForm = ({
           </Form>
         </CardContent>
       </Card>
+      {/* Danger Zone Section */}
+      <div className="xl:col-span-4 mt-8 xl:mt-0">
+        <Card
+          className="relative overflow-hidden bg-white/80 backdrop-blur-xl 
+              border-red-100/20 shadow-xl shadow-black/[0.02]
+              transform transition-all duration-500 hover:-translate-y-1"
+        >
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-orange-500/5 
+                opacity-50"
+          />
+
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                <h3 className="font-semibold text-lg text-red-500">
+                  Danger Zone
+                </h3>
+              </div>
+
+              <DottedSeparator className="opacity-30" />
+
+              <div className="space-y-4 ">
+                <div className="p-4 bg-red-50/50 rounded-lg border border-red-100/50">
+                  <ul className="text-sm text-neutral-600 space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                      <span>
+                        All workspace data will be permanently deleted
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                      <span>
+                        All member access and permissions will be removed
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                      <span>This action cannot be undone</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <Button
+                  className="w-full group"
+                  variant="outline"
+                  size="lg"
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isPending || isDeletingWorkspace}
+                >
+                  <span
+                    className="relative inline-flex items-center gap-2 text-red-500 
+                        group-hover:text-red-600 transition-colors"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    Delete Workspace
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 };
