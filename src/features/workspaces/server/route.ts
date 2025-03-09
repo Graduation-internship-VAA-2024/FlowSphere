@@ -134,8 +134,30 @@ const app = new Hono()
     if (!member || member.role !== MemberRole.ADMIN) {
       return c.json({ error: "You are not an admin of this workspace" }, 401);
     }
-    //TODO: Delete all members of the workspace
+    //TODO:
     await databases.deleteDocument(DATABASE_ID, WORKSPACES_ID, workspaceId);
     return c.json({ $id: workspaceId });
+  })
+  .post("/:workspaceId/reset-invite-code", sessionMiddleware, async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { workspaceId } = c.req.param();
+    const member = await getMember({
+      databases,
+      workspaceId,
+      userId: user.$id,
+    });
+    if (!member || member.role !== MemberRole.ADMIN) {
+      return c.json({ error: "You are not an admin of this workspace" }, 401);
+    }
+    const workspace = await databases.updateDocument(
+      DATABASE_ID,
+      WORKSPACES_ID,
+      workspaceId,
+      {
+        inviteCode: generateInviteCode(10),
+      }
+    );
+    return c.json({ $id: workspace });
   });
 export default app;

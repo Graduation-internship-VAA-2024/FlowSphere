@@ -22,6 +22,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   AlertTriangle,
   ArrowLeftIcon,
+  CopyIcon,
   ImageIcon,
   Sparkles,
 } from "lucide-react";
@@ -31,6 +32,8 @@ import { Workspace } from "../type";
 import { useUpateWorkspace } from "../api/use-update-workspace";
 import { useConfirm } from "@/hooks/use-confirm";
 import { useDeleteWorkspace } from "../api/use-delete-workspace ";
+import { toast } from "sonner";
+import { useResetInviteCode } from "../api/use-reset-invite-code";
 
 interface EditWorkspaceFormProps {
   onCancel?: () => void;
@@ -45,9 +48,17 @@ export const EditWorkspaceForm = ({
   const { mutate, isPending } = useUpateWorkspace();
   const { mutate: deleteWorkspace, isPending: isDeletingWorkspace } =
     useDeleteWorkspace();
+  const { mutate: resetInviteCode, isPending: isResettingInviteCode } =
+    useResetInviteCode();
+
   const [DeleteDialog, confirmDelete] = useConfirm(
     "Delete Workspace",
     "Are you sure you want to delete this workspace? This action cannot be undone.",
+    "destructive"
+  );
+  const [ResetDialog, confirmReset] = useConfirm(
+    "Reset Invite Code",
+    "Are you sure you want to reset the invite code for this workspace?",
     "destructive"
   );
   const inputRef = useRef<HTMLInputElement>(null);
@@ -66,6 +77,22 @@ export const EditWorkspaceForm = ({
       {
         onSuccess: () => {
           window.location.href = "/";
+        },
+      }
+    );
+  };
+
+  const handleResetInviteCode = async () => {
+    const ok = await confirmReset();
+    if (!ok) return;
+    resetInviteCode(
+      {
+        param: { workspaceId: initiaValues.$id },
+      },
+      {
+        onSuccess: () => {
+          router.refresh();
+          toast.success("Invite code reset successfully");
         },
       }
     );
@@ -93,10 +120,16 @@ export const EditWorkspaceForm = ({
       form.setValue("image", file);
     }
   };
-
+  const fullInviteLink = `${window.location.origin}/workspaces/${initiaValues.$id}/join/${initiaValues.inviteCode}`;
+  const handleCopyInviteLink = () => {
+    navigator.clipboard
+      .writeText(fullInviteLink)
+      .then(() => toast.success("Invite link copied to clipboard"));
+  };
   return (
     <div className="relative w-full  transform perspective-1000">
       <DeleteDialog />
+      <ResetDialog />
       {/* 3D Floating Effect Container */}
       <div
         className="absolute inset-0 bg-gradient-to-br from-primary/10 to-blue-500/10 
@@ -388,6 +421,72 @@ export const EditWorkspaceForm = ({
                   >
                     <AlertTriangle className="w-4 h-4" />
                     Delete Workspace
+                  </span>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+      {/* Invite code */}
+      <div className="xl:col-span-4 mt-8 xl:mt-0">
+        <Card
+          className="relative overflow-hidden bg-white/80 backdrop-blur-xl 
+              border-red-100/20 shadow-xl shadow-black/[0.02]
+              transform transition-all duration-500 hover:-translate-y-1"
+        >
+          <div
+            className="absolute inset-0 bg-gradient-to-br from-red-500/5 to-orange-500/5 
+                opacity-50"
+          />
+
+          <CardContent className="p-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+                <h3 className="font-semibold text-lg text-red-500">
+                  Invite Members{" "}
+                </h3>
+              </div>
+
+              <DottedSeparator className="opacity-30" />
+
+              <div className="space-y-4 ">
+                <div className="p-4 bg-red-50/50 rounded-lg border border-red-100/50">
+                  <ul className="text-sm text-neutral-600 space-y-2">
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                      <span>Use the invite code to invite members</span>
+                    </li>
+                  </ul>
+                </div>
+                <div className="mt-4">
+                  <div className="flex items-center gap-x-2">
+                    <Input disabled value={fullInviteLink} />
+                    <Button
+                      onClick={handleCopyInviteLink}
+                      variant="secondary"
+                      className="size-12"
+                    >
+                      <CopyIcon className="size-5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full group"
+                  variant="outline"
+                  size="lg"
+                  type="button"
+                  onClick={handleResetInviteCode}
+                  disabled={isPending || isResettingInviteCode}
+                >
+                  <span
+                    className="relative inline-flex items-center gap-2 text-red-500 
+                        group-hover:text-red-600 transition-colors"
+                  >
+                    <AlertTriangle className="w-4 h-4" />
+                    Reset Invite Code
                   </span>
                 </Button>
               </div>
