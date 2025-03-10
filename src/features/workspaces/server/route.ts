@@ -138,7 +138,7 @@ const app = new Hono()
     }
     //TODO:
     await databases.deleteDocument(DATABASE_ID, WORKSPACES_ID, workspaceId);
-    return c.json({ $id: workspaceId });
+    return c.json({ data: { $id: workspaceId } });
   })
   .post("/:workspaceId/reset-invite-code", sessionMiddleware, async (c) => {
     const databases = c.get("databases");
@@ -160,7 +160,7 @@ const app = new Hono()
         inviteCode: generateInviteCode(10),
       }
     );
-    return c.json({ $id: workspace });
+    return c.json({ data: workspace });
   })
   .post(
     "/:workspaceId/join",
