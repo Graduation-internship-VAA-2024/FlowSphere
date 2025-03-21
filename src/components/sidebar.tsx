@@ -4,10 +4,11 @@ import Link from "next/link";
 import { DottedSeparator } from "./dotted-separator";
 import { Navigation } from "./navigation";
 import { WorkspaceSwitcher } from "./workspace-switcher";
+import { Projects } from "./projects";
 
 export const Sidebar = () => {
   return (
-    <aside className="h-full  p-6 bg-neutral-50 shadow-lg">
+    <aside className="h-full  p-4 bg-neutral-50 shadow-lg">
       <div className="hover:scale-105 transition-transform">
         <Link href="/" className="block">
           <Image
@@ -23,6 +24,8 @@ export const Sidebar = () => {
       <WorkspaceSwitcher />
       <DottedSeparator className="my-6 opacity-50" />
       <Navigation />
+      <DottedSeparator className="my-6 opacity-50" />
+      <Projects />
     </aside>
   );
 };

@@ -26,7 +26,7 @@ export const WorkspaceSwitcher = () => {
     router.push(`/workspaces/${id}`);
   };
   return (
-    <div className="flex flex-col gap-y-4 relative">
+    <div className="flex flex-col gap-y-2 relative">
       {/* Header */}
       <div className="flex items-center justify-between px-2">
         <div className="flex items-center gap-x-3">
