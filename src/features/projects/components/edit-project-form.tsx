@@ -24,6 +24,7 @@ import {
   ImageIcon,
   Sparkles,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useConfirm } from "@/hooks/use-confirm";
 import { Project } from "../type";
 import { useUpdateProject } from "../api/use-update-projec";
@@ -31,37 +32,38 @@ import { updateProjectSchema } from "../schema";
 import { useDeleteProject } from "../api/use-delete-project";
 import { motion } from "framer-motion";
 
-// Thêm variants cho animation
+interface EditProjectFormProps {
+  onCancel?: () => void;
+  initiaValues: Project;
+}
+
 const containerVariants = {
   hidden: { opacity: 0, y: 20 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.5,
-      staggerChildren: 0.2,
+      duration: 0.7,
+      staggerChildren: 0.3,
     },
   },
 };
 
 const cardVariants = {
-  hidden: { opacity: 0, scale: 0.95 },
+  hidden: { opacity: 0, scale: 0.95, y: 20 },
   visible: {
     opacity: 1,
     scale: 1,
-    transition: { duration: 0.3 },
+    y: 0,
+    transition: { duration: 0.5 },
   },
 };
-
-interface EditProjectFormProps {
-  onCancel?: () => void;
-  initiaValues: Project;
-}
 
 export const EditProjectForm = ({
   onCancel,
   initiaValues,
 }: EditProjectFormProps) => {
+  const router = useRouter();
   const { mutate, isPending } = useUpdateProject();
   const { mutate: deleteProject, isPending: isDeletingProject } =
     useDeleteProject();
@@ -115,32 +117,62 @@ export const EditProjectForm = ({
     }
   };
 
+  const handleBack = () => {
+    if (onCancel) {
+      onCancel();
+    } else {
+      router.push(
+        `/workspaces/${initiaValues.workspaceId}/projects/${initiaValues.$id}`
+      );
+    }
+  };
+
   return (
     <motion.div
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="container mx-auto max-w-7xl px-4"
+      className="container mx-auto max-w-7xl px-4 py-6"
     >
-      <div className="grid grid-cols-1 md:grid-cols-[2fr,1fr] gap-8">
-        {/* Edit Section - Left Column */}
+      <div className="grid grid-cols-1 lg:grid-cols-[3fr,2fr] gap-6">
+        {/* Main Edit Form */}
         <motion.div variants={cardVariants} className="h-full">
-          <Card className="relative overflow-hidden bg-white/80 backdrop-blur-xl border-primary/20 h-full">
-            <CardHeader>
-              <div className="flex items-center gap-4">
-                <motion.button
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="rounded-lg px-4 py-2 bg-primary text-white"
-                  onClick={onCancel}
-                >
-                  <ArrowLeftIcon className="w-4 h-4" />
-                </motion.button>
-                <CardTitle>{initiaValues.name}</CardTitle>
+          <Card
+            className="relative overflow-hidden bg-gradient-to-br from-white/95 to-white/90 
+            backdrop-blur-xl border-primary/20 shadow-xl shadow-primary/5"
+          >
+            <CardHeader className="border-b border-primary/10 bg-white/50">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="relative group rounded-lg px-4 py-2 bg-primary text-white
+                      hover:bg-primary/90 transition-all duration-300"
+                    onClick={handleBack}
+                  >
+                    <motion.div
+                      className="absolute inset-0 bg-black/10 rounded-lg opacity-0 
+                      group-hover:opacity-100 transition-opacity duration-200"
+                    />
+                    <div className="flex items-center gap-2">
+                      <ArrowLeftIcon className="w-4 h-4" />
+                      <span className="text-sm font-medium">Back</span>
+                    </div>
+                  </motion.button>
+                  <div>
+                    <CardTitle className="text-xl font-bold">
+                      {initiaValues.name}
+                    </CardTitle>
+                    <p className="text-sm text-neutral-500 mt-1">
+                      Edit project details
+                    </p>
+                  </div>
+                </div>
               </div>
             </CardHeader>
 
-            <CardContent>
+            <CardContent className="p-8">
               <Form {...form}>
                 <form
                   onSubmit={form.handleSubmit(onSubmit)}
@@ -271,74 +303,61 @@ export const EditProjectForm = ({
                   <DottedSeparator className="py-7 opacity-50" />
 
                   {/* Action Buttons */}
-                  <motion.div
-                    whileHover={{ scale: 1.02 }}
-                    className="flex justify-end"
-                  >
-                    <Button
-                      type="submit"
-                      disabled={isPending}
-                      className="relative overflow-hidden bg-gradient-to-r from-primary via-blue-500 to-primary bg-size-200 
-                    hover:bg-pos-100 transition-all duration-500 px-8 py-2.5 rounded-lg text-white font-medium"
-                    >
-                      {isPending ? (
-                        <motion.div
-                          animate={{
-                            rotate: 360,
-                            background: [
-                              "linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #3b82f6 100%)",
-                            ],
-                          }}
-                          transition={{
-                            rotate: {
-                              repeat: Infinity,
-                              duration: 1,
-                              ease: "linear",
-                            },
-                            background: {
-                              repeat: Infinity,
-                              duration: 2,
-                            },
-                          }}
-                          className="w-6 h-6 border-3 border-blue-300 border-t-blue-500 rounded-full"
-                        />
-                      ) : (
-                        <span className="flex items-center gap-2">
-                          <Sparkles className="w-4 h-4" />
-                          Save Changes
-                        </span>
-                      )}
-                    </Button>
-                  </motion.div>
+                  <div className="flex items-center justify-end gap-4 mt-8">
+                    <motion.div whileHover={{ scale: 1.02 }}>
+                      <Button
+                        type="submit"
+                        disabled={isPending}
+                        className="relative px-6 py-2.5 bg-gradient-to-r from-primary to-blue-500
+                      text-white rounded-lg shadow-lg shadow-primary/20 hover:shadow-primary/30
+                      transition-all duration-300"
+                      >
+                        {isPending ? (
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{ repeat: Infinity, duration: 1 }}
+                            className="w-5 h-5 border-2 border-white/30 border-t-blue-700 rounded-full"
+                          />
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            <Sparkles className="w-4 h-4" />
+                            Save Changes
+                          </span>
+                        )}
+                      </Button>
+                    </motion.div>
+                  </div>
                 </form>
               </Form>
             </CardContent>
           </Card>
         </motion.div>
 
-        {/* Delete Section - Right Column */}
+        {/* Danger Zone - Right Column */}
         <motion.div variants={cardVariants} className="h-full">
-          <Card className="relative overflow-hidden bg-red-50/30 backdrop-blur-xl border-red-100 shadow-lg h-full">
-            <CardHeader>
-              <CardTitle className="text-red-600 flex items-center gap-2">
-                <AlertTriangle className="w-5 h-5" />
+          <Card
+            className="relative overflow-hidden bg-gradient-to-br from-red-50/80 to-red-50/40
+            backdrop-blur-xl border-red-100/50 shadow-lg"
+          >
+            <CardHeader className="border-b border-red-100/50 bg-white/30">
+              <CardTitle className="text-red-600 flex items-center gap-2 text-lg">
+                <motion.div
+                  animate={{
+                    rotate: [0, 5, -5, 0],
+                    scale: [1, 1.1, 1],
+                  }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <AlertTriangle className="w-5 h-5" />
+                </motion.div>
                 Danger Zone
               </CardTitle>
             </CardHeader>
 
-            <CardContent>
-              <motion.div
-                className="space-y-4"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.4 }}
-              >
-                <div className="p-4 bg-red-100/20 rounded-lg border border-red-200">
-                  <ul className="space-y-2 text-red-600">
-                    <li className="flex items-center gap-2">
-                      <AlertTriangle className="w-4 h-4" />
-                      <span>This action cannot be undone</span>
-                    </li>
+            <CardContent className="p-6">
+              <div className="space-y-6">
+                <div className="p-4 bg-red-50/80 rounded-lg border border-red-200/50">
+                  <ul className="text-sm text-neutral-600 space-y-3">
                     <li className="flex items-start gap-2">
                       <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
                       <span>All project data will be permanently deleted</span>
@@ -349,39 +368,42 @@ export const EditProjectForm = ({
                         All member access and permissions will be removed
                       </span>
                     </li>
+                    <li className="flex items-start gap-2">
+                      <span className="mt-1 h-1.5 w-1.5 rounded-full bg-red-400 shrink-0" />
+                      <span>This action cannot be undone</span>
+                    </li>
                   </ul>
                 </div>
 
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className={`
-                    w-full p-3 rounded-lg font-medium
-                    ${
-                      isDeletingProject
-                        ? "bg-red-100 text-red-400"
-                        : "bg-gradient-to-r from-red-600 to-red-500 text-white hover:from-red-700 hover:to-red-600"
-                    }
-                    transition-all duration-300 shadow-lg hover:shadow-red-500/25
-                  `}
                   onClick={handleDelete}
                   disabled={isDeletingProject}
+                  className={`
+                    w-full p-3.5 rounded-lg font-medium flex items-center justify-center gap-2
+                    ${
+                      isDeletingProject
+                        ? "bg-red-100/50 text-red-400"
+                        : "bg-gradient-to-r from-red-600 to-red-500 text-white hover:from-red-700 hover:to-red-600"
+                    }
+                    transition-all duration-300 shadow-lg hover:shadow-red-500/20
+                  `}
                 >
                   {isDeletingProject ? (
                     <motion.div
                       animate={{ rotate: 360 }}
-                      transition={{
-                        repeat: Infinity,
-                        duration: 1,
-                        ease: "linear",
-                      }}
-                      className="w-5 h-5 mx-auto border-2 border-red-400 border-t-transparent rounded-full"
+                      transition={{ repeat: Infinity, duration: 1 }}
+                      className="w-5 h-5 border-2 border-red-200 border-t-red-500 rounded-full"
                     />
                   ) : (
-                    "Delete Project"
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      Delete Project
+                    </>
                   )}
                 </motion.button>
-              </motion.div>
+              </div>
             </CardContent>
           </Card>
         </motion.div>
