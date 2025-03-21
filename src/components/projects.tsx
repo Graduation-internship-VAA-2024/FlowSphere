@@ -10,7 +10,6 @@ import { RiAddCircleFill } from "react-icons/ri";
 import { motion } from "framer-motion";
 
 export const Projects = () => {
-  const projectId = null;
   const pathname = usePathname();
   const { open } = useCreateProjectModal();
   const workspaceId = useWorkspaceId();
@@ -54,7 +53,7 @@ export const Projects = () => {
       {/* Projects */}
       <div className="space-y-1">
         {data?.documents.map((project, index) => {
-          const href = `/workspaces/${workspaceId}/projects/${projectId}`;
+          const href = `/workspaces/${workspaceId}/projects/${project.$id}`;
           const isActive = pathname === href;
 
           return (
