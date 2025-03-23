@@ -1,11 +1,41 @@
+'use client';
 import Link from "next/link";
 import Image from "next/image";
 import { UserButton } from "@/features/auth/components/user-button";
+import { ChatbotDialog } from '@/components/ChatBot/ChatBot';
+import { MessageCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { motion } from 'framer-motion';
+
 interface StandloneLayoutProps {
   children: React.ReactNode;
 }
 
 const StandloneLayout = ({ children }: StandloneLayoutProps) => {
+  const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // Add keyboard shortcut handler
+  const toggleChat = useCallback(() => {
+    setIsChatOpen(prev => !prev);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Check for Ctrl+I (or Cmd+I on Mac)
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'i') {
+        event.preventDefault(); // Prevent default browser behavior
+        toggleChat();
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup on unmount
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [toggleChat]);
   return (
     <main className="min-h-screen bg-gradient-to-br from-neutral-50 via-neutral-100 to-neutral-50">
       {/* Background Decorations with enhanced animations */}
@@ -71,6 +101,43 @@ const StandloneLayout = ({ children }: StandloneLayoutProps) => {
                   ⌘K
                 </kbd>
               </div>
+
+              <motion.button
+                onClick={() => setIsChatOpen(true)}
+                className="group flex items-center gap-2 px-4 py-2.5 
+                  bg-gradient-to-r from-primary/80 via-violet-500/80 to-blue-500/80
+                  hover:from-primary hover:via-violet-500 hover:to-blue-500
+                  text-white rounded-xl shadow-lg 
+                  shadow-primary/20 hover:shadow-primary/40
+                  transition-all duration-300 transform hover:-translate-y-0.5
+                  border border-white/20 backdrop-blur-sm"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <motion.div
+                  initial={{ rotate: 0 }}
+                  animate={{ rotate: 360 }}
+                  transition={{
+                    duration: 20,
+                    repeat: Infinity,
+                    ease: "linear"
+                  }}
+                  className="absolute inset-0 bg-gradient-to-r from-primary/20 via-violet-500/20 to-blue-500/20 
+                    rounded-xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                />
+                <motion.div
+                  whileHover={{ rotate: 15 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                >
+                  <MessageCircle className="w-5 h-5" />
+                </motion.div>
+                <span className="font-medium text-sm">Ask AI</span>
+                <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-medium 
+                  bg-white/10 rounded border border-white/20 ml-1">
+                  Ctrl+I
+                </kbd>
+              </motion.button>
+              
               <UserButton />
             </div>
           </nav>
@@ -87,6 +154,7 @@ const StandloneLayout = ({ children }: StandloneLayoutProps) => {
         className="fixed bottom-0 left-0 right-0 h-24 bg-gradient-to-t 
         from-white/50 to-transparent pointer-events-none"
       />
+      <ChatbotDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </main>
   );
 };

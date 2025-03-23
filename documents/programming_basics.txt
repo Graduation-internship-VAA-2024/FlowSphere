@@ -1,0 +1,18 @@
+Các ngôn ngữ lập trình phổ biến hiện nay:
+- Python: Ngôn ngữ lập trình bậc cao, dễ học, thường dùng cho AI, dữ liệu và web.
+- JavaScript: Dùng cho lập trình web frontend (React, Vue) và backend (Node.js).
+- C++: Ngôn ngữ mạnh mẽ, thường dùng trong game và hệ thống nhúng.
+- TypeScript: Phiên bản nâng cao của JavaScript, giúp code an toàn hơn.
+- Solidity: Ngôn ngữ lập trình hợp đồng thông minh trên Ethereum.
+
+Một số khái niệm quan trọng trong lập trình:
+- Biến (Variable): Lưu trữ giá trị có thể thay đổi.
+- Hằng số (Constant): Giá trị không thay đổi trong suốt chương trình.
+- Vòng lặp (Loop): Thực hiện lặp lại một đoạn mã nhiều lần.
+- Hàm (Function): Nhóm các dòng lệnh để tái sử dụng.
+
+Ví dụ về vòng lặp trong JavaScript:
+```typescript
+for (let i = 0; i < 5; i++) {
+  console.log("Hello, world!");
+}
