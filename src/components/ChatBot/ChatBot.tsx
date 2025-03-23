@@ -4,6 +4,9 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { X } from 'lucide-react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import { useCreateWorkspace } from '@/features/workspaces/api/use-create-workspace';
+import { useWorkspaceId } from '@/features/workspaces/hooks/use-workspace-id';
 
 interface ChatbotDialogProps {
   isOpen: boolean;
@@ -20,7 +23,19 @@ interface ExampleQuestion {
   text: string;
 }
 
+interface WorkspaceIntent {
+  isCreating: boolean;
+  name?: string;
+}
+
 export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
+  const router = useRouter();
+  const createWorkspace = useCreateWorkspace();
+  const workspaceId = useWorkspaceId();
+  const [workspaceIntent, setWorkspaceIntent] = useState<WorkspaceIntent>({
+    isCreating: false
+  });
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -57,6 +72,86 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     }
   };
 
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim()) return;
+
+    const newMessage: Message = {
+      id: Date.now().toString(),
+      content,
+      role: 'user'
+    };
+
+    setMessages(prev => [...prev, newMessage]);
+    setInput('');
+    setIsTyping(true);
+
+    try {
+      if (workspaceIntent.isCreating && !workspaceIntent.name) {
+        const workspaceName = content.trim();
+        setWorkspaceIntent({ isCreating: true, name: workspaceName });
+        
+        // Tạo workspace và lấy response
+        const response = await createWorkspace.mutateAsync({
+          form: { name: workspaceName }
+        });
+
+        // Thêm tin nhắn xác nhận
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          content: `Đã tạo workspace "${workspaceName}" thành công! Đang chuyển hướng...`,
+          role: 'assistant'
+        }]);
+
+        // Chuyển hướng đến workspace mới tạo với ID
+        setTimeout(() => {
+          router.push(`/workspaces/${response.data.$id}`);
+          onClose();
+        }, 2000);
+
+        // Reset workspace intent
+        setWorkspaceIntent({ isCreating: false });
+        return;
+      }
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [...messages, newMessage] })
+      });
+
+      const data = await response.json();
+
+      // Kiểm tra ý định tạo workspace từ câu trả lời
+      if (content.toLowerCase().includes('tạo workspace') || 
+          content.toLowerCase().includes('tạo một workspace')) {
+        setWorkspaceIntent({ isCreating: true });
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          content: 'Bạn muốn đặt tên cho workspace là gì?',
+          role: 'assistant'
+        }]);
+        return;
+      }
+
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        content: data.response,
+        role: 'assistant'
+      }]);
+
+    } catch (error) {
+      console.error('Error:', error);
+      setMessages(prev => [...prev, {
+        id: Date.now().toString(),
+        content: 'Xin lỗi, đã có lỗi xảy ra khi tạo workspace. Vui lòng thử lại sau.',
+        role: 'assistant'
+      }]);
+      setWorkspaceIntent({ isCreating: false });
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
@@ -65,49 +160,8 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       setShowIntro(false);
     }
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: input,
-      role: 'user'
-    };
-
-    setMessages(prev => [...prev, userMessage]);
-    setInput('');
-    setIsTyping(true);
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messages: [...messages, userMessage]
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Lỗi kết nối');
-      }
-
-      const data = await response.json();
-      
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        content: data.response,
-        role: 'assistant'
-      }]);
-    } catch (error) {
-      console.error('Chat Error:', error);
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
-        content: "Xin lỗi, đã xảy ra lỗi. Vui lòng thử lại.",
-        role: 'assistant'
-      }]);
-    } finally {
-      setIsTyping(false);
-    }
-  }, [input, messages, showIntro]);
+    handleSendMessage(input);
+  }, [input, showIntro]);
 
   if (!isOpen) return null;
 
