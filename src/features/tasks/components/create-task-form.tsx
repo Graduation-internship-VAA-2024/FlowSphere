@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
-import { useRef } from "react";
 import { z } from "zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -17,7 +16,6 @@ import { DottedSeparator } from "@/components/dotted-separator";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { useCreateTask } from "../api/use-create-task";
@@ -46,9 +44,7 @@ export const CreateTaskForm = ({
   memberOptions,
 }: CreateTaskFormProps) => {
   const workspaceId = useWorkspaceId();
-  const router = useRouter();
   const { mutate, isPending } = useCreateTask();
-  const inputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof createTaskSchema>>({
     resolver: zodResolver(createTaskSchema.omit({ workspaceId: true })),
@@ -94,7 +90,7 @@ export const CreateTaskForm = ({
                 className="text-2xl font-bold bg-gradient-to-r from-primary 
                 to-blue-600 bg-clip-text text-transparent"
               >
-                Create a Task{" "}
+                Create a Task
               </CardTitle>
               <p className="text-sm text-neutral-500">
                 Create a task and assign it to a member
