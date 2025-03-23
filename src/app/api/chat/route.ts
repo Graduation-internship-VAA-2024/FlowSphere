@@ -1,12 +1,26 @@
 import { NextResponse } from 'next/server';
 import axios from 'axios';
+import { DocumentProcessor } from '@/utils/documentProcessor';
 
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
+const documentProcessor = new DocumentProcessor();
+
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
+    const userQuery = messages[messages.length - 1].content;
+    
+    // Lấy nội dung tài liệu liên quan
+    const relevantContent = documentProcessor.getRelevantContent(userQuery);
+
+    // Nếu không có nội dung phù hợp, phản hồi lại
+    if (relevantContent === 'Không tìm thấy thông tin liên quan.') {
+      return NextResponse.json({
+        response: "Xin lỗi, tôi không có thông tin để trả lời câu hỏi này."
+      });
+    }
 
     const response = await axios.post(
       API_URL,
@@ -15,12 +29,15 @@ export async function POST(req: Request) {
         messages: [
           {
             role: 'system',
-            content: 'Bạn là trợ lý AI của FlowSphere, một nền tảng quản lý workspace. Hãy trả lời ngắn gọn và hữu ích.'
+            content: `Bạn là trợ lý AI của FlowSphere. Bạn chỉ được trả lời dựa trên tài liệu sau:\n\n${relevantContent}\n\nNếu không tìm thấy thông tin phù hợp, hãy trả lời: "Tôi không có thông tin để trả lời câu hỏi này."`
           },
-          ...messages
+          {
+            role: 'user',
+            content: userQuery
+          }
         ],
-        temperature: 0.7,
-        max_tokens: 200
+        temperature: 0.3, // Giảm độ sáng tạo để tránh suy diễn
+        max_tokens: 400 // Giới hạn số token tránh quá dài
       },
       {
         headers: {
@@ -43,3 +60,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+
