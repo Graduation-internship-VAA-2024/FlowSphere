@@ -10,8 +10,16 @@ const documentProcessor = new DocumentProcessor();
 export async function POST(req: Request) {
   try {
     const { messages } = await req.json();
-    const userQuery = messages[messages.length - 1].content;
+    const userQuery = messages[messages.length - 1].content.toLowerCase();
     
+    // Kiểm tra ý định tạo workspace
+    if (userQuery.includes('tạo workspace') || userQuery.includes('tạo một workspace')) {
+      return NextResponse.json({
+        response: "Bạn muốn đặt tên cho workspace là gì?",
+        intent: "create_workspace"
+      });
+    }
+
     // Lấy nội dung tài liệu liên quan
     const relevantContent = documentProcessor.getRelevantContent(userQuery);
 
@@ -60,5 +68,3 @@ export async function POST(req: Request) {
     );
   }
 }
-
-
