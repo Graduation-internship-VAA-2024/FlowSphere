@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import { useCreateWorkspace } from '@/features/workspaces/api/use-create-workspace';
 import { useWorkspaceId } from '@/features/workspaces/hooks/use-workspace-id';
 import { useCurrentUser } from './hooks/userCurrent';
+import { IntentAnalyzer } from './utils/intentAnalyzer';
+import { SYSTEM_PROMPT } from './constants/prompts';
 
 interface ChatbotDialogProps {
   isOpen: boolean;
@@ -28,6 +30,65 @@ interface WorkspaceIntent {
   isCreating: boolean;
   name?: string;
 }
+
+// // Thêm system prompt để định hướng AI
+// const SYSTEM_PROMPT = `Bạn là trợ lý AI của FlowSphere, một nền tảng quản lý workspace. 
+
+// CÁCH HIỂU Ý ĐỊNH TẠO WORKSPACE:
+// 1. Yêu cầu trực tiếp:
+//    - "tạo workspace"
+//    - "tạo một workspace mới"
+//    - "tạo dùm workspace"
+//    - "tạo cho tôi workspace"
+
+// 2. Yêu cầu gián tiếp:
+//    - "muốn có chỗ làm việc riêng"
+//    - "cần không gian làm việc"
+//    - "tìm chỗ để quản lý dự án"
+//    - "có thể tổ chức công việc ở đâu"
+
+// 3. Câu hỏi liên quan:
+//    - "làm sao để bắt đầu"
+//    - "bắt đầu từ đâu"
+//    - "workspace dùng như thế nào"
+//    - "hướng dẫn tôi sử dụng"
+
+// 4. Mô tả nhu cầu:
+//    - "cần chỗ làm việc nhóm"
+//    - "muốn quản lý dự án"
+//    - "đang tìm nơi lưu trữ tài liệu"
+//    - "cần tổ chức công việc"
+
+// CÁCH PHẢN HỒI:
+// 1. Khi nhận ra ý định tạo workspace:
+//    - Hỏi thêm về mục đích sử dụng
+//    - Gợi ý tính năng phù hợp
+//    - Đề xuất cấu trúc workspace
+//    - Hướng dẫn đặt tên phù hợp
+
+// 2. Khi người dùng mô tả nhu cầu:
+//    - Phân tích nhu cầu cụ thể
+//    - Đề xuất loại workspace phù hợp
+//    - Giải thích các tính năng liên quan
+//    - Gợi ý cách tổ chức
+
+// Ví dụ tương tác:
+// User: "Tôi cần quản lý một dự án phát triển phần mềm"
+// Assistant: "Tôi hiểu bạn đang cần một workspace để quản lý dự án phần mềm. Tôi đề xuất tạo một workspace với cấu trúc sau:
+// • Phân chia theo sprint/milestone
+// • Tích hợp công cụ quản lý code
+// • Theo dõi tiến độ công việc
+// • Quản lý tài liệu dự án
+
+// Bạn muốn tạo workspace ngay bây giờ chứ?"
+
+// LƯU Ý:
+// - Luôn giữ giọng điệu chuyên nghiệp nhưng thân thiện
+// - Tập trung vào giải quyết nhu cầu của người dùng
+// - Đưa ra gợi ý và hướng dẫn cụ thể
+// - Hỏi thêm thông tin khi cần thiết`;
+
+const intentAnalyzer = new IntentAnalyzer();
 
 export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   const { user, isLoading } = useCurrentUser();
@@ -102,6 +163,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     setIsTyping(true);
 
     try {
+      // Xử lý khi đang trong quá trình tạo workspace
       if (workspaceIntent.isCreating && !workspaceIntent.name) {
         const workspaceName = content.trim();
         setWorkspaceIntent({ isCreating: true, name: workspaceName });
@@ -118,40 +180,86 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
           role: 'assistant'
         }]);
 
-        // Chuyển hướng đến workspace mới tạo với ID
         setTimeout(() => {
           router.push(`/workspaces/${response.data.$id}`);
           onClose();
         }, 2000);
 
-        // Reset workspace intent
         setWorkspaceIntent({ isCreating: false });
         return;
       }
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, newMessage] })
-      });
+      // Phân tích ý định từ tin nhắn người dùng
+      const intentAnalysis = intentAnalyzer.analyzeIntent(content);
 
-      const data = await response.json();
-
-      // Kiểm tra ý định tạo workspace từ câu trả lời
-      if (content.toLowerCase().includes('tạo workspace') || 
-          content.toLowerCase().includes('tạo một workspace')) {
+      // Nếu phát hiện ý định tạo workspace với độ tin cậy cao
+      if (intentAnalysis.type === 'create_workspace' && intentAnalysis.confidence > 0.6) {
         setWorkspaceIntent({ isCreating: true });
+        const response = intentAnalyzer.generateResponse(intentAnalysis);
+
         setMessages(prev => [...prev, {
           id: Date.now().toString(),
-          content: 'Bạn muốn đặt tên cho workspace là gì?',
+          content: response,
           role: 'assistant'
         }]);
         return;
       }
 
+      // Gọi OpenRouter API với context phong phú hơn
+      const aiResponse = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          messages: [
+            {
+              role: 'system',
+              content: SYSTEM_PROMPT
+            },
+            ...messages,
+            {
+              ...newMessage,
+              content: `
+Người dùng: ${user?.name}
+Email: ${user?.email}
+Workspace hiện tại: ${workspaceId || 'Chưa có'}
+Phân tích ý định: ${JSON.stringify(intentAnalysis)}
+Yêu cầu: ${content}
+              `
+            }
+          ]
+        })
+      });
+
+      const data = await aiResponse.json();
+      
+      // Phân tích phản hồi từ AI để xác định ý định
+      const aiMessage = data.response;
+      const hasWorkspaceIntent = aiMessage.toLowerCase().includes('tạo workspace') ||
+                                aiMessage.toLowerCase().includes('đặt tên workspace');
+
+      if (hasWorkspaceIntent) {
+        setWorkspaceIntent({ isCreating: true });
+        // Thêm hướng dẫn chi tiết về đặt tên
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          content: `${aiMessage}
+
+Một số gợi ý cho tên workspace:
+• Ngắn gọn và dễ nhớ
+• Liên quan đến mục đích sử dụng
+• Chỉ sử dụng chữ cái, số và dấu gạch ngang
+• Không sử dụng ký tự đặc biệt
+
+Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
+          role: 'assistant'
+        }]);
+        return;
+      }
+
+      // Thêm tin nhắn từ AI
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
-        content: data.response,
+        content: aiMessage,
         role: 'assistant'
       }]);
 
@@ -159,7 +267,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
-        content: 'Xin lỗi, đã có lỗi xảy ra khi tạo workspace. Vui lòng thử lại sau.',
+        content: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
         role: 'assistant'
       }]);
       setWorkspaceIntent({ isCreating: false });
