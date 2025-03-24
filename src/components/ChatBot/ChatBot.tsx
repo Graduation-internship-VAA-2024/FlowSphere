@@ -7,6 +7,7 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useCreateWorkspace } from '@/features/workspaces/api/use-create-workspace';
 import { useWorkspaceId } from '@/features/workspaces/hooks/use-workspace-id';
+import { useCurrentUser } from './hooks/userCurrent';
 
 interface ChatbotDialogProps {
   isOpen: boolean;
@@ -29,6 +30,7 @@ interface WorkspaceIntent {
 }
 
 export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
+  const { user, isLoading } = useCurrentUser();
   const router = useRouter();
   const createWorkspace = useCreateWorkspace();
   const workspaceId = useWorkspaceId();
@@ -42,6 +44,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   const [showIntro, setShowIntro] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hasWelcomed, setHasWelcomed] = useState(false);
   
   const exampleQuestions: ExampleQuestion[] = [
     { text: "How would I use Workspaces?" },
@@ -60,6 +63,19 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages, isTyping]);
+
+  useEffect(() => {
+    if (isOpen && user && !hasWelcomed && messages.length === 0) {
+      const welcomeMessage = {
+        id: Date.now().toString(),
+        content: `Xin chào ${user.name}! Tôi là trợ lý ảo của FlowSphere. 
+        Tôi có thể giúp gì cho bạn?`,
+        role: 'assistant' as const
+      };
+      setMessages([welcomeMessage]);
+      setHasWelcomed(true);
+    }
+  }, [isOpen, user, hasWelcomed]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -163,6 +179,39 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     handleSendMessage(input);
   }, [input, showIntro]);
 
+  const renderIntro = () => (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="h-8 w-8 rounded-full bg-gray-900 flex items-center justify-center">
+          <span className="text-xs text-white">
+            {user?.name?.[0]?.toUpperCase() || 'U'}
+          </span>
+        </div>
+        <div>
+          <p className="text-sm font-medium">{user?.name}</p>
+          <p className="text-xs text-gray-500">{user?.email}</p>
+        </div>
+      </div>
+      <p className="text-gray-600 mb-4 text-sm">
+        Ask me anything about <span className="bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium">Workspaces</span>
+      </p>
+      <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2 mt-6">
+        EXAMPLE QUESTIONS
+      </p>
+      <div className="space-y-2">
+        {exampleQuestions.map((question, index) => (
+          <div 
+            key={index}
+            className="p-3 cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200 rounded-lg"
+            onClick={() => handleQuestionClick(question.text)}
+          >
+            <p className="text-gray-700 text-sm">{question.text}</p>
+          </div>
+        ))}
+      </div>
+    </>
+  );
+
   if (!isOpen) return null;
 
   return (
@@ -199,28 +248,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-6">
-          {showIntro ? (
-            <>
-              <p className="text-gray-600 mb-4 text-sm">
-                Ask me anything about <span className="bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium">Workspaces</span>
-              </p>
-              
-              <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2 mt-6">
-                EXAMPLE QUESTIONS
-              </p>
-              <div className="space-y-2">
-                {exampleQuestions.map((question, index) => (
-                  <div 
-                    key={index}
-                    className="p-3 cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200 rounded-lg"
-                    onClick={() => handleQuestionClick(question.text)}
-                  >
-                    <p className="text-gray-700 text-sm">{question.text}</p>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
+          {showIntro ? renderIntro() : (
             <div className="space-y-4">
               {messages.map((message) => (
                 <motion.div 
@@ -260,6 +288,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
                     <div className={`
                       text-xs md:text-sm
                       ${message.role === 'user' ? 'text-white' : 'text-gray-800'}
+                      whitespace-pre-wrap break-words
                     `}>
                       {message.content}
                     </div>
