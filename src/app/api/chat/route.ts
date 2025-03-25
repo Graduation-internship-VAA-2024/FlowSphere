@@ -9,7 +9,7 @@ const documentProcessor = new DocumentProcessor();
 
 export async function POST(req: Request) {
   try {
-    const { messages } = await req.json();
+    const { messages, workspaceId } = await req.json();
     const userQuery = messages[messages.length - 1].content.toLowerCase();
     
     // Kiểm tra ý định tạo workspace
@@ -17,6 +17,26 @@ export async function POST(req: Request) {
       return NextResponse.json({
         response: "Bạn muốn đặt tên cho workspace là gì?",
         intent: "create_workspace"
+      });
+    }
+
+    // Check for project creation intent
+    if (userQuery.includes('tạo project') || userQuery.includes('tạo một project')) {
+      if (!workspaceId) {
+        return NextResponse.json({
+          response: `Để tạo project, bạn cần phải có workspace trước.
+          
+Bạn có muốn:
+1. Tạo workspace mới (gõ "tạo workspace")
+2. Hoặc chọn một workspace có sẵn để tiếp tục`,
+          intent: "require_workspace"
+        });
+      }
+
+      return NextResponse.json({
+        response: "Bạn muốn đặt tên cho project là gì?",
+        intent: "create_project",
+        workspaceId
       });
     }
 

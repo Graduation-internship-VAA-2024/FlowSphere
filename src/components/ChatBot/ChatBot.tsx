@@ -10,6 +10,7 @@ import { useWorkspaceId } from '@/features/workspaces/hooks/use-workspace-id';
 import { useCurrentUser } from './hooks/userCurrent';
 import { IntentAnalyzer } from './utils/intentAnalyzer';
 import { SYSTEM_PROMPT } from './constants/prompts';
+import { useCreateProject } from '@/features/projects/api/use-create-project';
 
 interface ChatbotDialogProps {
   isOpen: boolean;
@@ -24,6 +25,8 @@ interface Message {
 
 interface ExampleQuestion {
   text: string;
+  intent: 'create_workspace' | 'create_project' | 'manage_tasks';
+  context?: string;
 }
 
 interface WorkspaceIntent {
@@ -31,62 +34,10 @@ interface WorkspaceIntent {
   name?: string;
 }
 
-// // Thêm system prompt để định hướng AI
-// const SYSTEM_PROMPT = `Bạn là trợ lý AI của FlowSphere, một nền tảng quản lý workspace. 
-
-// CÁCH HIỂU Ý ĐỊNH TẠO WORKSPACE:
-// 1. Yêu cầu trực tiếp:
-//    - "tạo workspace"
-//    - "tạo một workspace mới"
-//    - "tạo dùm workspace"
-//    - "tạo cho tôi workspace"
-
-// 2. Yêu cầu gián tiếp:
-//    - "muốn có chỗ làm việc riêng"
-//    - "cần không gian làm việc"
-//    - "tìm chỗ để quản lý dự án"
-//    - "có thể tổ chức công việc ở đâu"
-
-// 3. Câu hỏi liên quan:
-//    - "làm sao để bắt đầu"
-//    - "bắt đầu từ đâu"
-//    - "workspace dùng như thế nào"
-//    - "hướng dẫn tôi sử dụng"
-
-// 4. Mô tả nhu cầu:
-//    - "cần chỗ làm việc nhóm"
-//    - "muốn quản lý dự án"
-//    - "đang tìm nơi lưu trữ tài liệu"
-//    - "cần tổ chức công việc"
-
-// CÁCH PHẢN HỒI:
-// 1. Khi nhận ra ý định tạo workspace:
-//    - Hỏi thêm về mục đích sử dụng
-//    - Gợi ý tính năng phù hợp
-//    - Đề xuất cấu trúc workspace
-//    - Hướng dẫn đặt tên phù hợp
-
-// 2. Khi người dùng mô tả nhu cầu:
-//    - Phân tích nhu cầu cụ thể
-//    - Đề xuất loại workspace phù hợp
-//    - Giải thích các tính năng liên quan
-//    - Gợi ý cách tổ chức
-
-// Ví dụ tương tác:
-// User: "Tôi cần quản lý một dự án phát triển phần mềm"
-// Assistant: "Tôi hiểu bạn đang cần một workspace để quản lý dự án phần mềm. Tôi đề xuất tạo một workspace với cấu trúc sau:
-// • Phân chia theo sprint/milestone
-// • Tích hợp công cụ quản lý code
-// • Theo dõi tiến độ công việc
-// • Quản lý tài liệu dự án
-
-// Bạn muốn tạo workspace ngay bây giờ chứ?"
-
-// LƯU Ý:
-// - Luôn giữ giọng điệu chuyên nghiệp nhưng thân thiện
-// - Tập trung vào giải quyết nhu cầu của người dùng
-// - Đưa ra gợi ý và hướng dẫn cụ thể
-// - Hỏi thêm thông tin khi cần thiết`;
+interface ProjectIntent {
+  isCreating: boolean;
+  name?: string;
+}
 
 const intentAnalyzer = new IntentAnalyzer();
 
@@ -94,8 +45,12 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   const { user, isLoading } = useCurrentUser();
   const router = useRouter();
   const createWorkspace = useCreateWorkspace();
+  const createProject = useCreateProject();
   const workspaceId = useWorkspaceId();
   const [workspaceIntent, setWorkspaceIntent] = useState<WorkspaceIntent>({
+    isCreating: false
+  });
+  const [projectIntent, setProjectIntent] = useState<ProjectIntent>({
     isCreating: false
   });
 
@@ -108,9 +63,28 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   const [hasWelcomed, setHasWelcomed] = useState(false);
   
   const exampleQuestions: ExampleQuestion[] = [
-    { text: "How would I use Workspaces?" },
-    { text: "What are the key features?" },
-    { text: "How to create a new project?" }
+    { 
+      text: "Create a new workspace for my team",
+      intent: "create_workspace"
+    },
+    { 
+      text: "I need a workspace for my marketing project",
+      intent: "create_workspace",
+      context: "marketing"
+    },
+    { 
+      text: "Set up a new project in my workspace",
+      intent: "create_project"
+    },
+    { 
+      text: "Create a development workspace",
+      intent: "create_workspace",
+      context: "development"
+    },
+    {
+      text: "Help me organize my project tasks",
+      intent: "manage_tasks"
+    }
   ];
 
   useEffect(() => {
@@ -142,10 +116,59 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleQuestionClick = (question: string) => {
-    setInput(question);
-    if (inputRef.current) {
-      inputRef.current.focus();
+  const handleQuestionClick = async (question: ExampleQuestion) => {
+    setShowIntro(false);
+    
+    switch (question.intent) {
+      case 'create_workspace':
+        setWorkspaceIntent({ isCreating: true });
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          content: question.text,
+          role: 'user'
+        }, {
+          id: (Date.now() + 1).toString(),
+          content: `Tôi sẽ giúp bạn tạo một workspace${question.context ? ` cho ${question.context}` : ''}.
+          
+Bạn muốn đặt tên cho workspace là gì?
+
+Gợi ý đặt tên:
+• Ngắn gọn và dễ nhớ
+• Phản ánh mục đích sử dụng
+• Không sử dụng ký tự đặc biệt`,
+          role: 'assistant'
+        }]);
+        break;
+
+      case 'create_project':
+        if (!workspaceId) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            content: question.text,
+            role: 'user'
+          }, {
+            id: (Date.now() + 1).toString(),
+            content: `Để tạo project, bạn cần phải có workspace trước. 
+
+Hiện tại bạn chưa có workspace nào. Bạn có muốn:
+
+1. Tạo workspace mới (Gõ "tạo workspace" hoặc bấm vào đây)
+2. Hoặc chuyển đến trang workspace để chọn một workspace có sẵn
+
+Lưu ý: Project luôn phải thuộc về một workspace để dễ dàng quản lý và tổ chức.`,
+            role: 'assistant',
+            actions: [{
+              type: 'create_workspace',
+              label: 'Tạo Workspace Mới'
+            }, {
+              type: 'view_workspaces',
+              label: 'Xem Workspaces'
+            }]
+          }]);
+          return;
+        }
+        // ... rest of create project logic
+        break;
     }
   };
 
@@ -163,7 +186,26 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     setIsTyping(true);
 
     try {
-      // Xử lý khi đang trong quá trình tạo workspace
+      // Check for project creation intent first
+      if (content.toLowerCase().includes('project') || 
+          content.toLowerCase().includes('dự án')) {
+        if (!workspaceId) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            content: `Để tạo hoặc quản lý project, bạn cần phải có workspace trước.
+
+Bạn có thể:
+1. Tạo workspace mới ngay bây giờ (Gõ "tạo workspace")
+2. Chọn một workspace có sẵn (Tôi sẽ chuyển bạn đến trang workspaces)
+
+Bạn muốn làm gì?`,
+            role: 'assistant'
+          }]);
+          return;
+        }
+      }
+
+      // Handle regular workspace creation
       if (workspaceIntent.isCreating && !workspaceIntent.name) {
         const workspaceName = content.trim();
         setWorkspaceIntent({ isCreating: true, name: workspaceName });
@@ -186,6 +228,47 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
         }, 2000);
 
         setWorkspaceIntent({ isCreating: false });
+        return;
+      }
+
+      // Handle project creation only if workspace exists
+      if (projectIntent.isCreating && !projectIntent.name) {
+        if (!workspaceId) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            content: `Xin lỗi, bạn không thể tạo project khi chưa có workspace.
+
+Hãy tạo workspace trước bằng cách gõ "tạo workspace" hoặc để tôi giúp bạn chuyển đến trang workspaces.`,
+            role: 'assistant'
+          }]);
+          setProjectIntent({ isCreating: false });
+          return;
+        }
+        const projectName = content.trim();
+        setProjectIntent({ isCreating: true, name: projectName });
+        
+        // Create project
+        const response = await createProject.mutateAsync({
+          form: { 
+            name: projectName,
+            workspaceId: workspaceId // Make sure you have the current workspace ID
+          }
+        });
+
+        // Add confirmation message
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          content: `Đã tạo project "${projectName}" thành công! Đang chuyển hướng...`,
+          role: 'assistant'
+        }]);
+
+        // Redirect to new project
+        setTimeout(() => {
+          router.push(`/workspaces/${workspaceId}/projects/${response.data.$id}`);
+          onClose();
+        }, 2000);
+
+        setProjectIntent({ isCreating: false });
         return;
       }
 
@@ -301,20 +384,27 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
         </div>
       </div>
       <p className="text-gray-600 mb-4 text-sm">
-        Ask me anything about <span className="bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium">Workspaces</span>
+        Hi! I can help you with:
+        <span className="block mt-2 space-y-1">
+          <span className="inline-block bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium mr-2 mb-1">Workspaces</span>
+          <span className="inline-block bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium mr-2 mb-1">Projects</span>
+          <span className="inline-block bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium mr-2 mb-1">Task Management</span>
+        </span>
       </p>
       <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2 mt-6">
         EXAMPLE QUESTIONS
       </p>
       <div className="space-y-2">
         {exampleQuestions.map((question, index) => (
-          <div 
+          <motion.div 
             key={index}
             className="p-3 cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200 rounded-lg"
-            onClick={() => handleQuestionClick(question.text)}
+            onClick={() => handleQuestionClick(question)}
+            whileHover={{ scale: 1.02 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
           >
             <p className="text-gray-700 text-sm">{question.text}</p>
-          </div>
+          </motion.div>
         ))}
       </div>
     </>
