@@ -15,25 +15,38 @@ export const MemberAvatar = ({
   return (
     <Avatar
       className={cn(
-        "relative overflow-hidden",
-        "rounded-xl transform-gpu transition-all duration-300",
-        "ring-2 ring-black/[0.02] group-hover:ring-primary/20",
-        "shadow-[0_4px_12px_-2px_rgba(0,0,0,0.12)] group-hover:shadow-[0_8px_24px_-4px_rgba(0,0,0,0.18)]",
-        "after:absolute after:inset-0",
-        "after:bg-gradient-to-br after:from-white/20 after:to-transparent",
-        "after:opacity-0 group-hover:after:opacity-100",
-        "after:transition-opacity after:duration-300",
+        "relative",
+        // Diamond shape base
+        "rotate-45 overflow-hidden",
+        // Base styles
+        "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500",
+        "group hover:from-emerald-400 hover:to-cyan-400",
+        // Border and shadow effects
+        "ring-2 ring-white/50 shadow-lg",
+        "hover:ring-emerald-300/50 hover:shadow-emerald-500/25",
+        // Smooth transitions
+        "transition-all duration-300",
+        // Size
+        "size-9",
         className
       )}
     >
       <AvatarFallback
         className={cn(
-          "bg-gradient-to-br from-primary via-primary/90 to-primary/80",
-          "text-white font-bold uppercase text-lg",
-          "transform-gpu transition-all duration-300",
-          "group-hover:from-primary/90 group-hover:to-primary/70",
-          "group-hover:scale-105",
-          "rounded-xl",
+          // Counter-rotate to keep text straight
+          "-rotate-45",
+          // Text styling
+          "font-bold text-base text-white",
+          // Center content
+          "flex items-center justify-center",
+          // Size
+          "h-full w-full",
+          // Gradient background for text area
+          "bg-gradient-to-br from-emerald-600/50 to-cyan-600/50",
+          // Transitions
+          "transition-colors duration-300",
+          // Hover effects
+          "group-hover:from-emerald-500/50 group-hover:to-cyan-500/50",
           fallbackClassName
         )}
       >
