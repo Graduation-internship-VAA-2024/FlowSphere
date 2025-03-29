@@ -5,6 +5,7 @@ import {
   DropdownMenuTrigger,
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
+import { useConfirm } from "@/hooks/use-confirm";
 import { cn } from "@/lib/utils";
 import {
   DeleteIcon,
@@ -12,6 +13,10 @@ import {
   ExternalLinkIcon,
   FolderOpen,
 } from "lucide-react";
+import { useDeleteTask } from "../api/use-delete-task";
+import { useRouter } from "next/navigation";
+import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+import { useEditTaskModal } from "../hooks/use-edit-task-modal";
 
 interface TaskActionsProps {
   id: string;
@@ -20,8 +25,33 @@ interface TaskActionsProps {
 }
 
 export const TaskActions = ({ id, projectId, children }: TaskActionsProps) => {
+  const workspaceId = useWorkspaceId();
+  const router = useRouter();
+
+  const { open } = useEditTaskModal();
+
+  const [ConfirmDialog, confirm] = useConfirm(
+    "Delete Task",
+    "Are you sure you want to delete this task?",
+    "destructive"
+  );
+
+  const { mutate, isPending } = useDeleteTask();
+  const onDelete = async () => {
+    const ok = await confirm();
+    if (!ok) return;
+    mutate({ param: { taskId: id } });
+  };
+  const onOpenTask = () => {
+    router.push(`/workspaces/${workspaceId}/tasks/${id}`);
+  };
+  const onOpenProject = () => {
+    router.push(`/workspaces/${workspaceId}/projects/${projectId}`);
+  };
+
   return (
     <div className="flex justify-end">
+      <ConfirmDialog />
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
         <DropdownMenuContent
@@ -35,7 +65,7 @@ export const TaskActions = ({ id, projectId, children }: TaskActionsProps) => {
           )}
         >
           <DropdownMenuItem
-            onClick={() => {}}
+            onClick={onOpenTask}
             disabled={false}
             className={cn(
               "group flex items-center",
@@ -57,7 +87,7 @@ export const TaskActions = ({ id, projectId, children }: TaskActionsProps) => {
           </DropdownMenuItem>
 
           <DropdownMenuItem
-            onClick={() => {}}
+            onClick={() => open(id)}
             disabled={false}
             className={cn(
               "group flex items-center",
@@ -78,7 +108,7 @@ export const TaskActions = ({ id, projectId, children }: TaskActionsProps) => {
           </DropdownMenuItem>
 
           <DropdownMenuItem
-            onClick={() => {}}
+            onClick={onOpenProject}
             disabled={false}
             className={cn(
               "group flex items-center",
@@ -101,8 +131,8 @@ export const TaskActions = ({ id, projectId, children }: TaskActionsProps) => {
           <DropdownMenuSeparator className="my-1 opacity-50" />
 
           <DropdownMenuItem
-            onClick={() => {}}
-            disabled={false}
+            onClick={onDelete}
+            disabled={isPending}
             className={cn(
               "group flex items-center",
               "font-medium p-3",

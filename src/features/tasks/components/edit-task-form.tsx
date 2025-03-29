@@ -17,8 +17,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
-import { useCreateTask } from "../api/use-create-task";
 import { createTaskSchema } from "../schemas";
 import { DatePicker } from "@/components/date-picker";
 import {
@@ -29,53 +27,40 @@ import {
   SelectContent,
 } from "@/components/ui/select";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
-import { TaskStatus } from "../types";
+import { Task, TaskStatus } from "../types";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
-import { cva } from "class-variance-authority";
+import { useUpdateTask } from "../api/use-update-task";
 
-const selectStyles = cva("", {
-  variants: {
-    variant: {
-      default: `
-        bg-white/95 backdrop-blur-sm
-        border border-neutral-200/50
-        rounded-lg shadow-lg
-        animate-in fade-in-0 zoom-in-95
-        data-[state=closed]:animate-out
-        data-[state=closed]:fade-out-0 
-        data-[state=closed]:zoom-out-95
-        data-[side=bottom]:slide-in-from-top-2
-        data-[side=top]:slide-in-from-bottom-2
-      `,
-    },
-  },
-  defaultVariants: {
-    variant: "default",
-  },
-});
-
-interface CreateTaskFormProps {
+interface EditTaskFormProps {
   onCancel?: () => void;
   projectOptions: { id: string; name: string; imageUrl: string }[];
   memberOptions: { id: string; name: string }[];
+  initialValues: Task;
 }
 
-export const CreateTaskForm = ({
+export const EditTaskForm = ({
   onCancel,
   projectOptions,
   memberOptions,
-}: CreateTaskFormProps) => {
-  const workspaceId = useWorkspaceId();
-  const { mutate, isPending } = useCreateTask();
+  initialValues,
+}: EditTaskFormProps) => {
+  const { mutate, isPending } = useUpdateTask();
 
   const form = useForm<z.infer<typeof createTaskSchema>>({
-    resolver: zodResolver(createTaskSchema.omit({ workspaceId: true })),
-    defaultValues: { workspaceId },
+    resolver: zodResolver(
+      createTaskSchema.omit({ workspaceId: true, description: true })
+    ),
+    defaultValues: {
+      ...initialValues,
+      dueDate: initialValues.dueDate
+        ? new Date(initialValues.dueDate)
+        : undefined,
+    },
   });
 
   const onSubmit = (values: z.infer<typeof createTaskSchema>) => {
     mutate(
-      { json: { ...values, workspaceId } },
+      { json: values, param: { taskId: initialValues.$id } },
       {
         onSuccess: () => {
           form.reset();
@@ -112,10 +97,10 @@ export const CreateTaskForm = ({
                 className="text-2xl font-bold bg-gradient-to-r from-primary 
                 to-blue-600 bg-clip-text text-transparent"
               >
-                Create a Task
+                Edit a task
               </CardTitle>
               <p className="text-sm text-neutral-500">
-                Create a task and assign it to a member
+                Edit the task details below.{" "}
               </p>
             </div>
             <Sparkles className="w-5 h-5 text-primary/50 animate-pulse" />
@@ -206,62 +191,24 @@ export const CreateTaskForm = ({
                           to-blue-500/20 rounded-lg blur opacity-75 group-hover:opacity-100 
                           transition duration-300"
                           />
-                          <SelectTrigger
-                            className={cn(
-                              "w-full h-11 px-3",
-                              "bg-white/80 hover:bg-white/90",
-                              "border border-neutral-200/50",
-                              "rounded-lg transition-all duration-200",
-                              "focus:ring-2 focus:ring-primary/20",
-                              "hover:border-primary/30",
-                              "data-[placeholder]:text-neutral-400"
-                            )}
-                          >
+                          <SelectTrigger>
                             <SelectValue placeholder="Select Assignee"></SelectValue>
                           </SelectTrigger>
                         </div>
                       </FormControl>
                       <FormMessage />
-                      <SelectContent
-                        className={cn(
-                          selectStyles({ variant: "default" }),
-                          "overflow-hidden",
-                          // Custom scrollbar
-                          "scrollbar-thin scrollbar-thumb-neutral-300 scrollbar-track-transparent",
-                          // Hover effect
-                          "group/select",
-                          "relative"
-                        )}
-                      >
-                        <div
-                          className="absolute inset-0 bg-gradient-to-br from-primary/5 to-blue-500/5 opacity-0 
-                          group-hover/select:opacity-100 transition-opacity duration-300"
-                        />
-                        <div className="relative z-10">
-                          {memberOptions.map((member) => (
-                            <SelectItem
-                              key={member.id}
-                              value={member.id}
-                              className={cn(
-                                "relative cursor-pointer transition-all duration-200",
-                                "data-[highlighted]:bg-primary/10",
-                                "data-[highlighted]:text-primary",
-                                "hover:bg-primary/5",
-                                "active:scale-[0.98]",
-                                "focus:bg-primary/5 focus:outline-none",
-                                "px-3 py-2"
-                              )}
-                            >
-                              <div className="flex items-center gap-x-2">
-                                <MemberAvatar
-                                  name={member.name}
-                                  className="size-6"
-                                />
-                                <span>{member.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </div>
+                      <SelectContent>
+                        {memberOptions.map((member) => (
+                          <SelectItem key={member.id} value={member.id}>
+                            <div className="flex items-center gap-x-2">
+                              <MemberAvatar
+                                name={member.name}
+                                className="size-6"
+                              />
+                              <span>{member.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </FormItem>
@@ -288,109 +235,24 @@ export const CreateTaskForm = ({
                           to-blue-500/20 rounded-lg blur opacity-75 group-hover:opacity-100 
                           transition duration-300"
                           />
-                          <SelectTrigger
-                            className={cn(
-                              "w-full h-11 px-3",
-                              "bg-white/80 hover:bg-white/90",
-                              "border border-neutral-200/50",
-                              "rounded-lg transition-all duration-200",
-                              "focus:ring-2 focus:ring-primary/20",
-                              "hover:border-primary/30",
-                              "data-[placeholder]:text-neutral-400"
-                            )}
-                          >
+                          <SelectTrigger>
                             <SelectValue placeholder="Select status"></SelectValue>
                           </SelectTrigger>
                         </div>
                       </FormControl>
                       <FormMessage />
-                      <SelectContent
-                        className={cn(
-                          selectStyles({ variant: "default" }),
-                          "overflow-hidden",
-                          // Custom scrollbar
-                          "scrollbar-thin scrollbar-thumb-neutral-300 scrollbar-track-transparent",
-                          // Hover effect
-                          "group/select",
-                          "relative"
-                        )}
-                      >
-                        <div
-                          className="absolute inset-0 bg-gradient-to-br from-primary/5 to-blue-500/5 opacity-0 
-                          group-hover/select:opacity-100 transition-opacity duration-300"
-                        />
-                        <div className="relative z-10">
-                          <SelectItem
-                            value={TaskStatus.BACKLOG}
-                            className={cn(
-                              "relative cursor-pointer transition-all duration-200",
-                              "data-[highlighted]:bg-primary/10",
-                              "data-[highlighted]:text-primary",
-                              "hover:bg-primary/5",
-                              "active:scale-[0.98]",
-                              "focus:bg-primary/5 focus:outline-none",
-                              "px-3 py-2"
-                            )}
-                          >
-                            Backlog
-                          </SelectItem>
-                          <SelectItem
-                            value={TaskStatus.IN_PROGRESS}
-                            className={cn(
-                              "relative cursor-pointer transition-all duration-200",
-                              "data-[highlighted]:bg-primary/10",
-                              "data-[highlighted]:text-primary",
-                              "hover:bg-primary/5",
-                              "active:scale-[0.98]",
-                              "focus:bg-primary/5 focus:outline-none",
-                              "px-3 py-2"
-                            )}
-                          >
-                            In Progress
-                          </SelectItem>
-                          <SelectItem
-                            value={TaskStatus.IN_REVIEW}
-                            className={cn(
-                              "relative cursor-pointer transition-all duration-200",
-                              "data-[highlighted]:bg-primary/10",
-                              "data-[highlighted]:text-primary",
-                              "hover:bg-primary/5",
-                              "active:scale-[0.98]",
-                              "focus:bg-primary/5 focus:outline-none",
-                              "px-3 py-2"
-                            )}
-                          >
-                            In Review
-                          </SelectItem>
-                          <SelectItem
-                            value={TaskStatus.TODO}
-                            className={cn(
-                              "relative cursor-pointer transition-all duration-200",
-                              "data-[highlighted]:bg-primary/10",
-                              "data-[highlighted]:text-primary",
-                              "hover:bg-primary/5",
-                              "active:scale-[0.98]",
-                              "focus:bg-primary/5 focus:outline-none",
-                              "px-3 py-2"
-                            )}
-                          >
-                            To Do
-                          </SelectItem>
-                          <SelectItem
-                            value={TaskStatus.DONE}
-                            className={cn(
-                              "relative cursor-pointer transition-all duration-200",
-                              "data-[highlighted]:bg-primary/10",
-                              "data-[highlighted]:text-primary",
-                              "hover:bg-primary/5",
-                              "active:scale-[0.98]",
-                              "focus:bg-primary/5 focus:outline-none",
-                              "px-3 py-2"
-                            )}
-                          >
-                            Done
-                          </SelectItem>
-                        </div>
+                      <SelectContent>
+                        <SelectItem value={TaskStatus.BACKLOG}>
+                          Backlog
+                        </SelectItem>
+                        <SelectItem value={TaskStatus.IN_PROGRESS}>
+                          In Progress
+                        </SelectItem>
+                        <SelectItem value={TaskStatus.IN_REVIEW}>
+                          In Review
+                        </SelectItem>
+                        <SelectItem value={TaskStatus.TODO}>To Do</SelectItem>
+                        <SelectItem value={TaskStatus.DONE}>Done</SelectItem>
                       </SelectContent>
                     </Select>
                   </FormItem>
@@ -417,63 +279,25 @@ export const CreateTaskForm = ({
                           to-blue-500/20 rounded-lg blur opacity-75 group-hover:opacity-100 
                           transition duration-300"
                           />
-                          <SelectTrigger
-                            className={cn(
-                              "w-full h-11 px-3",
-                              "bg-white/80 hover:bg-white/90",
-                              "border border-neutral-200/50",
-                              "rounded-lg transition-all duration-200",
-                              "focus:ring-2 focus:ring-primary/20",
-                              "hover:border-primary/30",
-                              "data-[placeholder]:text-neutral-400"
-                            )}
-                          >
+                          <SelectTrigger>
                             <SelectValue placeholder="Select Project"></SelectValue>
                           </SelectTrigger>
                         </div>
                       </FormControl>
                       <FormMessage />
-                      <SelectContent
-                        className={cn(
-                          selectStyles({ variant: "default" }),
-                          "overflow-hidden",
-                          // Custom scrollbar
-                          "scrollbar-thin scrollbar-thumb-neutral-300 scrollbar-track-transparent",
-                          // Hover effect
-                          "group/select",
-                          "relative"
-                        )}
-                      >
-                        <div
-                          className="absolute inset-0 bg-gradient-to-br from-primary/5 to-blue-500/5 opacity-0 
-                          group-hover/select:opacity-100 transition-opacity duration-300"
-                        />
-                        <div className="relative z-10">
-                          {projectOptions.map((project) => (
-                            <SelectItem
-                              key={project.id}
-                              value={project.id}
-                              className={cn(
-                                "relative cursor-pointer transition-all duration-200",
-                                "data-[highlighted]:bg-primary/10",
-                                "data-[highlighted]:text-primary",
-                                "hover:bg-primary/5",
-                                "active:scale-[0.98]",
-                                "focus:bg-primary/5 focus:outline-none",
-                                "px-3 py-2"
-                              )}
-                            >
-                              <div className="flex items-center gap-x-2">
-                                <ProjectAvatar
-                                  name={project.name}
-                                  className="size-6"
-                                  image={project.imageUrl}
-                                />
-                                <span>{project.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </div>
+                      <SelectContent>
+                        {projectOptions.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            <div className="flex items-center gap-x-2">
+                              <ProjectAvatar
+                                name={project.name}
+                                className="size-6"
+                                image={project.imageUrl}
+                              />
+                              <span>{project.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </FormItem>
@@ -523,7 +347,7 @@ export const CreateTaskForm = ({
                         <span>Creating...</span>
                       </>
                     ) : (
-                      "Create Workspace"
+                      "Save Changes"
                     )}
                   </span>
                   {/* Interactive background effect */}

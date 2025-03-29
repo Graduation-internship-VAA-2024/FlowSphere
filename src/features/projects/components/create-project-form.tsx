@@ -231,20 +231,19 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
               <DottedSeparator className="py-7 opacity-50" />
 
               {/* Action Buttons */}
-              <div className="flex items-center justify-between pt-2">
-                <Button
-                  type="button"
-                  onClick={onCancel}
-                  variant="secondary"
-                  size="lg"
-                  disabled={isPending}
-                  className={cn(
-                    "hover:bg-neutral-100/80 transition duration-300",
-                    !onCancel && "invisible"
-                  )}
-                >
-                  Cancel
-                </Button>
+              <div className="flex items-center justify-between gap-4 pt-2">
+  {onCancel && (
+    <Button
+      type="button"
+      onClick={onCancel}
+      variant="secondary"
+      size="lg"
+      disabled={isPending}
+      className="hover:bg-neutral-100/80 transition duration-300"
+    >
+      Cancel
+    </Button>
+  )}
                 <Button
                   type="submit"
                   size="lg"
