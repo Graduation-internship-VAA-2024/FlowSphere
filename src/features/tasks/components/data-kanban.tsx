@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Task, TaskStatus } from "../types";
 import {
   DragDropContext,
@@ -23,11 +23,18 @@ type TaskState = {
 
 interface DataKanbanProps {
   data: Task[];
+  onChange: (
+    tasks: {
+      $id: string;
+      status: TaskStatus;
+      position: number;
+    }[]
+  ) => void;
 }
 
-export const DataKanban = ({ data }: DataKanbanProps) => {
+export const DataKanban = ({ data, onChange }: DataKanbanProps) => {
   const [tasks, setTasks] = useState<TaskState>(() => {
-    const initialState: TaskState = {
+    const initialTasks: TaskState = {
       [TaskStatus.TODO]: [],
       [TaskStatus.IN_PROGRESS]: [],
       [TaskStatus.DONE]: [],
@@ -36,94 +43,117 @@ export const DataKanban = ({ data }: DataKanbanProps) => {
     };
 
     data.forEach((task) => {
-      initialState[task.status].push(task);
+      initialTasks[task.status].push(task);
     });
 
-    Object.keys(initialState).forEach((status) => {
-      initialState[status as TaskStatus].sort(
+    Object.keys(initialTasks).forEach((status) => {
+      initialTasks[status as TaskStatus].sort(
         (a, b) => a.position - b.position
       );
     });
 
-    return initialState;
+    return initialTasks;
   });
 
-  const onDragEnd = useCallback((result: DropResult) => {
-    if (!result.destination) {
-      return;
-    }
+  useEffect(() => {
+    const newTasks: TaskState = {
+      [TaskStatus.TODO]: [],
+      [TaskStatus.IN_PROGRESS]: [],
+      [TaskStatus.DONE]: [],
+      [TaskStatus.BACKLOG]: [],
+      [TaskStatus.IN_REVIEW]: [],
+    };
+    data.forEach((task) => {
+      newTasks[task.status].push(task);
+    });
 
-    const { source, destination } = result;
-    const sourceStatus = source.droppableId as TaskStatus;
-    const destStatus = destination.droppableId as TaskStatus;
+    Object.keys(newTasks).forEach((status) => {
+      newTasks[status as TaskStatus].sort((a, b) => a.position - b.position);
 
-    let updatesPayload: {
-      $id: string;
-      status: TaskStatus;
-      position: number;
-    }[] = [];
+      setTasks(newTasks);
+    });
+  }, [data]);
 
-    setTasks((prevTasks) => {
-      const newTasks = { ...prevTasks };
-      const sourceColumn = [...newTasks[sourceStatus]];
-      const [movedTask] = sourceColumn.splice(source.index, 1);
-
-      if (!movedTask) {
-        console.error("Task not found in source column");
-        return prevTasks;
+  const onDragEnd = useCallback(
+    (result: DropResult) => {
+      if (!result.destination) {
+        return;
       }
-      const updatedMovedTask =
-        sourceStatus !== destStatus
-          ? {
-              ...movedTask,
-              status: destStatus,
-            }
-          : movedTask;
 
-      newTasks[sourceStatus] = sourceColumn;
-      const destColumn = [...newTasks[destStatus]];
-      destColumn.splice(destination.index, 0, updatedMovedTask);
-      newTasks[destStatus] = destColumn;
-      updatesPayload = [];
+      const { source, destination } = result;
+      const sourceStatus = source.droppableId as TaskStatus;
+      const destStatus = destination.droppableId as TaskStatus;
 
-      updatesPayload.push({
-        $id: updatedMovedTask.$id,
-        status: destStatus,
-        position: Math.min((destination.index + 1) * 1000, 1_000_000),
-      });
+      let updatesPayload: {
+        $id: string;
+        status: TaskStatus;
+        position: number;
+      }[] = [];
 
-      newTasks[destStatus].forEach((task, index) => {
-        if (task && task.$id !== updatedMovedTask.$id) {
-          const newPosition = Math.min(
-            (destination.index + 1) * 1000,
-            1_000_000
-          );
-          if (task.position !== newPosition) {
-            updatesPayload.push({
-              $id: task.$id,
-              status: destStatus,
-              position: newPosition,
-            });
-          }
+      setTasks((prevTasks) => {
+        const newTasks = { ...prevTasks };
+        const sourceColumn = [...newTasks[sourceStatus]];
+        const [movedTask] = sourceColumn.splice(source.index, 1);
+
+        if (!movedTask) {
+          console.error("Task not found in source column");
+          return prevTasks;
         }
-      });
-      if (sourceStatus !== destStatus) {
-        newTasks[sourceStatus].forEach((task, index) => {
-          if (task) {
-            const newPosition = Math.min((index + 1) * 1000, 1_000_000);
+        const updatedMovedTask =
+          sourceStatus !== destStatus
+            ? {
+                ...movedTask,
+                status: destStatus,
+              }
+            : movedTask;
+
+        newTasks[sourceStatus] = sourceColumn;
+        const destColumn = [...newTasks[destStatus]];
+        destColumn.splice(destination.index, 0, updatedMovedTask);
+        newTasks[destStatus] = destColumn;
+        updatesPayload = [];
+
+        updatesPayload.push({
+          $id: updatedMovedTask.$id,
+          status: destStatus,
+          position: Math.min((destination.index + 1) * 1000, 1_000_000),
+        });
+
+        newTasks[destStatus].forEach((task, index) => {
+          if (task && task.$id !== updatedMovedTask.$id) {
+            const newPosition = Math.min(
+              (destination.index + 1) * 1000,
+              1_000_000
+            );
             if (task.position !== newPosition) {
               updatesPayload.push({
                 $id: task.$id,
-                status: sourceStatus,
+                status: destStatus,
                 position: newPosition,
               });
             }
           }
         });
-      }
-      return newTasks;
-    });
-  }, []);
+        if (sourceStatus !== destStatus) {
+          newTasks[sourceStatus].forEach((task, index) => {
+            if (task) {
+              const newPosition = Math.min((index + 1) * 1000, 1_000_000);
+              if (task.position !== newPosition) {
+                updatesPayload.push({
+                  $id: task.$id,
+                  status: sourceStatus,
+                  position: newPosition,
+                });
+              }
+            }
+          });
+        }
+        return newTasks;
+      });
+      onChange(updatesPayload);
+    },
+    [onChange]
+  );
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
