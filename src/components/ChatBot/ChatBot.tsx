@@ -7,6 +7,10 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { useCreateWorkspace } from '@/features/workspaces/api/use-create-workspace';
 import { useWorkspaceId } from '@/features/workspaces/hooks/use-workspace-id';
+import { useCurrentUser } from './hooks/userCurrent';
+import { IntentAnalyzer } from './utils/intentAnalyzer';
+import { SYSTEM_PROMPT } from './constants/prompts';
+import { useCreateProject } from '@/features/projects/api/use-create-project';
 
 interface ChatbotDialogProps {
   isOpen: boolean;
@@ -21,6 +25,8 @@ interface Message {
 
 interface ExampleQuestion {
   text: string;
+  intent: 'create_workspace' | 'create_project' | 'manage_tasks';
+  context?: string;
 }
 
 interface WorkspaceIntent {
@@ -28,11 +34,23 @@ interface WorkspaceIntent {
   name?: string;
 }
 
+interface ProjectIntent {
+  isCreating: boolean;
+  name?: string;
+}
+
+const intentAnalyzer = new IntentAnalyzer();
+
 export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
+  const { user, isLoading } = useCurrentUser();
   const router = useRouter();
   const createWorkspace = useCreateWorkspace();
+  const createProject = useCreateProject();
   const workspaceId = useWorkspaceId();
   const [workspaceIntent, setWorkspaceIntent] = useState<WorkspaceIntent>({
+    isCreating: false
+  });
+  const [projectIntent, setProjectIntent] = useState<ProjectIntent>({
     isCreating: false
   });
 
@@ -42,11 +60,31 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   const [showIntro, setShowIntro] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [hasWelcomed, setHasWelcomed] = useState(false);
   
   const exampleQuestions: ExampleQuestion[] = [
-    { text: "How would I use Workspaces?" },
-    { text: "What are the key features?" },
-    { text: "How to create a new project?" }
+    { 
+      text: "Create a new workspace for my team",
+      intent: "create_workspace"
+    },
+    { 
+      text: "I need a workspace for my marketing project",
+      intent: "create_workspace",
+      context: "marketing"
+    },
+    { 
+      text: "Set up a new project in my workspace",
+      intent: "create_project"
+    },
+    { 
+      text: "Create a development workspace",
+      intent: "create_workspace",
+      context: "development"
+    },
+    {
+      text: "Help me organize my project tasks",
+      intent: "manage_tasks"
+    }
   ];
 
   useEffect(() => {
@@ -61,14 +99,76 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     scrollToBottom();
   }, [messages, isTyping]);
 
+  useEffect(() => {
+    if (isOpen && user && !hasWelcomed && messages.length === 0) {
+      const welcomeMessage = {
+        id: Date.now().toString(),
+        content: `Xin chào ${user.name}! Tôi là trợ lý ảo của FlowSphere. 
+        Tôi có thể giúp gì cho bạn?`,
+        role: 'assistant' as const
+      };
+      setMessages([welcomeMessage]);
+      setHasWelcomed(true);
+    }
+  }, [isOpen, user, hasWelcomed]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleQuestionClick = (question: string) => {
-    setInput(question);
-    if (inputRef.current) {
-      inputRef.current.focus();
+  const handleQuestionClick = async (question: ExampleQuestion) => {
+    setShowIntro(false);
+    
+    switch (question.intent) {
+      case 'create_workspace':
+        setWorkspaceIntent({ isCreating: true });
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          content: question.text,
+          role: 'user'
+        }, {
+          id: (Date.now() + 1).toString(),
+          content: `Tôi sẽ giúp bạn tạo một workspace${question.context ? ` cho ${question.context}` : ''}.
+          
+Bạn muốn đặt tên cho workspace là gì?
+
+Gợi ý đặt tên:
+• Ngắn gọn và dễ nhớ
+• Phản ánh mục đích sử dụng
+• Không sử dụng ký tự đặc biệt`,
+          role: 'assistant'
+        }]);
+        break;
+
+      case 'create_project':
+        if (!workspaceId) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            content: question.text,
+            role: 'user'
+          }, {
+            id: (Date.now() + 1).toString(),
+            content: `Để tạo project, bạn cần phải có workspace trước. 
+
+Hiện tại bạn chưa có workspace nào. Bạn có muốn:
+
+1. Tạo workspace mới (Gõ "tạo workspace" hoặc bấm vào đây)
+2. Hoặc chuyển đến trang workspace để chọn một workspace có sẵn
+
+Lưu ý: Project luôn phải thuộc về một workspace để dễ dàng quản lý và tổ chức.`,
+            role: 'assistant',
+            actions: [{
+              type: 'create_workspace',
+              label: 'Tạo Workspace Mới'
+            }, {
+              type: 'view_workspaces',
+              label: 'Xem Workspaces'
+            }]
+          }]);
+          return;
+        }
+        // ... rest of create project logic
+        break;
     }
   };
 
@@ -86,6 +186,26 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     setIsTyping(true);
 
     try {
+      // Check for project creation intent first
+      if (content.toLowerCase().includes('project') || 
+          content.toLowerCase().includes('dự án')) {
+        if (!workspaceId) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            content: `Để tạo hoặc quản lý project, bạn cần phải có workspace trước.
+
+Bạn có thể:
+1. Tạo workspace mới ngay bây giờ (Gõ "tạo workspace")
+2. Chọn một workspace có sẵn (Tôi sẽ chuyển bạn đến trang workspaces)
+
+Bạn muốn làm gì?`,
+            role: 'assistant'
+          }]);
+          return;
+        }
+      }
+
+      // Handle regular workspace creation
       if (workspaceIntent.isCreating && !workspaceIntent.name) {
         const workspaceName = content.trim();
         setWorkspaceIntent({ isCreating: true, name: workspaceName });
@@ -102,40 +222,127 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
           role: 'assistant'
         }]);
 
-        // Chuyển hướng đến workspace mới tạo với ID
         setTimeout(() => {
           router.push(`/workspaces/${response.data.$id}`);
           onClose();
         }, 2000);
 
-        // Reset workspace intent
         setWorkspaceIntent({ isCreating: false });
         return;
       }
 
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [...messages, newMessage] })
-      });
+      // Handle project creation only if workspace exists
+      if (projectIntent.isCreating && !projectIntent.name) {
+        if (!workspaceId) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            content: `Xin lỗi, bạn không thể tạo project khi chưa có workspace.
 
-      const data = await response.json();
+Hãy tạo workspace trước bằng cách gõ "tạo workspace" hoặc để tôi giúp bạn chuyển đến trang workspaces.`,
+            role: 'assistant'
+          }]);
+          setProjectIntent({ isCreating: false });
+          return;
+        }
+        const projectName = content.trim();
+        setProjectIntent({ isCreating: true, name: projectName });
+        
+        // Create project
+        const response = await createProject.mutateAsync({
+          form: { 
+            name: projectName,
+            workspaceId: workspaceId // Make sure you have the current workspace ID
+          }
+        });
 
-      // Kiểm tra ý định tạo workspace từ câu trả lời
-      if (content.toLowerCase().includes('tạo workspace') || 
-          content.toLowerCase().includes('tạo một workspace')) {
-        setWorkspaceIntent({ isCreating: true });
+        // Add confirmation message
         setMessages(prev => [...prev, {
           id: Date.now().toString(),
-          content: 'Bạn muốn đặt tên cho workspace là gì?',
+          content: `Đã tạo project "${projectName}" thành công! Đang chuyển hướng...`,
+          role: 'assistant'
+        }]);
+
+        // Redirect to new project
+        setTimeout(() => {
+          router.push(`/workspaces/${workspaceId}/projects/${response.data.$id}`);
+          onClose();
+        }, 2000);
+
+        setProjectIntent({ isCreating: false });
+        return;
+      }
+
+      // Phân tích ý định từ tin nhắn người dùng
+      const intentAnalysis = intentAnalyzer.analyzeIntent(content);
+
+      // Nếu phát hiện ý định tạo workspace với độ tin cậy cao
+      if (intentAnalysis.type === 'create_workspace' && intentAnalysis.confidence > 0.6) {
+        setWorkspaceIntent({ isCreating: true });
+        const response = intentAnalyzer.generateResponse(intentAnalysis);
+
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          content: response,
           role: 'assistant'
         }]);
         return;
       }
 
+      // Gọi OpenRouter API với context phong phú hơn
+      const aiResponse = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          messages: [
+            {
+              role: 'system',
+              content: SYSTEM_PROMPT
+            },
+            ...messages,
+            {
+              ...newMessage,
+              content: `
+Người dùng: ${user?.name}
+Email: ${user?.email}
+Workspace hiện tại: ${workspaceId || 'Chưa có'}
+Phân tích ý định: ${JSON.stringify(intentAnalysis)}
+Yêu cầu: ${content}
+              `
+            }
+          ]
+        })
+      });
+
+      const data = await aiResponse.json();
+      
+      // Phân tích phản hồi từ AI để xác định ý định
+      const aiMessage = data.response;
+      const hasWorkspaceIntent = aiMessage.toLowerCase().includes('tạo workspace') ||
+                                aiMessage.toLowerCase().includes('đặt tên workspace');
+
+      if (hasWorkspaceIntent) {
+        setWorkspaceIntent({ isCreating: true });
+        // Thêm hướng dẫn chi tiết về đặt tên
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          content: `${aiMessage}
+
+Một số gợi ý cho tên workspace:
+• Ngắn gọn và dễ nhớ
+• Liên quan đến mục đích sử dụng
+• Chỉ sử dụng chữ cái, số và dấu gạch ngang
+• Không sử dụng ký tự đặc biệt
+
+Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
+          role: 'assistant'
+        }]);
+        return;
+      }
+
+      // Thêm tin nhắn từ AI
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
-        content: data.response,
+        content: aiMessage,
         role: 'assistant'
       }]);
 
@@ -143,7 +350,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
       console.error('Error:', error);
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
-        content: 'Xin lỗi, đã có lỗi xảy ra khi tạo workspace. Vui lòng thử lại sau.',
+        content: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
         role: 'assistant'
       }]);
       setWorkspaceIntent({ isCreating: false });
@@ -162,6 +369,46 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
 
     handleSendMessage(input);
   }, [input, showIntro]);
+
+  const renderIntro = () => (
+    <>
+      <div className="flex items-center gap-2 mb-4">
+        <div className="h-8 w-8 rounded-full bg-gray-900 flex items-center justify-center">
+          <span className="text-xs text-white">
+            {user?.name?.[0]?.toUpperCase() || 'U'}
+          </span>
+        </div>
+        <div>
+          <p className="text-sm font-medium">{user?.name}</p>
+          <p className="text-xs text-gray-500">{user?.email}</p>
+        </div>
+      </div>
+      <p className="text-gray-600 mb-4 text-sm">
+        Hi! I can help you with:
+        <span className="block mt-2 space-y-1">
+          <span className="inline-block bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium mr-2 mb-1">Workspaces</span>
+          <span className="inline-block bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium mr-2 mb-1">Projects</span>
+          <span className="inline-block bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium mr-2 mb-1">Task Management</span>
+        </span>
+      </p>
+      <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2 mt-6">
+        EXAMPLE QUESTIONS
+      </p>
+      <div className="space-y-2">
+        {exampleQuestions.map((question, index) => (
+          <motion.div 
+            key={index}
+            className="p-3 cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200 rounded-lg"
+            onClick={() => handleQuestionClick(question)}
+            whileHover={{ scale: 1.02 }}
+            transition={{ type: "spring", stiffness: 400, damping: 17 }}
+          >
+            <p className="text-gray-700 text-sm">{question.text}</p>
+          </motion.div>
+        ))}
+      </div>
+    </>
+  );
 
   if (!isOpen) return null;
 
@@ -199,28 +446,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
 
         {/* Messages Area */}
         <div className="flex-1 overflow-y-auto p-6">
-          {showIntro ? (
-            <>
-              <p className="text-gray-600 mb-4 text-sm">
-                Ask me anything about <span className="bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium">Workspaces</span>
-              </p>
-              
-              <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2 mt-6">
-                EXAMPLE QUESTIONS
-              </p>
-              <div className="space-y-2">
-                {exampleQuestions.map((question, index) => (
-                  <div 
-                    key={index}
-                    className="p-3 cursor-pointer hover:bg-gray-50 transition-colors border border-gray-200 rounded-lg"
-                    onClick={() => handleQuestionClick(question.text)}
-                  >
-                    <p className="text-gray-700 text-sm">{question.text}</p>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
+          {showIntro ? renderIntro() : (
             <div className="space-y-4">
               {messages.map((message) => (
                 <motion.div 
@@ -260,6 +486,7 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
                     <div className={`
                       text-xs md:text-sm
                       ${message.role === 'user' ? 'text-white' : 'text-gray-800'}
+                      whitespace-pre-wrap break-words
                     `}>
                       {message.content}
                     </div>
