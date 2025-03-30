@@ -18,8 +18,11 @@ export const useLogout = () => {
       return await response.json();
     },
     onSuccess: () => {
-      toast.success("Logout successful");
-      router.refresh();
+      toast.success("Logged out successfully");
+      // Thay đổi redirect path từ "/" thành "/sign-in"
+      router.push("/sign-in");
+      // Xóa cache của các queries liên quan
+      queryClient.clear();
       queryClient.invalidateQueries({ queryKey: ["current"] });
       queryClient.invalidateQueries({ queryKey: ["workspaces"] });
     },
