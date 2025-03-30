@@ -21,7 +21,7 @@ export const ChatList = () => {
       />
 
       <motion.div className="space-y-2 overflow-auto flex-1">
-        {[1,2,3].map((_, i) => (
+        {[1,2,3,4,5,6,7,8,9,10, 11, 12, 13].map((_, i) => (
           <motion.div
             key={i}
             initial={{ x: -20, opacity: 0 }}
