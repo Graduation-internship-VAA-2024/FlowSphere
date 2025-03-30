@@ -41,6 +41,21 @@ interface ProjectIntent {
 
 const intentAnalyzer = new IntentAnalyzer();
 
+const exampleQuestions: ExampleQuestion[] = [
+  { 
+    text: "Create a new workspace for my team",
+    intent: "create_workspace"
+  },
+  { 
+    text: "Create a new project",
+    intent: "create_project"
+  },
+  {
+    text: "Help me organize my tasks",
+    intent: "manage_tasks"
+  }
+];
+
 export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   const { user, isLoading } = useCurrentUser();
   const router = useRouter();
@@ -62,31 +77,6 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [hasWelcomed, setHasWelcomed] = useState(false);
   
-  const exampleQuestions: ExampleQuestion[] = [
-    { 
-      text: "Create a new workspace for my team",
-      intent: "create_workspace"
-    },
-    { 
-      text: "I need a workspace for my marketing project",
-      intent: "create_workspace",
-      context: "marketing"
-    },
-    { 
-      text: "Set up a new project in my workspace",
-      intent: "create_project"
-    },
-    { 
-      text: "Create a development workspace",
-      intent: "create_workspace",
-      context: "development"
-    },
-    {
-      text: "Help me organize my project tasks",
-      intent: "manage_tasks"
-    }
-  ];
-
   useEffect(() => {
     if (isOpen && inputRef.current) {
       setTimeout(() => {
@@ -149,25 +139,31 @@ Gợi ý đặt tên:
           }, {
             id: (Date.now() + 1).toString(),
             content: `Để tạo project, bạn cần phải có workspace trước. 
-
-Hiện tại bạn chưa có workspace nào. Bạn có muốn:
-
-1. Tạo workspace mới (Gõ "tạo workspace" hoặc bấm vào đây)
-2. Hoặc chuyển đến trang workspace để chọn một workspace có sẵn
-
-Lưu ý: Project luôn phải thuộc về một workspace để dễ dàng quản lý và tổ chức.`,
-            role: 'assistant',
-            actions: [{
-              type: 'create_workspace',
-              label: 'Tạo Workspace Mới'
-            }, {
-              type: 'view_workspaces',
-              label: 'Xem Workspaces'
-            }]
+          
+Bạn đã có workspace nhưng chưa chọn workspace nào. Vui lòng:
+1. Chọn một workspace từ menu
+2. Sau đó quay lại đây để tạo project`,
+            role: 'assistant'
           }]);
-          return;
+        } else {
+          setProjectIntent({ isCreating: true });
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            content: question.text,
+            role: 'user'
+          }, {
+            id: (Date.now() + 1).toString(),
+            content: `Tôi sẽ giúp bạn tạo một project trong workspace hiện tại.
+          
+Bạn muốn đặt tên cho project là gì?
+
+Gợi ý đặt tên:
+• Ngắn gọn và dễ nhớ
+• Phản ánh mục đích của project
+• Không sử dụng ký tự đặc biệt`,
+            role: 'assistant'
+          }]);
         }
-        // ... rest of create project logic
         break;
     }
   };
@@ -186,23 +182,44 @@ Lưu ý: Project luôn phải thuộc về một workspace để dễ dàng qu�
     setIsTyping(true);
 
     try {
-      // Check for project creation intent first
-      if (content.toLowerCase().includes('project') || 
-          content.toLowerCase().includes('dự án')) {
+      // Handle project creation
+      if (projectIntent.isCreating && !projectIntent.name) {
         if (!workspaceId) {
           setMessages(prev => [...prev, {
             id: Date.now().toString(),
-            content: `Để tạo hoặc quản lý project, bạn cần phải có workspace trước.
-
-Bạn có thể:
-1. Tạo workspace mới ngay bây giờ (Gõ "tạo workspace")
-2. Chọn một workspace có sẵn (Tôi sẽ chuyển bạn đến trang workspaces)
-
-Bạn muốn làm gì?`,
+            content: 'Bạn cần chọn workspace trước khi tạo project.',
             role: 'assistant'
           }]);
+          setProjectIntent({ isCreating: false });
           return;
         }
+
+        const projectName = content.trim();
+        setProjectIntent({ isCreating: true, name: projectName });
+        
+        // Create project
+        const response = await createProject.mutateAsync({
+          form: { 
+            name: projectName,
+            workspaceId 
+          }
+        });
+
+        // Add confirmation message
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          content: `Đã tạo project "${projectName}" thành công! Đang chuyển hướng...`,
+          role: 'assistant'
+        }]);
+
+        // Redirect to new project
+        setTimeout(() => {
+          router.push(`/workspaces/${workspaceId}/projects/${response.data.$id}`);
+          onClose();
+        }, 2000);
+
+        setProjectIntent({ isCreating: false });
+        return;
       }
 
       // Handle regular workspace creation
@@ -231,49 +248,38 @@ Bạn muốn làm gì?`,
         return;
       }
 
-      // Handle project creation only if workspace exists
-      if (projectIntent.isCreating && !projectIntent.name) {
+      // Phân tích ý định từ tin nhắn người dùng
+      const intentAnalysis = intentAnalyzer.analyzeIntent(content);
+
+      // Xử lý ý định tạo project
+      if (intentAnalysis.type === 'create_project' && intentAnalysis.confidence > 0.6) {
         if (!workspaceId) {
           setMessages(prev => [...prev, {
             id: Date.now().toString(),
-            content: `Xin lỗi, bạn không thể tạo project khi chưa có workspace.
-
-Hãy tạo workspace trước bằng cách gõ "tạo workspace" hoặc để tôi giúp bạn chuyển đến trang workspaces.`,
+            content: `Bạn đang ở ngoài workspace. Vui lòng:
+1. Chọn một workspace từ menu điều hướng
+2. Hoặc tạo workspace mới nếu chưa có
+3. Sau đó quay lại đây để tạo project`,
             role: 'assistant'
           }]);
-          setProjectIntent({ isCreating: false });
           return;
         }
-        const projectName = content.trim();
-        setProjectIntent({ isCreating: true, name: projectName });
-        
-        // Create project
-        const response = await createProject.mutateAsync({
-          form: { 
-            name: projectName,
-            workspaceId: workspaceId // Make sure you have the current workspace ID
-          }
-        });
 
-        // Add confirmation message
+        setProjectIntent({ isCreating: true });
         setMessages(prev => [...prev, {
           id: Date.now().toString(),
-          content: `Đã tạo project "${projectName}" thành công! Đang chuyển hướng...`,
+          content: `Tôi sẽ giúp bạn tạo một project trong workspace hiện tại.
+          
+Bạn muốn đặt tên cho project là gì?
+
+Gợi ý đặt tên:
+• Ngắn gọn và dễ nhớ
+• Phản ánh mục đích của project
+• Không sử dụng ký tự đặc biệt`,
           role: 'assistant'
         }]);
-
-        // Redirect to new project
-        setTimeout(() => {
-          router.push(`/workspaces/${workspaceId}/projects/${response.data.$id}`);
-          onClose();
-        }, 2000);
-
-        setProjectIntent({ isCreating: false });
         return;
       }
-
-      // Phân tích ý định từ tin nhắn người dùng
-      const intentAnalysis = intentAnalyzer.analyzeIntent(content);
 
       // Nếu phát hiện ý định tạo workspace với độ tin cậy cao
       if (intentAnalysis.type === 'create_workspace' && intentAnalysis.confidence > 0.6) {

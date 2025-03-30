@@ -1,5 +1,7 @@
 interface IntentAnalysis {
-  type: "create_workspace" | "question" | "unknown";
+
+  type: 'create_workspace' | 'create_project' | 'question' | 'unknown';
+
   confidence: number;
   context?: {
     purpose?: string;
@@ -28,8 +30,29 @@ export class IntentAnalyzer {
     actions: ["quản lý", "tổ chức", "làm việc", "lưu trữ", "theo dõi"],
   };
 
+  private projectKeywords = {
+    create: ['tạo project', 'tạo dự án', 'thêm project', 'project mới', 'new project', 'create project'],
+    indirect: ['muốn có project', 'cần một project', 'làm project']
+  };
+
   analyzeIntent(message: string): IntentAnalysis {
     const normalizedMessage = message.toLowerCase();
+    
+    // Kiểm tra ý định tạo project
+    if (this.projectKeywords.create.some(kw => normalizedMessage.includes(kw))) {
+      return {
+        type: 'create_project',
+        confidence: 0.9
+      };
+    }
+
+    if (this.projectKeywords.indirect.some(kw => normalizedMessage.includes(kw))) {
+      return {
+        type: 'create_project',
+        confidence: 0.7
+      };
+    }
+
     let confidence = 0;
     let context = {};
 
