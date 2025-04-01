@@ -157,7 +157,7 @@ export const DataKanban = ({ data, onChange }: DataKanbanProps) => {
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex overflow-x-auto ">
+      <div className="flex overflow-x-auto">
         {boards.map((board) => {
           return (
             <div
@@ -186,6 +186,7 @@ export const DataKanban = ({ data, onChange }: DataKanbanProps) => {
                             ref={provided.innerRef}
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
+                            className="mb-2" // Thêm margin-bottom giữa các task
                           >
                             <KanbanCard task={task} />
                           </div>
