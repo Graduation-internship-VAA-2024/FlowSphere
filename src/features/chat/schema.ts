@@ -12,7 +12,6 @@ export const createChatSchema = z.object({
 export const chatMemberSchema = z.object({
   chatsId: z.string(),
   memberId: z.string(),
-  role: z.nativeEnum(MemberRole).default(MemberRole.MEMBER),
 });
 
 // Schema for sending messages
@@ -22,7 +21,7 @@ export const messageSchema = z.object({
   content: z.string().optional(),
   fileUrl: z.string().optional(),
   imageUrl: z.string().optional(),
-  createdAt: z.date().default(() => new Date()),
+  CreatedAt: z.date().optional(),
 });
 
 // Schema for updating chat details

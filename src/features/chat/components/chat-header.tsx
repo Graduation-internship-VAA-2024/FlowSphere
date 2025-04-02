@@ -1,16 +1,40 @@
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Users, RefreshCw } from "lucide-react";
+import { MoreVertical, Users, RefreshCw, UserPlus } from "lucide-react";
 import { Chats, ChatMembers } from "../type";
 
 interface ChatHeaderProps {
-  chats?: Chats & { members?: ChatMembers[] };
+  chats?: Chats & { 
+    members?: (ChatMembers & { 
+      memberDetails?: { 
+        name?: string;
+        email?: string;
+        userId?: string;
+      } 
+    })[];
+    totalWorkspaceMembers?: number;
+  };
   onSyncMembers?: () => void;
+  onAddAllMembers?: () => void;
   isSyncing?: boolean;
+  isAddingMembers?: boolean;
 }
 
-export const ChatHeader = ({ chats, onSyncMembers, isSyncing }: ChatHeaderProps) => {
+export const ChatHeader = ({ 
+  chats, 
+  onSyncMembers, 
+  onAddAllMembers,
+  isSyncing,
+  isAddingMembers 
+}: ChatHeaderProps) => {
   if (!chats) return null;
+
+  // Get up to 3 member names to display
+  const memberNames = chats.members
+    ?.filter(m => m.memberDetails?.name)
+    .slice(0, 3)
+    .map(m => m.memberDetails?.name)
+    .filter(Boolean);
 
   return (
     <div className="p-4 border-b flex items-center justify-between">
@@ -19,8 +43,13 @@ export const ChatHeader = ({ chats, onSyncMembers, isSyncing }: ChatHeaderProps)
         <div>
           <h3 className="font-medium">{chats.name}</h3>
           <p className="text-sm text-neutral-500">
-            {chats.members ? `${chats.members.length} members` : ''} • 
+            {chats.totalWorkspaceMembers ? `${chats.totalWorkspaceMembers} thành viên` : chats.members ? `${chats.members.length} thành viên` : ''} • 
             {chats.isGroup ? ' Group chat' : ' Direct message'}
+            {memberNames && memberNames.length > 0 && (
+              <span className="block text-xs mt-0.5 text-muted-foreground">
+                {memberNames.join(", ")}{chats.members && chats.members.length > 3 ? "..." : ""}
+              </span>
+            )}
           </p>
         </div>
       </div>

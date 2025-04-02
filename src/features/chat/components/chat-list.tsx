@@ -22,10 +22,28 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 interface ChatListProps {
   workspaceId: string;
-  chats: (Chats & { members?: ChatMembers[] })[];
+  chats: (Chats & { 
+    members?: (ChatMembers & { 
+      memberDetails?: { 
+        name?: string;
+        email?: string;
+        userId?: string;
+      } 
+    })[];
+    totalWorkspaceMembers?: number;
+  })[];
   isLoading: boolean;
   selectedChatId?: string;
-  onSelectChat: (chat: Chats & { members?: ChatMembers[] }) => void;
+  onSelectChat: (chat: Chats & { 
+    members?: (ChatMembers & { 
+      memberDetails?: { 
+        name?: string;
+        email?: string;
+        userId?: string;
+      } 
+    })[];
+    totalWorkspaceMembers?: number;
+  }) => void;
   onCreateChat?: (name: string, isGroup: boolean) => void;
   isCreatingChat?: boolean;
   createChatError?: string | null;
@@ -214,8 +232,12 @@ export const ChatList: React.FC<ChatListProps> = ({
                     <p className="text-xs text-muted-foreground truncate">
                       {isSingleUserWorkspaceChat 
                         ? `Chỉ có ${userName}`
-                        : `${chat.members?.length || 0} members`}
+                        : chat.members && chat.members.length > 0 && chat.members[0].memberDetails ? 
+                          <span>{chat.members.slice(0, 2).map(m => m.memberDetails?.name || "").filter(Boolean).join(", ")}{chat.members.length > 2 ? "..." : ""}</span>
+                          : null
+                      }
                     </p>
+
                   </div>
                 </div>
               );

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Chats, ChatMembers } from "@/features/chat/type";
 import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
+import { chatApi } from "@/features/chat/api";
 
 export default function ChatPage() {
   const params = useParams();
@@ -19,6 +20,9 @@ export default function ChatPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [workspaceName, setWorkspaceName] = useState<string>("");
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [syncNotification, setSyncNotification] = useState<string | null>(null);
 
   // Fetch member ID
   useEffect(() => {
@@ -42,6 +46,10 @@ export default function ChatPage() {
         const data = await response.json();
         if (data.data) {
           setMemberId(data.data.$id);
+          // Lấy tên workspace từ member data nếu có
+          if (data.data.workspaceName) {
+            setWorkspaceName(data.data.workspaceName);
+          }
         } else {
           throw new Error("No member data received");
         }
@@ -58,7 +66,7 @@ export default function ChatPage() {
 
   // Fetch chats
   useEffect(() => {
-    if (!workspaceId) return;
+    if (!workspaceId || isInitializing) return;
 
     const fetchChats = async () => {
       try {
@@ -70,11 +78,77 @@ export default function ChatPage() {
         
         const data = await response.json();
         if (data.data && data.data.documents) {
+          // Kiểm tra có nhóm chat nào không
+          const hasGroupChat = data.data.documents.some(
+            (chat: Chats) => chat.isGroup === true
+          );
+          
+          if (!hasGroupChat && memberId) {
+            // Nếu không có nhóm chat và đã có memberId, tạo một nhóm chat mặc định
+            setIsInitializing(true);
+            try {
+              // Lấy thông tin workspace để lấy tên chính xác
+              const wsResponse = await fetch(`/api/workspaces/${workspaceId}`);
+              
+              let chatName = "Nhóm chung";
+              
+              if (wsResponse.ok) {
+                const workspaceData = await wsResponse.json();
+                if (workspaceData?.data?.name) {
+                  chatName = workspaceData.data.name;
+                }
+              } else {
+                console.error("Không thể lấy thông tin workspace");
+              }
+              
+              // Tạo một nhóm chat mới
+              const newChat = await chatApi.createChat({
+                workspaceId,
+                name: chatName,
+                isGroup: true
+              });
+              
+              if (newChat.data) {
+                try {
+                  // Đồng bộ tất cả thành viên vào nhóm chat mới
+                  const syncResult = await chatApi.syncMembers(newChat.data.$id, workspaceId);
+                  console.log('Sync result:', syncResult);
+                  
+                  // Lấy lại chat với thành viên mới
+                  const updatedChatResponse = await fetch(`/api/chats/${newChat.data.$id}`);
+                  if (updatedChatResponse.ok) {
+                    const updatedChatData = await updatedChatResponse.json();
+                    if (updatedChatData?.data) {
+                      // Thay thế chat mới bằng phiên bản có members
+                      data.data.documents = data.data.documents.filter((c: any) => c.$id !== newChat.data.$id);
+                      data.data.documents.push(updatedChatData.data);
+                    }
+                  }
+                } catch (syncError) {
+                  console.error("Error syncing members:", syncError);
+                }
+              }
+            } catch (error) {
+              console.error("Error creating default chat:", error);
+            } finally {
+              setIsInitializing(false);
+            }
+          }
+          
           setChats(data.data.documents);
           
-          // If there are chats and none is selected, select the first one
+          // Nếu có chat và chưa chọn chat nào, chọn chat đầu tiên
           if (data.data.documents.length > 0 && !selectedChat) {
-            setSelectedChat(data.data.documents[0]);
+            // Ưu tiên chọn nhóm chat (group chat)
+            const defaultGroupChat = data.data.documents.find(
+              (chat: Chats) => chat.isGroup === true
+            );
+            
+            if (defaultGroupChat) {
+              setSelectedChat(defaultGroupChat);
+            } else if (data.data.documents.length > 0) {
+              setSelectedChat(data.data.documents[0]);
+            }
           }
         }
       } catch (error) {
@@ -85,7 +159,7 @@ export default function ChatPage() {
     };
 
     fetchChats();
-  }, [workspaceId, selectedChat]);
+  }, [workspaceId, memberId, isInitializing, selectedChat]);
 
   // Fetch messages when a chat is selected
   useEffect(() => {
@@ -119,39 +193,38 @@ export default function ChatPage() {
   };
 
   const handleSyncMembers = async () => {
-    if (!selectedChat?.$id) return;
+    if (!selectedChat?.$id || isSyncing) return;
     
     setIsSyncing(true);
+    setSyncNotification(null);
     try {
-      const response = await fetch(`/api/chats/${selectedChat.$id}/sync-members`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ workspaceId })
-      });
+      const response = await chatApi.syncMembers(selectedChat.$id, workspaceId);
       
-      if (!response.ok) {
-        throw new Error(`Failed to sync members: ${response.status}`);
+      if (!response.data) {
+        throw new Error("Failed to sync members");
       }
       
-      // Refresh chats after sync
-      const chatsResponse = await fetch(`/api/chats?workspaceId=${workspaceId}`);
-      if (chatsResponse.ok) {
-        const data = await chatsResponse.json();
-        if (data.data && data.data.documents) {
-          setChats(data.data.documents);
-          
-          // Update selected chat with new data
-          const updatedSelectedChat = data.data.documents.find(
-            (chat: Chats) => chat.$id === selectedChat.$id
-          );
-          if (updatedSelectedChat) {
-            setSelectedChat(updatedSelectedChat);
-          }
+      setSyncNotification(response.data.message || "Đã đồng bộ thành viên.");
+      
+      const chatsData = await chatApi.getChats(workspaceId);
+      
+      if (chatsData?.data?.documents) {
+        setChats(chatsData.data.documents);
+        
+        const updatedSelectedChat = chatsData.data.documents.find(
+          (chat: Chats) => chat.$id === selectedChat.$id
+        );
+        
+        if (updatedSelectedChat) {
+          setSelectedChat(updatedSelectedChat);
         }
       }
+      
+      setTimeout(() => {
+        setSyncNotification(null);
+      }, 5000);
     } catch (error) {
+      console.error("Error syncing members:", error);
       setError(`Failed to sync members: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsSyncing(false);
@@ -163,6 +236,9 @@ export default function ChatPage() {
     
     setIsSending(true);
     try {
+      // Chỉ gửi tin nhắn, không cập nhật thành viên
+      let messageResponse;
+      
       if (file) {
         // Handle file upload
         const formData = new FormData();
@@ -170,7 +246,7 @@ export default function ChatPage() {
         formData.append('chatsId', selectedChat.$id);
         formData.append('memberId', memberId);
         
-        await fetch('/api/chats/upload', {
+        messageResponse = await fetch('/api/chats/upload', {
           method: 'POST',
           body: formData
         });
@@ -178,7 +254,7 @@ export default function ChatPage() {
       
       if (content.trim()) {
         // Send text message
-        await fetch(`/api/chats/${selectedChat.$id}/messages`, {
+        messageResponse = await fetch(`/api/chats/${selectedChat.$id}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -191,10 +267,10 @@ export default function ChatPage() {
         });
       }
       
-      // Refresh messages after sending
-      const response = await fetch(`/api/chats/${selectedChat.$id}/messages`);
-      if (response.ok) {
-        const data = await response.json();
+      // Refresh messages after sending - chỉ lấy tin nhắn, không đồng bộ thành viên
+      const messagesResponse = await fetch(`/api/chats/${selectedChat.$id}/messages`);
+      if (messagesResponse.ok) {
+        const data = await messagesResponse.json();
         if (data.data && data.data.documents) {
           setMessages(data.data.documents);
         }
@@ -269,10 +345,11 @@ export default function ChatPage() {
               selectedChat={selectedChat}
               memberId={memberId}
               chats={chats}
-              isLoading={isLoading}
+              isLoading={isLoading || isInitializing}
               isChatsLoading={isChatsLoading}
               isSyncing={isSyncing}
               error={error}
+              syncNotification={syncNotification}
               onSelectChat={handleSelectChat}
               onSyncMembers={handleSyncMembers}
               onRetry={handleRetry}

@@ -14,7 +14,6 @@ export type Chats = Models.Document & {
 export type ChatMembers = Models.Document & {
   chatsId: string;
   memberId: string;
-  role: MemberRole;
 };
 
 export type Messages = Models.Document & {
@@ -23,7 +22,9 @@ export type Messages = Models.Document & {
   content?: string;
   fileUrl?: string;
   imageUrl?: string;
-  createdAt: Date;
+  createdAt?: Date;
+  CreatedAt?: Date;
+  isSystemMessage?: boolean;
 };
 
 export type MessageType = 'text' | 'file' | 'image';

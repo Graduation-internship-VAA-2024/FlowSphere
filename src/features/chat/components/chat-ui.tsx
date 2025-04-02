@@ -11,14 +11,42 @@ import { Button } from "@/components/ui/button";
 
 interface ChatUIProps {
   workspaceId: string;
-  selectedChat: Chats & { members?: ChatMembers[] } | null;
+  selectedChat: Chats & { 
+    members?: (ChatMembers & { 
+      memberDetails?: { 
+        name?: string;
+        email?: string;
+        userId?: string;
+      } 
+    })[];
+    totalWorkspaceMembers?: number;
+  } | null;
   memberId: string;
-  chats: (Chats & { members?: ChatMembers[] })[];
+  chats: (Chats & { 
+    members?: (ChatMembers & { 
+      memberDetails?: { 
+        name?: string;
+        email?: string;
+        userId?: string;
+      } 
+    })[];
+    totalWorkspaceMembers?: number;
+  })[];
   isLoading: boolean;
   isChatsLoading: boolean;
   isSyncing: boolean;
   error: string | null;
-  onSelectChat: (chat: Chats & { members?: ChatMembers[] }) => void;
+  syncNotification?: string | null;
+  onSelectChat: (chat: Chats & { 
+    members?: (ChatMembers & { 
+      memberDetails?: { 
+        name?: string;
+        email?: string;
+        userId?: string;
+      } 
+    })[];
+    totalWorkspaceMembers?: number;
+  }) => void;
   onSyncMembers: () => void;
   onRetry: () => void;
   onSendMessage: (content: string, file?: File) => void;
@@ -35,6 +63,7 @@ export const ChatUI: React.FC<ChatUIProps> = ({
   isChatsLoading,
   isSyncing,
   error,
+  syncNotification,
   onSelectChat,
   onSyncMembers,
   onRetry,
@@ -55,9 +84,22 @@ export const ChatUI: React.FC<ChatUIProps> = ({
       <Card className="p-8">
         <Alert variant="destructive" className="mb-4">
           <AlertCircle className="h-5 w-5" />
-          <AlertTitle>Lỗi</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertTitle>Lỗi kết nối đến máy chủ</AlertTitle>
+          <AlertDescription>
+            {error.includes("timeout") || error.includes("failed") ? 
+              "Không thể kết nối đến máy chủ Appwrite. Vui lòng kiểm tra kết nối mạng hoặc thử lại sau." : 
+              error}
+          </AlertDescription>
         </Alert>
+        
+        <div className="text-sm text-muted-foreground mb-4">
+          <p>Nguyên nhân có thể là:</p>
+          <ul className="list-disc pl-5 mt-2">
+            <li>Kết nối mạng không ổn định</li>
+            <li>Máy chủ Appwrite không phản hồi</li>
+            <li>Cấu hình môi trường không chính xác</li>
+          </ul>
+        </div>
         
         <div className="mt-4 flex justify-center space-x-4">
           <Button 
@@ -101,6 +143,7 @@ export const ChatUI: React.FC<ChatUIProps> = ({
             onSendMessage={onSendMessage}
             messages={messages}
             isSending={isSending}
+            syncNotification={syncNotification}
           />
         </>
       )}
