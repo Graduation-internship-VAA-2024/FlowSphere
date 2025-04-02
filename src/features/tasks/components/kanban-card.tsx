@@ -1,18 +1,56 @@
 import { MoreHorizontal } from "lucide-react";
-import { Task } from "../types";
+import { Task, TaskStatus } from "../types";
 import { TaskActions } from "./task-actions";
 import { DottedSeparator } from "@/components/dotted-separator";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { TaskDate } from "./task-date";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
+import { cn } from "@/lib/utils";
+
+const statusColorConfig = {
+  [TaskStatus.BACKLOG]: {
+    background: "bg-gray-50",
+    border: "border-gray-200",
+    hover: "hover:bg-gray-100",
+  },
+  [TaskStatus.TODO]: {
+    background: "bg-red-50",
+    border: "border-red-200",
+    hover: "hover:bg-red-100",
+  },
+  [TaskStatus.IN_PROGRESS]: {
+    background: "bg-yellow-50",
+    border: "border-yellow-200",
+    hover: "hover:bg-yellow-100",
+  },
+  [TaskStatus.IN_REVIEW]: {
+    background: "bg-blue-50",
+    border: "border-blue-200",
+    hover: "hover:bg-blue-100",
+  },
+  [TaskStatus.DONE]: {
+    background: "bg-green-50",
+    border: "border-green-200",
+    hover: "hover:bg-green-100",
+  },
+};
 
 interface KanbanCardProps {
   task: Task;
 }
 
 export const KanbanCard = ({ task }: KanbanCardProps) => {
+  const statusColor = statusColorConfig[task.status];
+
   return (
-    <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-4 rounded-lg shadow-md hover:shadow-lg transition-all cursor-pointer w-full border border-blue-200">
+    <div
+      className={cn(
+        "p-4 rounded-lg shadow-sm transition-all cursor-pointer w-full border",
+        statusColor.background,
+        statusColor.border,
+        statusColor.hover
+      )}
+    >
       {/* Header */}
       <div className="flex items-start justify-between gap-x-2 mb-3">
         <p className="text-sm font-semibold text-gray-900 line-clamp-2">
