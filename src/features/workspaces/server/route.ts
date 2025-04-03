@@ -7,6 +7,8 @@ import {
   IMAGES_BUCKET_ID,
   MEMBERS_ID,
   WORKSPACES_ID,
+  CHATS_ID,
+  CHAT_MEMBERS_ID,
 } from "@/config";
 import { ID, Query } from "node-appwrite";
 import { MemberRole } from "@/features/members/types";
@@ -195,7 +197,72 @@ const app = new Hono()
         userId: user.$id,
         role: MemberRole.MEMBER,
       });
+      
+      // Thêm thành viên mới vào tất cả các nhóm chat của workspace
+      try {
+        // Lấy ra tất cả nhóm chat trong workspace
+        const groupChats = await databases.listDocuments(DATABASE_ID, CHATS_ID, [
+          Query.equal("workspaceId", workspaceId),
+          Query.equal("isGroup", true),
+        ]);
+        
+        if (groupChats.total > 0) {
+          // Lấy member id của thành viên mới
+          const newMemberQuery = await databases.listDocuments(DATABASE_ID, MEMBERS_ID, [
+            Query.equal("workspaceId", workspaceId),
+            Query.equal("userId", user.$id),
+          ]);
+          
+          if (newMemberQuery.documents.length > 0) {
+            const newMemberId = newMemberQuery.documents[0].$id;
+            
+            // Thêm thành viên vào tất cả nhóm chat
+            for (const chat of groupChats.documents) {
+              await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
+                chatsId: chat.$id,
+                memberId: newMemberId,
+              });
+              console.log(`Đã thêm thành viên mới (${newMemberId}) vào nhóm chat ${chat.name}`);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Lỗi khi thêm thành viên mới vào nhóm chat:", error);
+        // Không return lỗi ở đây, vẫn cho phép tham gia workspace thành công
+        // mặc dù có thể họ chưa được thêm vào nhóm chat
+      }
+      
       return c.json({ data: workspace });
     }
-  );
+  )
+  .get("/:workspaceId", sessionMiddleware, async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { workspaceId } = c.req.param();
+    
+    try {
+      // Kiểm tra quyền truy cập
+      const member = await getMember({
+        databases,
+        workspaceId,
+        userId: user.$id,
+      });
+      
+      if (!member) {
+        return c.json({ error: "You are not a member of this workspace" }, 401);
+      }
+      
+      // Lấy thông tin workspace
+      const workspace = await databases.getDocument(
+        DATABASE_ID,
+        WORKSPACES_ID,
+        workspaceId
+      );
+      
+      return c.json({ data: workspace });
+    } catch (error) {
+      console.error("Error getting workspace:", error);
+      return c.json({ error: "Failed to get workspace information" }, 500);
+    }
+  });
 export default app;

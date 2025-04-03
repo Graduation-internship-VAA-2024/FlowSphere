@@ -1,43 +1,43 @@
 import { rpc } from "@/lib/rpc";
-import { Chats, ChatMembers, Messages } from "../type";
+import { Chats, ChatMembers, MessageRead, MessageReaction, Messages } from "../type";
 
 // API cho các cuộc trò chuyện
 export const chatApi = {
   // Lấy danh sách cuộc trò chuyện theo workspace
-  getChats: (workspaceId: string) =>
+  getChats: (workspaceId: string, query?: string) =>
     rpc<{ data: { documents: (Chats & { members?: ChatMembers[] })[]; total: number } }>({
       method: "GET",
-      path: "/api/chats",
-      query: { workspaceId },
+      path: `/api/chats`,
+      query: { workspaceId, query },
     }),
 
   // Tạo cuộc trò chuyện mới
   createChat: (data: { workspaceId: string; name: string; isGroup: boolean }) =>
     rpc<{ data: Chats }>({
       method: "POST",
-      path: "/api/chats",
+      path: `/api/chats`,
       body: data,
     }),
 
   // Tạo nhóm chat mặc định cho workspace đã tồn tại
   initializeDefaultChat: (workspaceId: string, workspaceName: string) =>
-    rpc<{ data: Chats }>({
+    rpc<{ data: Chats; message?: string }>({
       method: "POST",
-      path: "/api/chats/initialize-default",
+      path: `/api/chats/initialize-default`,
       body: { workspaceId, workspaceName },
     }),
 
   // Đồng bộ thành viên trong workspace vào chat nhóm
-  syncMembers: (chatId: string, workspaceId: string) =>
-    rpc<{ data: { added: number; removed: number; total: number; message?: string } }>({
+  syncMembers: (chatsId: string, workspaceId: string) =>
+    rpc<{ data: any; message: string }>({
       method: "POST",
-      path: `/api/chats/${chatId}/sync-members`,
+      path: `/api/chats/${chatsId}/sync-members`,
       body: { workspaceId },
     }),
 
   // Lấy thông tin chi tiết cuộc trò chuyện
   getChat: (chatsId: string) =>
-    rpc<{ data: Chats & { members?: ChatMembers[] } }>({
+    rpc<{ data: Chats & { members: ChatMembers[] } }>({
       method: "GET",
       path: `/api/chats/${chatsId}`,
     }),
@@ -64,6 +64,7 @@ export const chatApi = {
     content?: string;
     fileUrl?: string;
     imageUrl?: string;
+    replyTo?: string;
   }) =>
     rpc<{ data: Messages }>({
       method: "POST",
@@ -119,4 +120,64 @@ export const chatApi = {
 
     return response.json();
   },
+
+  // Đánh dấu tin nhắn đã đọc
+  markMessageAsRead: (chatsId: string, messageId: string) =>
+    rpc<{ data: MessageRead }>({
+      method: "POST",
+      path: `/api/chats/${chatsId}/messages/${messageId}/read`,
+    }),
+
+  // Lấy danh sách người đã đọc tin nhắn
+  getMessageReads: (chatsId: string, messageId: string) =>
+    rpc<{ data: { documents: MessageRead[]; total: number } }>({
+      method: "GET",
+      path: `/api/chats/${chatsId}/messages/${messageId}/reads`,
+    }),
+
+  // Cập nhật trạng thái đang gõ
+  updateTypingStatus: (chatsId: string, memberId: string, isTyping: boolean) =>
+    rpc<{ data: any }>({
+      method: "POST",
+      path: `/api/chats/${chatsId}/typing`,
+      body: { chatsId, memberId, isTyping },
+    }),
+
+  // Thêm phản ứng vào tin nhắn
+  addReaction: (chatsId: string, messageId: string, reaction: string) =>
+    rpc<{ data: MessageReaction | { removed: boolean } }>({
+      method: "POST",
+      path: `/api/chats/${chatsId}/messages/${messageId}/reactions`,
+      body: { messageId, reaction },
+    }),
+
+  // Lấy danh sách phản ứng của tin nhắn
+  getReactions: (chatsId: string, messageId: string) =>
+    rpc<{ data: { documents: MessageReaction[]; total: number } }>({
+      method: "GET",
+      path: `/api/chats/${chatsId}/messages/${messageId}/reactions`,
+    }),
+
+  // Ghim/bỏ ghim tin nhắn
+  pinMessage: (chatsId: string, messageId: string, isPinned: boolean) =>
+    rpc<{ data: Messages }>({
+      method: "POST",
+      path: `/api/chats/${chatsId}/messages/${messageId}/pin`,
+      body: { isPinned },
+    }),
+
+  // Lấy danh sách tin nhắn đã ghim
+  getPinnedMessages: (chatsId: string) =>
+    rpc<{ data: { documents: Messages[]; total: number } }>({
+      method: "GET",
+      path: `/api/chats/${chatsId}/pinned-messages`,
+    }),
+
+  // Tìm kiếm tin nhắn
+  searchMessages: (chatsId: string, query: string, limit: number = 20) =>
+    rpc<{ data: { documents: Messages[]; total: number } }>({
+      method: "POST",
+      path: `/api/chats/${chatsId}/messages/search`,
+      body: { chatsId, query, limit },
+    }),
 }; 

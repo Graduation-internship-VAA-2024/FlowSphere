@@ -1,12 +1,16 @@
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { createChatSchema, messageSchema, updateChatSchema, chatMemberSchema, chatFilterSchema, chatMemberFilterSchema } from "../schema";
+import { createChatSchema, messageSchema, updateChatSchema, chatMemberSchema, chatFilterSchema, chatMemberFilterSchema, messageReadSchema, typingIndicatorSchema, messageReactionSchema, pinMessageSchema, messageSearchSchema } from "../schema";
 import { getMember } from "@/features/members/utils";
-import { DATABASE_ID, MEMBERS_ID, CHATS_ID, MESSAGES_ID, CHAT_MEMBERS_ID, WORKSPACES_ID } from "@/config";
+import { DATABASE_ID, MEMBERS_ID, CHATS_ID, MESSAGES_ID, CHAT_MEMBERS_ID, WORKSPACES_ID, IMAGES_BUCKET_ID } from "@/config";
 import { ID, Query } from "node-appwrite";
 import { z } from "zod";
 import { Chats, ChatMembers, Messages } from "../type";
+
+// Tên các collection mới
+const MESSAGE_READS_ID = "message_reads"; // Collection lưu trạng thái đã đọc
+const MESSAGE_REACTIONS_ID = "message_reactions"; // Collection lưu reactions
 
 const app = new Hono()
   // Workspace chat endpoints
@@ -425,6 +429,530 @@ const app = new Hono()
     }
   })
   
+  // Route xử lý tìm kiếm tin nhắn theo nội dung
+  .post("/:chatsId/messages/search", sessionMiddleware, zValidator("json", messageSearchSchema), async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { chatsId } = c.req.param();
+    const { query, limit } = c.req.valid("json");
+
+    try {
+      // Lấy thông tin chat
+      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra thành viên
+      const member = await getMember({
+        databases,
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      }
+
+      // Kiểm tra người dùng là thành viên của chat
+      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      if (!chatMember.documents.length) {
+        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+      }
+
+      // Tìm kiếm tin nhắn theo nội dung
+      const messages = await databases.listDocuments(DATABASE_ID, MESSAGES_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.search("content", query),
+        Query.limit(limit),
+        Query.orderDesc("CreatedAt"),
+      ]);
+
+      return c.json({ 
+        data: { 
+          documents: messages.documents, 
+          total: messages.total 
+        } 
+      });
+    } catch (error) {
+      console.error("Error searching messages:", error);
+      return c.json({ error: "Không thể tìm kiếm tin nhắn" }, 500);
+    }
+  })
+  
+  // Route xử lý đánh dấu tin nhắn đã đọc
+  .post("/:chatsId/messages/:messageId/read", sessionMiddleware, async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { chatsId, messageId } = c.req.param();
+
+    try {
+      // Lấy thông tin chat
+      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra thành viên
+      const member = await getMember({
+        databases,
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      }
+
+      // Kiểm tra người dùng là thành viên của chat
+      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      if (!chatMember.documents.length) {
+        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+      }
+
+      // Kiểm tra xem đã đọc tin nhắn này chưa
+      const existingReads = await databases.listDocuments(DATABASE_ID, MESSAGE_READS_ID, [
+        Query.equal("messageId", messageId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      // Nếu đã có bản ghi đã đọc, không làm gì cả
+      if (existingReads.total > 0) {
+        return c.json({ data: existingReads.documents[0] });
+      }
+
+      // Tạo bản ghi đã đọc
+      const readRecord = await databases.createDocument(DATABASE_ID, MESSAGE_READS_ID, ID.unique(), {
+        messageId,
+        memberId: member.$id,
+        chatsId,
+        readAt: new Date(),
+      });
+
+      return c.json({ data: readRecord });
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+      return c.json({ error: "Không thể đánh dấu tin nhắn đã đọc" }, 500);
+    }
+  })
+  
+  // Route xử lý lấy danh sách người đã đọc một tin nhắn
+  .get("/:chatsId/messages/:messageId/reads", sessionMiddleware, async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { chatsId, messageId } = c.req.param();
+
+    try {
+      // Lấy thông tin chat
+      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra thành viên
+      const member = await getMember({
+        databases,
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      }
+
+      // Kiểm tra người dùng là thành viên của chat
+      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      if (!chatMember.documents.length) {
+        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+      }
+
+      // Lấy danh sách người đã đọc
+      const reads = await databases.listDocuments(DATABASE_ID, MESSAGE_READS_ID, [
+        Query.equal("messageId", messageId),
+        Query.orderDesc("readAt"),
+      ]);
+
+      return c.json({ 
+        data: { 
+          documents: reads.documents, 
+          total: reads.total 
+        } 
+      });
+    } catch (error) {
+      console.error("Error getting message reads:", error);
+      return c.json({ error: "Không thể lấy thông tin đã đọc" }, 500);
+    }
+  })
+  
+  // Route xử lý typing indicator (đang gõ)
+  .post("/:chatsId/typing", sessionMiddleware, zValidator("json", typingIndicatorSchema), async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { chatsId } = c.req.param();
+    const { isTyping } = c.req.valid("json");
+
+    try {
+      // Lấy thông tin chat
+      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra thành viên
+      const member = await getMember({
+        databases,
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      }
+
+      // Kiểm tra người dùng là thành viên của chat
+      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      if (!chatMember.documents.length) {
+        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+      }
+
+      // Trả về dữ liệu đang gõ để client xử lý realtime
+      // Không lưu vào database vì đây là trạng thái tạm thời
+      return c.json({ 
+        data: { 
+          chatsId,
+          memberId: member.$id,
+          memberName: member.name || user.name,
+          isTyping,
+          timestamp: new Date(),
+        } 
+      });
+    } catch (error) {
+      console.error("Error updating typing status:", error);
+      return c.json({ error: "Không thể cập nhật trạng thái đang gõ" }, 500);
+    }
+  })
+  
+  // Route xử lý thả reaction cho tin nhắn
+  .post("/:chatsId/messages/:messageId/reactions", sessionMiddleware, zValidator("json", messageReactionSchema), async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { chatsId, messageId } = c.req.param();
+    const { reaction } = c.req.valid("json");
+
+    try {
+      // Lấy thông tin chat
+      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra thành viên
+      const member = await getMember({
+        databases,
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      }
+
+      // Kiểm tra người dùng là thành viên của chat
+      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      if (!chatMember.documents.length) {
+        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+      }
+
+      // Kiểm tra xem đã có reaction nào từ người dùng cho tin nhắn này chưa
+      const existingReactions = await databases.listDocuments(DATABASE_ID, MESSAGE_REACTIONS_ID, [
+        Query.equal("messageId", messageId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      // Nếu đã có reaction, cập nhật hoặc xóa
+      if (existingReactions.total > 0) {
+        const existingReaction = existingReactions.documents[0];
+        
+        // Nếu reaction giống nhau, xóa (toggle)
+        if (existingReaction.reaction === reaction) {
+          await databases.deleteDocument(DATABASE_ID, MESSAGE_REACTIONS_ID, existingReaction.$id);
+          return c.json({ 
+            data: { 
+              removed: true,
+              messageId,
+              memberId: member.$id,
+              reaction,
+            } 
+          });
+        } 
+        // Nếu reaction khác, cập nhật
+        else {
+          const updatedReaction = await databases.updateDocument(DATABASE_ID, MESSAGE_REACTIONS_ID, existingReaction.$id, {
+            reaction,
+            updatedAt: new Date(),
+          });
+          
+          return c.json({ data: updatedReaction });
+        }
+      }
+
+      // Tạo reaction mới
+      const newReaction = await databases.createDocument(DATABASE_ID, MESSAGE_REACTIONS_ID, ID.unique(), {
+        messageId,
+        memberId: member.$id,
+        reaction,
+        chatsId,
+        createdAt: new Date(),
+      });
+
+      return c.json({ data: newReaction });
+    } catch (error) {
+      console.error("Error adding reaction:", error);
+      return c.json({ error: "Không thể thêm reaction" }, 500);
+    }
+  })
+  
+  // Route lấy tất cả reactions cho một tin nhắn
+  .get("/:chatsId/messages/:messageId/reactions", sessionMiddleware, async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { chatsId, messageId } = c.req.param();
+
+    try {
+      // Lấy thông tin chat
+      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra thành viên
+      const member = await getMember({
+        databases,
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      }
+
+      // Kiểm tra người dùng là thành viên của chat
+      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      if (!chatMember.documents.length) {
+        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+      }
+
+      // Lấy danh sách reactions
+      const reactions = await databases.listDocuments(DATABASE_ID, MESSAGE_REACTIONS_ID, [
+        Query.equal("messageId", messageId),
+      ]);
+
+      return c.json({ 
+        data: { 
+          documents: reactions.documents, 
+          total: reactions.total 
+        } 
+      });
+    } catch (error) {
+      console.error("Error getting reactions:", error);
+      return c.json({ error: "Không thể lấy danh sách reactions" }, 500);
+    }
+  })
+  
+  // Route xử lý ghim/bỏ ghim tin nhắn
+  .post("/:chatsId/messages/:messageId/pin", sessionMiddleware, zValidator("json", pinMessageSchema), async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { chatsId, messageId } = c.req.param();
+    const { isPinned } = c.req.valid("json");
+
+    try {
+      // Lấy thông tin chat
+      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra thành viên
+      const member = await getMember({
+        databases,
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      }
+
+      // Kiểm tra người dùng là thành viên của chat
+      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      if (!chatMember.documents.length) {
+        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+      }
+
+      // Cập nhật tin nhắn
+      const updatedMessage = await databases.updateDocument(DATABASE_ID, MESSAGES_ID, messageId, {
+        isPinned,
+        pinnedBy: isPinned ? member.$id : null,
+        pinnedAt: isPinned ? new Date() : null,
+      });
+
+      return c.json({ data: updatedMessage });
+    } catch (error) {
+      console.error("Error pinning/unpinning message:", error);
+      return c.json({ error: "Không thể ghim/bỏ ghim tin nhắn" }, 500);
+    }
+  })
+  
+  // Route lấy tất cả tin nhắn đã ghim trong một cuộc trò chuyện
+  .get("/:chatsId/pinned-messages", sessionMiddleware, async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { chatsId } = c.req.param();
+
+    try {
+      // Lấy thông tin chat
+      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra thành viên
+      const member = await getMember({
+        databases,
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      }
+
+      // Kiểm tra người dùng là thành viên của chat
+      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      if (!chatMember.documents.length) {
+        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+      }
+
+      // Lấy danh sách tin nhắn đã ghim
+      const pinnedMessages = await databases.listDocuments(DATABASE_ID, MESSAGES_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("isPinned", true),
+        Query.orderDesc("pinnedAt"),
+      ]);
+
+      return c.json({ 
+        data: { 
+          documents: pinnedMessages.documents, 
+          total: pinnedMessages.total 
+        } 
+      });
+    } catch (error) {
+      console.error("Error getting pinned messages:", error);
+      return c.json({ error: "Không thể lấy danh sách tin nhắn đã ghim" }, 500);
+    }
+  })
+  
+  // File upload route nâng cao
+  .post("/upload", sessionMiddleware, async (c) => {
+    const storage = c.get("storage");
+    const databases = c.get("databases");
+    const user = c.get("user");
+    
+    try {
+      const formData = await c.req.parseBody();
+      const file = formData.file as File;
+      const chatsId = formData.chatsId as string;
+      const memberId = formData.memberId as string;
+      
+      if (!file) {
+        return c.json({ error: "Không tìm thấy file" }, 400);
+      }
+      
+      // Lấy thông tin chat
+      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra thành viên
+      const member = await getMember({
+        databases, 
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+      
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      }
+      
+      if (member.$id !== memberId) {
+        return c.json({ error: "ID thành viên không hợp lệ" }, 400);
+      }
+
+      // Xác thực file
+      const allowedTypes = [
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+        'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'text/plain', 'video/mp4', 'audio/mpeg', 'audio/mp3'
+      ];
+      
+      const maxSize = 20 * 1024 * 1024; // 20MB
+      
+      if (!allowedTypes.includes(file.type)) {
+        return c.json({ error: "Loại file không được hỗ trợ" }, 400);
+      }
+      
+      if (file.size > maxSize) {
+        return c.json({ error: "Kích thước file quá lớn (tối đa 20MB)" }, 400);
+      }
+      
+      // Upload file
+      const uploadedFile = await storage.createFile(
+        IMAGES_BUCKET_ID,
+        ID.unique(),
+        file
+      );
+      
+      const fileUrl = storage.getFileView(IMAGES_BUCKET_ID, uploadedFile.$id);
+      
+      // Xác định loại file
+      const isImage = file.type.startsWith('image/');
+      
+      // Tạo tin nhắn với file đính kèm
+      const messageData = {
+        chatsId,
+        memberId,
+        content: '',
+        fileUrl: fileUrl,
+        imageUrl: isImage ? fileUrl : undefined,
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        CreatedAt: new Date(),
+      };
+      
+      const message = await databases.createDocument(
+        DATABASE_ID,
+        MESSAGES_ID,
+        ID.unique(),
+        messageData
+      );
+      
+      return c.json({ data: message });
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      return c.json({ error: "Không thể upload file" }, 500);
+    }
+  })
+  
   // Chat member routes
   .post("/:chatsId/members", sessionMiddleware, zValidator("json", chatMemberSchema), async (c) => {
     const databases = c.get("databases");
@@ -571,12 +1099,6 @@ const app = new Hono()
       console.error("Error removing chat member:", error);
       return c.json({ error: "Không thể xóa thành viên" }, 500);
     }
-  })
-  
-  // File upload route
-  .post("/upload", sessionMiddleware, async (c) => {
-    // Implement file upload functionality
-    return c.json({ data: null });
   })
   
   // Route để tạo chat mặc định cho workspace đã tồn tại

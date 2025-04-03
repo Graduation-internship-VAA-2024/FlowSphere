@@ -52,6 +52,7 @@ interface ChatUIProps {
   onSendMessage: (content: string, file?: File) => void;
   messages?: any[];
   isSending?: boolean;
+  isRealtimeConnected?: boolean;
 }
 
 export const ChatUI: React.FC<ChatUIProps> = ({
@@ -69,7 +70,8 @@ export const ChatUI: React.FC<ChatUIProps> = ({
   onRetry,
   onSendMessage,
   messages = [],
-  isSending = false
+  isSending = false,
+  isRealtimeConnected = false
 }) => {
   if (!workspaceId) {
     return (
@@ -144,6 +146,7 @@ export const ChatUI: React.FC<ChatUIProps> = ({
             messages={messages}
             isSending={isSending}
             syncNotification={syncNotification}
+            isRealtimeConnected={isRealtimeConnected}
           />
         </>
       )}

@@ -1,26 +1,39 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Paperclip, ImageIcon, Smile, Send, X } from "lucide-react";
 import { Tooltip } from "@/components/ui/tooltip";
+import { useTypingStatus } from "./typing-indicator";
 
 interface ChatInputProps {
   onSend: (message: string, file?: File) => void;
   onFileUpload?: (file: File) => void;
   isLoading?: boolean;
+  chatsId?: string;
+  memberId?: string;
 }
 
-export const ChatInput = ({ onSend, onFileUpload, isLoading }: ChatInputProps) => {
+export const ChatInput = ({ onSend, onFileUpload, isLoading, chatsId, memberId }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+  
+  const { handleTyping } = useTypingStatus(chatsId || '', memberId || '');
 
   const handleSend = () => {
     if (message.trim() || selectedFile) {
       onSend(message, selectedFile || undefined);
       setMessage("");
       setSelectedFile(null);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessage(e.target.value);
+    
+    if (chatsId && memberId) {
+      handleTyping();
     }
   };
 
@@ -93,7 +106,7 @@ export const ChatInput = ({ onSend, onFileUpload, isLoading }: ChatInputProps) =
         
         <Input 
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={handleInputChange}
           placeholder="Type a message..." 
           className="flex-1"
           onKeyPress={(e) => e.key === 'Enter' && handleSend()}

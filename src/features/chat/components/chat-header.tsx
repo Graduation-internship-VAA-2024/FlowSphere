@@ -1,32 +1,61 @@
+import React from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Users, RefreshCw, UserPlus } from "lucide-react";
+import { MoreVertical, Users, RefreshCw, UserPlus, Wifi, WifiOff } from "lucide-react";
 import { Chats, ChatMembers } from "../type";
+import { RealtimeIndicator } from "./realtime-indicator";
+import { cn } from "@/lib/utils";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+
+// Định nghĩa đơn giản cho indicator realtime
+const LiveStatusIndicator = ({ isConnected }: { isConnected: boolean }) => (
+  <div className={cn(
+    "px-1.5 py-0.5 rounded-full flex items-center gap-1 text-xs ml-2",
+    isConnected
+      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+      : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
+  )}>
+    {isConnected ? (
+      <>
+        <Wifi className="h-3 w-3" />
+        <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse"></span>
+      </>
+    ) : (
+      <>
+        <WifiOff className="h-3 w-3" />
+      </>
+    )}
+    <span className="text-xs">
+      {isConnected ? "Live" : "Offline"}
+    </span>
+  </div>
+);
 
 interface ChatHeaderProps {
   chats?: Chats & { 
-    members?: (ChatMembers & { 
-      memberDetails?: { 
-        name?: string;
-        email?: string;
-        userId?: string;
-      } 
-    })[];
+    members?: ChatMembers[];
     totalWorkspaceMembers?: number;
   };
-  onSyncMembers?: () => void;
+  onSyncMembers: () => void;
   onAddAllMembers?: () => void;
-  isSyncing?: boolean;
+  isSyncing: boolean;
   isAddingMembers?: boolean;
+  isRealtimeConnected?: boolean;
 }
 
-export const ChatHeader = ({ 
-  chats, 
-  onSyncMembers, 
+export const ChatHeader: React.FC<ChatHeaderProps> = ({
+  chats,
+  onSyncMembers,
   onAddAllMembers,
   isSyncing,
-  isAddingMembers 
-}: ChatHeaderProps) => {
+  isAddingMembers,
+  isRealtimeConnected = false
+}) => {
   if (!chats) return null;
 
   // Get up to 3 member names to display
@@ -37,37 +66,48 @@ export const ChatHeader = ({
     .filter(Boolean);
 
   return (
-    <div className="p-4 border-b flex items-center justify-between">
-      <div className="flex items-center gap-3">
-        <Avatar />
-        <div>
-          <h3 className="font-medium">{chats.name}</h3>
-          <p className="text-sm text-neutral-500">
-            {chats.totalWorkspaceMembers ? `${chats.totalWorkspaceMembers} thành viên` : chats.members ? `${chats.members.length} thành viên` : ''} • 
-            {chats.isGroup ? ' Group chat' : ' Direct message'}
-            {memberNames && memberNames.length > 0 && (
-              <span className="block text-xs mt-0.5 text-muted-foreground">
-                {memberNames.join(", ")}{chats.members && chats.members.length > 3 ? "..." : ""}
-              </span>
-            )}
-          </p>
-        </div>
+    <div className="border-b p-4 flex justify-between items-center">
+      <div className="flex items-center space-x-2">
+        <h3 className="font-medium text-lg truncate">
+          {chats?.name || "Chat"}
+        </h3>
+        
+        {/* Hiển thị chỉ báo realtime */}
+        <LiveStatusIndicator isConnected={isRealtimeConnected} />
       </div>
-      <div className="flex gap-2">
-        {chats.isGroup && onSyncMembers && (
+      
+      <div className="flex items-center space-x-2">
+        <div className="text-sm text-muted-foreground mr-2 flex items-center">
+          <Users className="h-4 w-4 mr-1" />
+          <span>
+            {chats?.members?.length || 0}
+            {chats?.totalWorkspaceMembers && ` / ${chats.totalWorkspaceMembers}`}
+          </span>
+        </div>
+        
+        {/* Nút đồng bộ thành viên */}
+        <Button 
+          variant="outline"
+          size="sm"
+          onClick={onSyncMembers}
+          disabled={isSyncing}
+          title="Đồng bộ thành viên từ workspace"
+        >
+          <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+        </Button>
+        
+        {/* Nút thêm tất cả thành viên (nếu cần) */}
+        {onAddAllMembers && (
           <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onSyncMembers}
-            disabled={isSyncing}
+            variant="outline"
+            size="sm"
+            onClick={onAddAllMembers}
+            disabled={isAddingMembers}
+            title="Thêm tất cả thành viên workspace vào chat"
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-            Sync Members
+            <UserPlus className={cn("h-4 w-4", isAddingMembers && "animate-spin")} />
           </Button>
         )}
-        <Button variant="ghost" size="icon">
-          <MoreVertical className="h-5 w-5" />
-        </Button>
       </div>
     </div>
   );

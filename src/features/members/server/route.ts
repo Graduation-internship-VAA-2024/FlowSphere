@@ -10,6 +10,43 @@ import { MemberRole } from "../types";
 
 const app = new Hono()
   .get(
+    "/me",
+    sessionMiddleware,
+    zValidator("query", z.object({ workspaceId: z.string() })),
+    async (c) => {
+      const { users } = await createAdminClient();
+      const databases = c.get("databases");
+      const user = c.get("user");
+      const { workspaceId } = c.req.valid("query");
+
+      try {
+        const member = await getMember({
+          databases,
+          workspaceId,
+          userId: user.$id,
+        });
+
+        if (!member) {
+          return c.json({ error: "Member not found" }, 404);
+        }
+
+        // Get user details
+        const userDetails = await users.get(user.$id);
+
+        return c.json({
+          data: {
+            ...member,
+            name: userDetails.name,
+            email: userDetails.email,
+          },
+        });
+      } catch (error) {
+        console.error("Error fetching member:", error);
+        return c.json({ error: "Failed to get member information" }, 500);
+      }
+    }
+  )
+  .get(
     "/",
     sessionMiddleware,
     zValidator("query", z.object({ workspaceId: z.string() })),
