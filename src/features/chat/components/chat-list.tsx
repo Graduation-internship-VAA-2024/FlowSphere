@@ -70,11 +70,19 @@ export const ChatList: React.FC<ChatListProps> = ({
   // Filter chats when search term or chats change
   useEffect(() => {
     if (!searchTerm) {
-      setFilteredChats(chats);
+      // Loại bỏ các chat trùng lặp theo $id trước khi cập nhật state
+      const uniqueChats = Array.from(
+        new Map(chats.map(chat => [chat.$id, chat])).values()
+      );
+      setFilteredChats(uniqueChats);
       return;
     }
     
-    const filtered = chats.filter(chat => 
+    // Lọc chat sau khi đã loại bỏ trùng lặp
+    const uniqueChats = Array.from(
+      new Map(chats.map(chat => [chat.$id, chat])).values()
+    );
+    const filtered = uniqueChats.filter(chat => 
       chat.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
     setFilteredChats(filtered);
@@ -111,6 +119,19 @@ export const ChatList: React.FC<ChatListProps> = ({
   // Kiểm tra nếu chỉ có người dùng hiện tại trong workspace
   const hasOnlyCurrentUser = chats.length > 0 && 
     chats.some(chat => chat.isGroup && chat.members?.length === 1);
+    
+  console.log("ChatList Info:", {
+    chatsCount: chats.length,
+    filteredChatsCount: filteredChats.length,
+    hasOnlyCurrentUser,
+    chats: chats.map(chat => ({
+      $id: chat.$id,
+      name: chat.name,
+      isGroup: chat.isGroup,
+      membersCount: chat.members?.length || 0,
+      membersIds: chat.members?.map(m => m.memberId) || []
+    }))
+  });
 
   return (
     <Card className="w-80 p-4 flex flex-col h-full">
@@ -237,7 +258,6 @@ export const ChatList: React.FC<ChatListProps> = ({
                           : null
                       }
                     </p>
-
                   </div>
                 </div>
               );

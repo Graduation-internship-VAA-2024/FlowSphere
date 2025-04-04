@@ -3,13 +3,14 @@ import { Chats, ChatMembers, Messages } from "../type";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, UserPlus, User, Image, FileText, ChevronDown } from "lucide-react";
+import { MessageCircle, UserPlus, User, Image, FileText, ChevronDown, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ChatInput } from "./chat-input";
 import { ChatHeader } from "./chat-header";
 import { ChatMessage } from "./chat-message";
 import { TypingIndicatorDisplay } from "./typing-indicator";
 import Link from "next/link";
+import { chatApi } from "../api";
 
 interface ChatAreaProps {
   chats?: Chats & { 
@@ -25,7 +26,7 @@ interface ChatAreaProps {
   memberId: string;
   onSyncMembers: () => void;
   onAddAllMembers?: () => void;
-  isSyncing: boolean;
+  isSyncing?: boolean;
   isAddingMembers?: boolean;
   messages?: Messages[];
   isLoading?: boolean;
@@ -41,7 +42,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   memberId,
   onSyncMembers,
   onAddAllMembers,
-  isSyncing,
+  isSyncing = false,
   messages = [],
   isLoading = false,
   error = null,
@@ -57,9 +58,23 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [isAtBottom, setIsAtBottom] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [localIsSyncing, setLocalIsSyncing] = useState(false); // Local syncing state
   
   // Check if the workspace only has the current user as member
-  const hasOnlyCurrentUser = chats?.members?.length === 1 && chats.members[0].memberId === memberId;
+  const hasOnlyCurrentUser = chats?.members?.length === 1 && 
+    chats.members[0].memberId === memberId && 
+    chats.isGroup; // Chỉ áp dụng cho nhóm chat
+  
+  console.log("ChatArea Check:", {
+    memberId,
+    chatId: chats?.$id,
+    membersCount: chats?.members?.length || 0,
+    members: chats?.members?.map(m => ({
+      id: m.memberId,
+      isCurrentUser: m.memberId === memberId
+    })),
+    hasOnlyCurrentUser
+  });
 
   // Load members information
   useEffect(() => {
@@ -73,6 +88,21 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
       setMembersMap(newMembersMap);
     }
   }, [chats?.members]);
+
+  // Tự động đánh dấu tin nhắn đã đọc khi người dùng đang xem cuộc trò chuyện
+  useEffect(() => {
+    if (chats && messages.length > 0) {
+      // Lọc các tin nhắn chưa đọc và không phải do người dùng hiện tại gửi
+      const unreadMessages = messages.filter(msg => msg.memberId !== memberId);
+      
+      // Đánh dấu tất cả tin nhắn chưa đọc là đã đọc
+      unreadMessages.forEach(msg => {
+        if (msg.$id) {
+          chatApi.markMessageAsRead(chats.$id, msg.$id);
+        }
+      });
+    }
+  }, [messages, chats, memberId]);
 
   // Scroll to bottom when the component mounts or messages change
   useEffect(() => {
@@ -122,40 +152,51 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     }
   };
 
-  // Function to add all workspace members to the current chat
-  const handleAddAllMembers = async () => {
+  // Auto sync members when chat loads if necessary
+  useEffect(() => {
+    if (chats && chats.isGroup && !isSyncing && !localIsSyncing) {
+      // Check if the chat needs member sync
+      const chatMembersCount = chats.members?.length || 0;
+      const workspaceMembersCount = chats.totalWorkspaceMembers || 0;
+      
+      // If there's a significant difference, suggest syncing
+      if (workspaceMembersCount > 0 && 
+          (chatMembersCount === 0 || 
+           Math.abs(chatMembersCount - workspaceMembersCount) > 2)) {
+        setAddMembersNotification("Phát hiện thay đổi thành viên. Bạn nên cập nhật lại danh sách thành viên chat.");
+      }
+    }
+  }, [chats, isSyncing, localIsSyncing]);
+
+  // Function to sync all workspace members to the current chat
+  const handleSyncMembers = async () => {
     if (!chats) return;
     
-    setIsAddingMembers(true);
-    setAddMembersNotification(null);
+    setLocalIsSyncing(true);
     
     try {
-      const response = await fetch(`/api/chat/${chats.$id}/add-all-members`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          workspaceId: chats.workspaceId,
-        }),
-      });
+      const response = await chatApi.syncMembers(chats.$id, chats.workspaceId);
+      const { added, removed, kept, total } = response.data;
       
-      const data = await response.json();
+      let statusMessage = `Đã đồng bộ thành viên: ${total} thành viên tổng cộng.`;
+      if (added > 0) statusMessage += ` Thêm ${added} thành viên mới.`;
+      if (removed > 0) statusMessage += ` Xóa ${removed} thành viên không hợp lệ.`;
       
-      if (response.ok) {
-        setAddMembersNotification(data.message || "Đã thêm tất cả thành viên vào nhóm chat thành công.");
-        // Reload the chat to reflect the changes after 1 second
-        setTimeout(() => {
-          onSyncMembers();
-        }, 1000);
-      } else {
-        setAddMembersNotification(`Lỗi: ${data.error || "Không thể thêm thành viên"}`);
-      }
+      // Gọi callback để refresh dữ liệu từ parent component
+      onSyncMembers();
+      
+      // Hiển thị thông báo chi tiết
+      setAddMembersNotification(statusMessage);
+      
+      // Ẩn thông báo sau 5 giây
+      setTimeout(() => {
+        setAddMembersNotification(null);
+      }, 5000);
     } catch (error) {
-      setAddMembersNotification("Lỗi: Không thể kết nối đến máy chủ");
-      console.error("Error adding all members:", error);
+      console.error("Error syncing members:", error);
+      setAddMembersNotification("Lỗi: Không thể đồng bộ thành viên");
     } finally {
-      setIsAddingMembers(false);
+      setLocalIsSyncing(false);
     }
   };
 
@@ -176,7 +217,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }
 
   // Hiển thị UI đặc biệt khi workspace chỉ có một thành viên
-  if (hasOnlyCurrentUser && chats.isGroup) {
+  if (hasOnlyCurrentUser) {
+    console.log("🚨 Hiển thị giao diện chỉ có một thành viên", chats);
     return (
       <Card className="flex-1 p-8 flex flex-col items-center justify-center">
         <div className="mb-4">
@@ -184,9 +226,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             <User className="h-8 w-8 text-primary" />
           </div>
         </div>
-        <h3 className="text-xl font-medium mb-2">Chỉ có bạn trong workspace này</h3>
+        <h3 className="text-xl font-medium mb-2">Chỉ có bạn trong nhóm chat này</h3>
         <p className="text-muted-foreground text-center max-w-sm mb-6">
-          Hiện tại bạn là thành viên duy nhất trong workspace này. Hãy mời thêm thành viên để bắt đầu cuộc trò chuyện.
+          Hiện tại bạn là thành viên duy nhất trong nhóm chat này. Hãy mời thêm thành viên để bắt đầu cuộc trò chuyện.
         </p>
         <Link href={`/workspaces/${chats.workspaceId}/settings`}>
           <Button variant="outline" size="sm" className="gap-2">
@@ -215,24 +257,51 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
   }
 
   return (
-    <Card className="flex-1 flex flex-col">
-      {/* Chat header */}
+    <Card className="flex-1 flex flex-col h-full">
       <ChatHeader 
         chats={chats} 
-        onSyncMembers={onSyncMembers} 
-        onAddAllMembers={onAddAllMembers}
-        isSyncing={isSyncing} 
-        isAddingMembers={isAddingMembers}
+        onSyncMembers={handleSyncMembers} 
+        isSyncing={isSyncing || localIsSyncing}
         isRealtimeConnected={isRealtimeConnected}
       />
-      
-      {/* Hiển thị thông báo đồng bộ */}
-      {(syncNotification || addMembersNotification) && (
-        <div className="px-4 py-2">
-          <div className="p-2 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-100 text-sm rounded-md">
-            {syncNotification || addMembersNotification}
-          </div>
+
+      {/* Thông báo đồng bộ */}
+      {syncNotification && (
+        <div className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 p-2 text-sm text-center">
+          {syncNotification}
         </div>
+      )}
+      
+      {/* Thông báo hướng dẫn đồng bộ thành viên */}
+      {chats.isGroup && chats.members && chats.members.length > 0 && (
+        <>
+          {addMembersNotification && (
+            <div className="bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 p-2 text-sm text-center border-t border-b border-blue-200 dark:border-blue-800/50">
+              <div className="flex items-center justify-center">
+                {localIsSyncing ? (
+                  <RefreshCw className="h-3 w-3 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="h-3 w-3 mr-2" />
+                )}
+                <p className="font-medium">{addMembersNotification}</p>
+              </div>
+            </div>
+          )}
+          
+          {!addMembersNotification && chats.totalWorkspaceMembers && chats.members.length !== chats.totalWorkspaceMembers && (
+            <div className="bg-amber-100 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-2 text-sm text-center border-t border-b border-amber-200 dark:border-amber-800/50">
+              <div className="flex items-center justify-center">
+                <p className="font-medium">
+                  Phát hiện sự khác biệt giữa thành viên workspace ({chats.totalWorkspaceMembers}) 
+                  và thành viên chat ({chats.members.length}). 
+                  <Button variant="primary" size="sm" onClick={handleSyncMembers} className="px-1 h-auto">
+                    Cập nhật ngay
+                  </Button>
+                </p>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {/* Messages area */}

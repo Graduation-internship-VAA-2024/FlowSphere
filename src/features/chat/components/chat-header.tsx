@@ -86,15 +86,25 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         </div>
         
         {/* Nút đồng bộ thành viên */}
-        <Button 
-          variant="outline"
-          size="sm"
-          onClick={onSyncMembers}
-          disabled={isSyncing}
-          title="Đồng bộ thành viên từ workspace"
-        >
-          <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-        </Button>
+        {chats?.isGroup && (
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={onSyncMembers}
+            disabled={isSyncing}
+            title="Đồng bộ thành viên từ workspace vào nhóm chat"
+            className="flex items-center gap-1"
+          >
+            <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+            <span className="hidden md:inline ml-1">Cập nhật thành viên</span>
+            {chats.totalWorkspaceMembers && chats.members && 
+              chats.totalWorkspaceMembers !== chats.members.length && (
+                <span className="bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100 w-4 h-4 inline-flex items-center justify-center rounded-full text-xs">
+                  !
+                </span>
+            )}
+          </Button>
+        )}
         
         {/* Nút thêm tất cả thành viên (nếu cần) */}
         {onAddAllMembers && (

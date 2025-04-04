@@ -1,5 +1,5 @@
 import { rpc } from "@/lib/rpc";
-import { Chats, ChatMembers, MessageRead, MessageReaction, Messages } from "../type";
+import { Chats, ChatMembers, MessageRead, Messages } from "../type";
 
 // API cho các cuộc trò chuyện
 export const chatApi = {
@@ -29,7 +29,16 @@ export const chatApi = {
 
   // Đồng bộ thành viên trong workspace vào chat nhóm
   syncMembers: (chatsId: string, workspaceId: string) =>
-    rpc<{ data: any; message: string }>({
+    rpc<{ 
+      data: { 
+        added: number; 
+        removed: number; 
+        kept: number;
+        total: number;
+        message: string;
+      }; 
+      message: string 
+    }>({
       method: "POST",
       path: `/api/chats/${chatsId}/sync-members`,
       body: { workspaceId },
@@ -141,21 +150,6 @@ export const chatApi = {
       method: "POST",
       path: `/api/chats/${chatsId}/typing`,
       body: { chatsId, memberId, isTyping },
-    }),
-
-  // Thêm phản ứng vào tin nhắn
-  addReaction: (chatsId: string, messageId: string, reaction: string) =>
-    rpc<{ data: MessageReaction | { removed: boolean } }>({
-      method: "POST",
-      path: `/api/chats/${chatsId}/messages/${messageId}/reactions`,
-      body: { messageId, reaction },
-    }),
-
-  // Lấy danh sách phản ứng của tin nhắn
-  getReactions: (chatsId: string, messageId: string) =>
-    rpc<{ data: { documents: MessageReaction[]; total: number } }>({
-      method: "GET",
-      path: `/api/chats/${chatsId}/messages/${messageId}/reactions`,
     }),
 
   // Ghim/bỏ ghim tin nhắn

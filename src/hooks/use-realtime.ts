@@ -66,12 +66,23 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       return null;
     }
     
-    // Fix: Add a more unique ID for checking processed messages
-    const messageUniqueId = `${payload.$id}_${new Date(payload.$createdAt || payload.CreatedAt).getTime()}`;
+    // Fix: Tạo ID duy nhất cho tin nhắn để kiểm tra trùng lặp tốt hơn
+    // Sử dụng nhiều thuộc tính hơn để đảm bảo tin nhắn thực sự là duy nhất
+    const messageUniqueId = `${payload.$id}_${payload.chatsId}_${payload.memberId}_${payload.content || ''}`;
     
     // Kiểm tra xem tin nhắn đã được xử lý chưa
     if (processedMessagesRef.current.has(messageUniqueId)) {
       console.log(`⏭️ Bỏ qua tin nhắn đã xử lý: ${payload.$id}`);
+      return null;
+    }
+    
+    // Kiểm tra nếu tin nhắn quá cũ (hơn 10 phút) thì bỏ qua
+    const messageTime = new Date(payload.$createdAt || payload.CreatedAt).getTime();
+    const currentTime = Date.now();
+    const tenMinutesMs = 10 * 60 * 1000;
+    
+    if (currentTime - messageTime > tenMinutesMs) {
+      console.log(`⏭️ Bỏ qua tin nhắn cũ (> 10 phút): ${payload.$id}`);
       return null;
     }
     
@@ -80,17 +91,12 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
     // Đánh dấu tin nhắn đã được xử lý
     processedMessagesRef.current.add(messageUniqueId);
     
-    // Check if message has timestamp
-    const messageTimestamp = new Date(payload.$createdAt || payload.CreatedAt).getTime();
-    
-    // Skip if this is an old message we've already processed
-    if (messageTimestamp <= lastMessageTimestampRef.current && lastMessageTimestampRef.current > 0) {
-      console.log("⏭️ Bỏ qua tin nhắn cũ:", payload.$id);
-      return null;
+    // Giới hạn kích thước của tập hợp đã xử lý để tránh rò rỉ bộ nhớ
+    if (processedMessagesRef.current.size > 500) {
+      // Xóa 200 phần tử cũ nhất bằng cách chuyển thành mảng, cắt và chuyển lại thành Set
+      const processedArray = Array.from(processedMessagesRef.current);
+      processedMessagesRef.current = new Set(processedArray.slice(200));
     }
-    
-    // Update last message timestamp
-    lastMessageTimestampRef.current = messageTimestamp;
     
     // Add sender name if missing
     if (!payload.senderName && payload.memberId) {
@@ -99,6 +105,9 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
         payload.senderName = name;
       }
     }
+    
+    // Cập nhật thời gian tin nhắn cuối cùng
+    lastMessageTimestampRef.current = Date.now();
     
     // Return processed message
     return payload;
@@ -136,13 +145,10 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       connectionReadyRef.current = false; // Reset connection status
       console.log(`🔄 Đang kết nối Realtime cho chat ${chatIdToConnect}...`);
       
-      // Đảm bảo tạo kết nối trước khi đăng ký kênh
-      // Với appwrite-js SDK, chúng ta có thể check kết nối bằng cách sử dụng một Promise để đợi
       let subscriptions: Array<() => void> = [];
       
       // Hàm đăng ký kênh khi đã sẵn sàng
       const subscribeWhenReady = (channelId: string, callback: (response: any) => void) => {
-        // Bọc việc đăng ký trong try/catch
         try {
           console.log(`📡 Đăng ký kênh: ${channelId}`);
           const unsubscribe = appwriteClient.subscribe(channelId, callback);
@@ -155,8 +161,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       };
       
       // Sử dụng Promise để đảm bảo kết nối được thiết lập trước
-      // Tạo một kênh test để kiểm tra sẵn sàng
-      const testConnectionPromise = new Promise<void>((resolve, reject) => {
+      const testConnectionPromise = new Promise<void>((resolve) => {
         let connectionTimeout: NodeJS.Timeout;
         
         // Set timeout để không chờ quá lâu
@@ -203,73 +208,55 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       
       // Chờ kết nối sẵn sàng
       testConnectionPromise.then(() => {
-        // MAIN CHANGE: Subscribe directly to all document events in the messages collection
-        // This is the most reliable way to catch all message events
-        const channelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents`;
-        subscribeWhenReady(channelId, async (response: any) => {
-          console.log("📨 Nhận sự kiện realtime:", response.events);
-          
-          if (!response || !response.payload) {
-            console.warn("⚠️ Nhận được sự kiện không hợp lệ:", response);
-            return;
-          }
-          
-          const payload = response.payload;
-          
-          // Kiểm tra xem tin nhắn có thuộc chat hiện tại không
-          if (payload.chatsId === chatIdToConnect) {
-            console.log(`📨 Sự kiện cho chat ${chatIdToConnect}: ${response.events.join(', ')}`);
-            
-            // Fix: Detect both create and update events better
-            const isMessageEvent = response.events.some((event: string) => 
-              event.includes('databases.*.collections.*.documents.*.create') || 
-              event.includes('databases.*.collections.*.documents.*.update')
-            );
-            
-            if (isMessageEvent) {
-              console.log(`✅ Tin nhắn mới/cập nhật cho chat ${chatIdToConnect}: ${payload.content?.substring(0, 20) || '[Media content]'}`);
-              
-              const processedMessage = await processMessage(payload);
-              if (processedMessage && onNewMessage) {
-                console.log(`🔔 Gọi callback onNewMessage cho tin nhắn: ${processedMessage.$id}`);
-                onNewMessage(processedMessage);
-              }
-            }
-          }
-        });
+        // Cải thiện: Đăng ký nhiều kênh khác nhau để chắc chắn nhận được tất cả sự kiện
         
-        // Try a more generic subscription as fallback
-        const dbChannelId = `databases.${DATABASE_ID}`;
-        subscribeWhenReady(dbChannelId, async (response: any) => {
-          if (response && response.payload && 
-              response.payload.$collectionId === MESSAGES_ID && 
-              response.payload.chatsId === chatIdToConnect) {
-            
-            console.log(`📨 Sự kiện database cho chat ${chatIdToConnect}`);
-            
+        // 1. Kênh cho tất cả documents trong MESSAGES_ID collection
+        const messagesChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents`;
+        subscribeWhenReady(messagesChannelId, async (response: any) => {
+          console.log(`📢 Nhận sự kiện từ kênh messages: ${response.events?.join(', ')}`);
+          
+          if (!response || !response.payload) return;
+          
+          // Kiểm tra xem tin nhắn có phải thuộc chat hiện tại không
+          if (response.payload.chatsId === chatIdToConnect) {
             const processedMessage = await processMessage(response.payload);
             if (processedMessage && onNewMessage) {
+              console.log(`🔔 Gửi tin nhắn qua callback (messages): ${processedMessage.$id}`);
               onNewMessage(processedMessage);
             }
           }
         });
         
-        // Đăng ký thêm kênh cụ thể cho chat này
-        try {
-          const chatChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents.*.chatsId.${chatIdToConnect}`;
-          subscribeWhenReady(chatChannelId, async (response: any) => {
-            console.log(`📨 Sự kiện chat cụ thể: ${chatIdToConnect}`);
-            
-            if (response && response.payload) {
-              const processedMessage = await processMessage(response.payload);
-              if (processedMessage && onNewMessage) {
-                onNewMessage(processedMessage);
-              }
+        // 2. Kênh cụ thể cho chat này (sử dụng cú pháp Appwrite mới)
+        const chatSpecificChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents?queries[]=equal(chatsId,"${chatIdToConnect}")`;
+        subscribeWhenReady(chatSpecificChannelId, async (response: any) => {
+          console.log(`📢 Nhận sự kiện từ kênh chat cụ thể: ${response.events?.join(', ')}`);
+          
+          if (!response || !response.payload) return;
+          
+          const processedMessage = await processMessage(response.payload);
+          if (processedMessage && onNewMessage) {
+            console.log(`🔔 Gửi tin nhắn qua callback (chat specific): ${processedMessage.$id}`);
+            onNewMessage(processedMessage);
+          }
+        });
+        
+        // 3. Kênh tạo document mới
+        const createDocumentChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents.*.create`;
+        subscribeWhenReady(createDocumentChannelId, async (response: any) => {
+          console.log(`📢 Nhận sự kiện tạo document mới: ${response.events?.join(', ')}`);
+          
+          if (!response || !response.payload) return;
+          
+          // Kiểm tra xem tin nhắn có phải thuộc chat hiện tại không
+          if (response.payload.chatsId === chatIdToConnect) {
+            const processedMessage = await processMessage(response.payload);
+            if (processedMessage && onNewMessage) {
+              console.log(`🔔 Gửi tin nhắn qua callback (document create): ${processedMessage.$id}`);
+              onNewMessage(processedMessage);
             }
-          });
-        } catch (e) {
-          console.log("Không thể đăng ký kênh chat cụ thể:", e);
-        }
+          }
+        });
         
         // Đánh dấu kết nối thành công
         setIsConnected(true);
@@ -307,7 +294,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
     }
   }, [processMessage, onNewMessage, processQueuedMessages]);
   
-  // Fix: Better reconnection with increased heartbeat
+  // Cải thiện cơ chế reconnect
   const reconnect = useCallback((chatIdToReconnect: string) => {
     if (reconnectAttemptRef.current >= maxReconnectAttempts || isConnectingRef.current) {
       console.log("❌ Đã đạt giới hạn số lần thử kết nối lại hoặc đang trong quá trình kết nối");
@@ -327,6 +314,11 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
         }
         unsubscribeRef.current = null;
       }
+      
+      // Đặt lại trạng thái kết nối
+      connectionReadyRef.current = false;
+      
+      // Kết nối lại
       connectRealtime(chatIdToReconnect);
     }, 2000);
   }, [connectRealtime]);
@@ -349,7 +341,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
     // Reset danh sách tin nhắn đã xử lý
     processedMessagesRef.current.clear();
     
-    // Reset timestamp to ensure we catch all messages in the new chat
+    // Reset timestamp
     lastMessageTimestampRef.current = 0;
     
     // Reset message queue
@@ -364,12 +356,11 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
     // Thiết lập kết nối mới
     const cleanup = connectRealtime(chatId);
     
-    // Fix: Heartbeat to keep connection alive
+    // Heartbeat để giữ kết nối
     const heartbeatInterval = setInterval(() => {
       if (isConnected && !isConnectingRef.current && connectionReadyRef.current) {
         console.log("💓 Gửi heartbeat để giữ kết nối...");
         try {
-          // Just a quick subscribe/unsubscribe to keep the connection fresh
           const tempSubscription = appwriteClient.subscribe('heartbeat', () => {});
           setTimeout(() => {
             try {
@@ -379,14 +370,13 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
             }
           }, 100);
         } catch (e) {
-          console.log("Lỗi heartbeat:", e);
-          // If heartbeat fails, try to reconnect
+          console.log("Lỗi heartbeat, thử kết nối lại:", e);
           if (chatId) {
             reconnect(chatId);
           }
         }
       }
-    }, 25000); // Heartbeat every 25 seconds
+    }, 20000); // Giảm xuống còn 20 giây
     
     // Kiểm tra kết nối định kỳ
     const checkConnectionInterval = setInterval(() => {
@@ -398,7 +388,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       if (isConnected && connectionReadyRef.current && messageQueueRef.current.length > 0) {
         processQueuedMessages();
       }
-    }, 10000); // Kiểm tra mỗi 10 giây
+    }, 8000); // Giảm xuống còn 8 giây
     
     // Cleanup khi component unmount hoặc chatId thay đổi
     return () => {

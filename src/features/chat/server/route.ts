@@ -1,16 +1,15 @@
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { createChatSchema, messageSchema, updateChatSchema, chatMemberSchema, chatFilterSchema, chatMemberFilterSchema, messageReadSchema, typingIndicatorSchema, messageReactionSchema, pinMessageSchema, messageSearchSchema } from "../schema";
+import { createChatSchema, messageSchema, updateChatSchema, chatMemberSchema, chatFilterSchema, chatMemberFilterSchema, messageReadSchema, typingIndicatorSchema, pinMessageSchema, messageSearchSchema } from "../schema";
 import { getMember } from "@/features/members/utils";
-import { DATABASE_ID, MEMBERS_ID, CHATS_ID, MESSAGES_ID, CHAT_MEMBERS_ID, WORKSPACES_ID, IMAGES_BUCKET_ID } from "@/config";
+import { DATABASE_ID, MEMBERS_ID, CHATS_ID, MESSAGES_ID, CHAT_MEMBERS_ID, WORKSPACES_ID, IMAGES_BUCKET_ID, MESSAGE_READS_ID } from "@/config";
 import { ID, Query } from "node-appwrite";
 import { z } from "zod";
 import { Chats, ChatMembers, Messages } from "../type";
 
-// Tên các collection mới
-const MESSAGE_READS_ID = "message_reads"; // Collection lưu trạng thái đã đọc
-const MESSAGE_REACTIONS_ID = "message_reactions"; // Collection lưu reactions
+// Tên các collection mới đã được chuyển sang config.ts
+// const MESSAGE_READS_ID = "message_reads"; // Collection lưu trạng thái đã đọc
 
 const app = new Hono()
   // Workspace chat endpoints
@@ -77,40 +76,82 @@ const app = new Hono()
 
       console.log(`Workspace ${workspaceId} có ${workspaceMembers.total} thành viên`);
       
-      // Lấy thành viên hiện tại của chat để xóa
+      // Lấy thành viên hiện tại của chat
       const chatMembers = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
         Query.equal("chatsId", chatId),
       ]);
       
-      console.log(`Chat ${chatId} hiện có ${chatMembers.total} thành viên, sẽ xóa tất cả và đồng bộ lại`);
+      console.log(`Chat ${chatId} hiện có ${chatMembers.total} thành viên, sẽ đồng bộ với workspace`);
       
-      // Xóa tất cả thành viên hiện tại của chat
-      let removed = chatMembers.total;
+      // Tạo Map để theo dõi các thành viên
+      const workspaceMemberIds = new Set(workspaceMembers.documents.map(member => member.$id));
+      const chatMemberIds = new Map(chatMembers.documents.map(member => [member.memberId, member.$id]));
+      
+      // Thống kê
+      let added = 0;
+      let removed = 0;
+      let kept = 0;
+      
+      // 1. Xóa các thành viên chat không còn trong workspace
       for (const chatMember of chatMembers.documents) {
-        await databases.deleteDocument(DATABASE_ID, CHAT_MEMBERS_ID, chatMember.$id);
+        if (!workspaceMemberIds.has(chatMember.memberId)) {
+          console.log(`Xóa thành viên ${chatMember.memberId} khỏi chat vì không còn trong workspace`);
+          await databases.deleteDocument(DATABASE_ID, CHAT_MEMBERS_ID, chatMember.$id);
+          removed++;
+        } else {
+          kept++;
+        }
       }
       
-      // Thêm tất cả thành viên từ workspace - nguồn chuẩn
-      let added = 0;
+      // 2. Thêm thành viên mới từ workspace vào chat
+      const addedMembers = [];
       for (const workspaceMember of workspaceMembers.documents) {
-        console.log(`Thêm thành viên workspace ${workspaceMember.$id} vào chat`);
-        await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
+        if (!chatMemberIds.has(workspaceMember.$id)) {
+          console.log(`Thêm thành viên mới ${workspaceMember.$id} vào chat`);
+          await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
+            chatsId: chatId,
+            memberId: workspaceMember.$id,
+            content: "",
+            CreatedAt: new Date(),
+          });
+          addedMembers.push(workspaceMember);
+          added++;
+        }
+      }
+
+      // 3. Gửi tin nhắn hệ thống thông báo về việc đồng bộ thành viên
+      if (added > 0 || removed > 0) {
+        let systemMessage = `Đã đồng bộ thành viên: `;
+        if (added > 0) {
+          const newMemberNames = addedMembers
+            .slice(0, 3)
+            .map(member => member.name || "Người dùng mới")
+            .join(", ");
+          systemMessage += `Thêm ${added} thành viên mới${added <= 3 ? ` (${newMemberNames})` : ''}.`;
+        }
+        if (removed > 0) {
+          systemMessage += ` Xóa ${removed} thành viên không hợp lệ.`;
+        }
+        
+        // Tạo tin nhắn hệ thống
+        await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
           chatsId: chatId,
-          memberId: workspaceMember.$id,
-          content: "",
+          memberId: userMember.$id,
+          content: systemMessage,
+          isSystemMessage: true,
           CreatedAt: new Date(),
         });
-        added++;
       }
 
       return c.json({ 
         data: { 
           added, 
           removed,
-          total: workspaceMembers.total,
-          message: `Đã đồng bộ lại thành viên chat từ workspace. Xóa ${removed} thành viên cũ và thêm ${added} thành viên mới.`
+          kept,
+          total: workspaceMemberIds.size,
+          message: `Đã đồng bộ thành viên: Giữ lại ${kept} thành viên, thêm ${added} thành viên mới, xóa ${removed} thành viên cũ.`
         },
-        message: `Đã đồng bộ lại thành viên chat từ workspace. Xóa ${removed} thành viên cũ và thêm ${added} thành viên mới.`
+        message: `Đã đồng bộ thành viên: Giữ lại ${kept} thành viên, thêm ${added} thành viên mới, xóa ${removed} thành viên cũ.`
       });
     } catch (error) {
       console.error("Error syncing chat members:", error);
@@ -146,7 +187,16 @@ const app = new Hono()
       await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
         chatsId: chat.$id,
         memberId: member.$id,
-        content: "",
+        content: `${member.name || "Người dùng"} đã tạo cuộc trò chuyện`,
+        CreatedAt: new Date(),
+      });
+
+      // Tạo tin nhắn hệ thống thông báo chat được tạo
+      await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
+        chatsId: chat.$id,
+        memberId: member.$id,
+        content: `${member.name || "Người dùng"} đã tạo cuộc trò chuyện ${isGroup ? "nhóm" : ""}`,
+        isSystemMessage: true,
         CreatedAt: new Date(),
       });
 
@@ -213,11 +263,48 @@ const app = new Hono()
   
   .get("/:chatsId", sessionMiddleware, async (c) => {
     const databases = c.get("databases");
+    const user = c.get("user");
     const { chatsId } = c.req.param();
 
     try {
       // Lấy thông tin chat
       const chat = await databases.getDocument(DATABASE_ID, CHATS_ID, chatsId);
+      
+      // Kiểm tra quyền truy cập workspace
+      const member = await getMember({
+        databases,
+        workspaceId: chat.workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "Bạn không có quyền truy cập workspace này" }, 401);
+      }
+
+      // Kiểm tra người dùng đã là thành viên của chat chưa
+      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("chatsId", chatsId),
+        Query.equal("memberId", member.$id),
+      ]);
+
+      // Nếu người dùng không phải là thành viên của chat nhưng là thành viên hợp lệ của workspace
+      // thì tự động thêm họ vào nhóm chat
+      if (!chatMember.documents.length) {
+        try {
+          // Tự động thêm người dùng vào chat vì họ là thành viên hợp lệ của workspace
+          console.log(`Tự động thêm thành viên workspace ${member.$id} vào chat ${chatsId}`);
+          await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
+            chatsId: chatsId,
+            memberId: member.$id,
+            content: `${member.name || "Người dùng"} đã tham gia cuộc trò chuyện`,
+            CreatedAt: new Date(),
+          });
+          console.log(`Đã tự động thêm thành viên ${member.$id} vào chat ${chatsId}`);
+        } catch (addError) {
+          console.error("Không thể tự động thêm thành viên vào chat:", addError);
+          // Vẫn tiếp tục để người dùng có thể xem thông tin chat
+        }
+      }
       
       // Lấy thành viên chat
       const chatMembers = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
@@ -363,8 +450,23 @@ const app = new Hono()
         Query.equal("memberId", member.$id),
       ]);
 
+      // Nếu người dùng không phải là thành viên của chat nhưng là thành viên hợp lệ của workspace
+      // thì tự động thêm họ vào nhóm chat
       if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+        try {
+          // Tự động thêm người dùng vào chat vì họ là thành viên hợp lệ của workspace
+          console.log(`Tự động thêm thành viên workspace ${member.$id} vào chat ${chatsId}`);
+          await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
+            chatsId: chatsId,
+            memberId: member.$id,
+            content: `${member.name || "Người dùng"} đã tham gia cuộc trò chuyện`,
+            CreatedAt: new Date(),
+          });
+          console.log(`Đã tự động thêm thành viên ${member.$id} vào chat ${chatsId}`);
+        } catch (addError) {
+          console.error("Không thể tự động thêm thành viên vào chat:", addError);
+          return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+        }
       }
 
       // Tạo tin nhắn
@@ -407,14 +509,29 @@ const app = new Hono()
         Query.equal("memberId", member.$id),
       ]);
 
+      // Nếu người dùng không phải là thành viên của chat nhưng là thành viên hợp lệ của workspace
+      // thì tự động thêm họ vào nhóm chat
       if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+        try {
+          // Tự động thêm người dùng vào chat vì họ là thành viên hợp lệ của workspace
+          console.log(`Tự động thêm thành viên workspace ${member.$id} vào chat ${chatsId}`);
+          await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
+            chatsId: chatsId,
+            memberId: member.$id,
+            content: `${member.name || "Người dùng"} đã tham gia cuộc trò chuyện`,
+            CreatedAt: new Date(),
+          });
+          console.log(`Đã tự động thêm thành viên ${member.$id} vào chat ${chatsId}`);
+        } catch (addError) {
+          console.error("Không thể tự động thêm thành viên vào chat:", addError);
+          return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+        }
       }
 
       // Lấy tin nhắn
       const messages = await databases.listDocuments(DATABASE_ID, MESSAGES_ID, [
         Query.equal("chatsId", chatsId),
-        Query.orderDesc("CreatedAt"),
+        Query.orderAsc("CreatedAt"),
       ]);
 
       return c.json({ 
@@ -633,135 +750,6 @@ const app = new Hono()
     } catch (error) {
       console.error("Error updating typing status:", error);
       return c.json({ error: "Không thể cập nhật trạng thái đang gõ" }, 500);
-    }
-  })
-  
-  // Route xử lý thả reaction cho tin nhắn
-  .post("/:chatsId/messages/:messageId/reactions", sessionMiddleware, zValidator("json", messageReactionSchema), async (c) => {
-    const databases = c.get("databases");
-    const user = c.get("user");
-    const { chatsId, messageId } = c.req.param();
-    const { reaction } = c.req.valid("json");
-
-    try {
-      // Lấy thông tin chat
-      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
-      
-      // Kiểm tra thành viên
-      const member = await getMember({
-        databases,
-        workspaceId: chat.workspaceId,
-        userId: user.$id,
-      });
-
-      if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
-
-      // Kiểm tra người dùng là thành viên của chat
-      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatsId),
-        Query.equal("memberId", member.$id),
-      ]);
-
-      if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
-      }
-
-      // Kiểm tra xem đã có reaction nào từ người dùng cho tin nhắn này chưa
-      const existingReactions = await databases.listDocuments(DATABASE_ID, MESSAGE_REACTIONS_ID, [
-        Query.equal("messageId", messageId),
-        Query.equal("memberId", member.$id),
-      ]);
-
-      // Nếu đã có reaction, cập nhật hoặc xóa
-      if (existingReactions.total > 0) {
-        const existingReaction = existingReactions.documents[0];
-        
-        // Nếu reaction giống nhau, xóa (toggle)
-        if (existingReaction.reaction === reaction) {
-          await databases.deleteDocument(DATABASE_ID, MESSAGE_REACTIONS_ID, existingReaction.$id);
-          return c.json({ 
-            data: { 
-              removed: true,
-              messageId,
-              memberId: member.$id,
-              reaction,
-            } 
-          });
-        } 
-        // Nếu reaction khác, cập nhật
-        else {
-          const updatedReaction = await databases.updateDocument(DATABASE_ID, MESSAGE_REACTIONS_ID, existingReaction.$id, {
-            reaction,
-            updatedAt: new Date(),
-          });
-          
-          return c.json({ data: updatedReaction });
-        }
-      }
-
-      // Tạo reaction mới
-      const newReaction = await databases.createDocument(DATABASE_ID, MESSAGE_REACTIONS_ID, ID.unique(), {
-        messageId,
-        memberId: member.$id,
-        reaction,
-        chatsId,
-        createdAt: new Date(),
-      });
-
-      return c.json({ data: newReaction });
-    } catch (error) {
-      console.error("Error adding reaction:", error);
-      return c.json({ error: "Không thể thêm reaction" }, 500);
-    }
-  })
-  
-  // Route lấy tất cả reactions cho một tin nhắn
-  .get("/:chatsId/messages/:messageId/reactions", sessionMiddleware, async (c) => {
-    const databases = c.get("databases");
-    const user = c.get("user");
-    const { chatsId, messageId } = c.req.param();
-
-    try {
-      // Lấy thông tin chat
-      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
-      
-      // Kiểm tra thành viên
-      const member = await getMember({
-        databases,
-        workspaceId: chat.workspaceId,
-        userId: user.$id,
-      });
-
-      if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
-
-      // Kiểm tra người dùng là thành viên của chat
-      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatsId),
-        Query.equal("memberId", member.$id),
-      ]);
-
-      if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
-      }
-
-      // Lấy danh sách reactions
-      const reactions = await databases.listDocuments(DATABASE_ID, MESSAGE_REACTIONS_ID, [
-        Query.equal("messageId", messageId),
-      ]);
-
-      return c.json({ 
-        data: { 
-          documents: reactions.documents, 
-          total: reactions.total 
-        } 
-      });
-    } catch (error) {
-      console.error("Error getting reactions:", error);
-      return c.json({ error: "Không thể lấy danh sách reactions" }, 500);
     }
   })
   
@@ -986,11 +974,23 @@ const app = new Hono()
         return c.json({ error: "Bạn không có quyền thêm thành viên" }, 401);
       }
 
+      // Lấy thông tin của thành viên được thêm
+      const newMemberInfo = await databases.getDocument(DATABASE_ID, MEMBERS_ID, memberId);
+
       // Thêm thành viên
       const newMember = await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
         chatsId,
         memberId,
         content: "",
+        CreatedAt: new Date(),
+      });
+
+      // Tạo tin nhắn hệ thống thông báo có thành viên mới
+      await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
+        chatsId,
+        memberId: currentMember.$id,
+        content: `${currentMember.name || "Người dùng"} đã thêm ${newMemberInfo?.name || "một thành viên mới"} vào cuộc trò chuyện`,
+        isSystemMessage: true,
         CreatedAt: new Date(),
       });
 
@@ -1077,6 +1077,9 @@ const app = new Hono()
         return c.json({ error: "Bạn không có quyền xóa thành viên này" }, 401);
       }
 
+      // Lấy thông tin của thành viên bị xóa
+      const removedMemberInfo = await databases.getDocument(DATABASE_ID, MEMBERS_ID, memberId);
+
       // Lấy id của chat member dựa trên memberId
       const memberToRemove = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
         Query.equal("chatsId", chatsId),
@@ -1093,6 +1096,15 @@ const app = new Hono()
         CHAT_MEMBERS_ID,
         memberToRemove.documents[0].$id
       );
+
+      // Tạo tin nhắn hệ thống thông báo có thành viên rời đi
+      await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
+        chatsId,
+        memberId: memberId, // Sử dụng ID của người rời đi để hiển thị đúng tên
+        content: `${removedMemberInfo?.name || "Một thành viên"} đã rời khỏi cuộc trò chuyện`,
+        isSystemMessage: true,
+        CreatedAt: new Date(),
+      });
 
       return c.json({ data: { $id: memberToRemove.documents[0].$id } });
     } catch (error) {
@@ -1136,7 +1148,7 @@ const app = new Hono()
       // Tạo nhóm chat mặc định
       const defaultChat = await databases.createDocument(DATABASE_ID, CHATS_ID, ID.unique(), {
         workspaceId,
-        name: `${workspaceName} Chung`,
+        name: workspaceName,
         isGroup: true,
       });
 
@@ -1150,7 +1162,7 @@ const app = new Hono()
         await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
           chatsId: defaultChat.$id,
           memberId: wsm.$id,
-          content: "",
+          content: `${wsm.name || "Một thành viên"} đã tham gia nhóm chat`,
           CreatedAt: new Date(),
         });
       }

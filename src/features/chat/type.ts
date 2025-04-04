@@ -14,6 +14,7 @@ export type Chats = Models.Document & {
 export type ChatMembers = Models.Document & {
   chatsId: string;
   memberId: string;
+  role: MemberRole;
 };
 
 export type Messages = Models.Document & {
@@ -50,16 +51,8 @@ export type TypingIndicator = {
   timestamp: Date;
 };
 
-// Type cho reactions
-export type MessageReaction = Models.Document & {
-  messageId: string;
-  memberId: string;
-  reaction: string; // emoji hoặc reaction code
-  createdAt: Date;
-};
-
 // Type cho event realtime
 export type RealtimeEvent = {
-  type: 'message' | 'typing' | 'read' | 'reaction' | 'pin';
+  type: 'message' | 'typing' | 'read' | 'pin';
   payload: any;
 };

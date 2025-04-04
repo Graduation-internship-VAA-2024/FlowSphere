@@ -1,7 +1,7 @@
 "use client";
 import { ChatUI } from "@/features/chat/components/chat-ui";
 import { useParams } from "next/navigation";
-import { Suspense, useState, useEffect, useRef } from "react";
+import { Suspense, useState, useEffect, useRef, useCallback } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Chats, ChatMembers } from "@/features/chat/type";
 import { Button } from "@/components/ui/button";
@@ -27,9 +27,22 @@ export default function ChatPage() {
   const [realtimeStatus, setRealtimeStatus] = useState<string | null>(null);
   const [newMessageNotification, setNewMessageNotification] = useState<string | null>(null);
   const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
-  const documentTitle = useRef<string>(typeof window !== 'undefined' ? document.title : '');
+  const documentTitle = useRef<string>("");
   const isFocused = useRef<boolean>(true);
   const messageProcessorRef = useRef<((newMessage: any) => void) | null>(null);
+  const [pollingStatus, setPollingStatus] = useState<'idle' | 'loading' | 'newMessages' | 'error'>('idle');
+  
+  // Tạo client cho fetch API
+  const fetchClient = {
+    get: async (url: string) => {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Không thể tải dữ liệu: ${response.status}`);
+      }
+      const json = await response.json();
+      return { data: json.data?.documents || [] };
+    }
+  };
 
   // Lắng nghe sự kiện focus và blur của cửa sổ
   useEffect(() => {
@@ -64,16 +77,66 @@ export default function ChatPage() {
 
   // Định nghĩa message processor callback một lần
   useEffect(() => {
+    // Tạo set lưu trữ tin nhắn đã xử lý để tránh trùng lặp
+    const processedMessageIds = new Set<string>();
+    
     messageProcessorRef.current = (newMessage) => {
       console.log("🔔 Nhận tin nhắn mới qua Realtime:", newMessage);
+      
+      // Tạo ID duy nhất cho mỗi tin nhắn để kiểm tra trùng lặp
+      const messageUniqueId = `${newMessage.$id}_${newMessage.chatsId}`;
+      
+      // Nếu tin nhắn đã xử lý thì bỏ qua
+      if (processedMessageIds.has(messageUniqueId)) {
+        console.log(`⏭️ Bỏ qua tin nhắn đã xử lý qua realtime: ${newMessage.$id}`);
+        return;
+      }
+      
+      // Đánh dấu là đã xử lý
+      processedMessageIds.add(messageUniqueId);
+      
+      // Giới hạn kích thước của set để tránh rò rỉ bộ nhớ
+      if (processedMessageIds.size > 500) {
+        // Xóa bớt 200 ID cũ nhất
+        const idsArray = Array.from(processedMessageIds);
+        processedMessageIds.clear();
+        idsArray.slice(200).forEach(id => processedMessageIds.add(id));
+      }
       
       // Kiểm tra xem tin nhắn mới có phải đã có trong danh sách không
       // Sử dụng hàm callback để đảm bảo truy cập state messages mới nhất
       setMessages((prevMessages) => {
         // Kiểm tra xem tin nhắn đã tồn tại chưa bằng ID
         if (prevMessages.some((msg) => msg.$id === newMessage.$id)) {
-          console.log(`⏭️ Bỏ qua tin nhắn đã có: ${newMessage.$id}`);
+          console.log(`⏭️ Bỏ qua tin nhắn đã có trong danh sách: ${newMessage.$id}`);
           return prevMessages;
+        }
+        
+        // Kiểm tra xem có phải tin nhắn tạm thời không
+        const isTempMessage = prevMessages.some(
+          (msg) => msg.content === newMessage.content && 
+                   msg.memberId === newMessage.memberId && 
+                   msg.$id.startsWith('temp-')
+        );
+        
+        if (isTempMessage) {
+          console.log(`⚠️ Phát hiện tin nhắn tạm thời, thay thế bằng tin nhắn thật: ${newMessage.$id}`);
+          // Lọc ra tin nhắn tạm thời có cùng nội dung và người gửi
+          const filteredMessages = prevMessages.filter(
+            msg => !(msg.content === newMessage.content && 
+                    msg.memberId === newMessage.memberId && 
+                    msg.$id.startsWith('temp-'))
+          );
+          
+          // Thêm tin nhắn mới vào
+          const updatedMessages = [...filteredMessages, newMessage];
+          
+          // Đảm bảo tin nhắn được sắp xếp theo thời gian
+          return updatedMessages.sort((a, b) => {
+            const timeA = new Date(a.CreatedAt || a.$createdAt).getTime();
+            const timeB = new Date(b.CreatedAt || b.$createdAt).getTime();
+            return timeA - timeB;
+          });
         }
         
         console.log(`✅ Thêm tin nhắn mới vào danh sách: ${newMessage.$id}`);
@@ -155,6 +218,171 @@ export default function ChatPage() {
     }
   }, [isConnected, selectedChat]);
 
+  // Thêm cơ chế polling để tự động tải tin nhắn mới định kỳ
+  // Giải pháp này đặc biệt hữu ích khi làm việc với localhost hoặc khi Realtime không hoạt động
+  useEffect(() => {
+    if (!selectedChat || !selectedChat.$id) return;
+
+    // Khởi tạo title khi component mount
+    if (typeof window !== 'undefined' && documentTitle.current === "") {
+      documentTitle.current = document.title;
+    }
+
+    // Hàm để lấy tin nhắn mới nhất
+    const fetchLatestMessages = async () => {
+      if (!selectedChat || !selectedChat.$id) return;
+      
+      try {
+        setPollingStatus('loading');
+        console.log("🔄 Đang polling tin nhắn mới...");
+        
+        // Lấy tin nhắn mới từ API
+        const response: any = await fetchClient.get(
+          `/api/chats/${selectedChat.$id}/messages`
+        );
+        
+        const fetchedMessages = response.data;
+        if (!fetchedMessages || !Array.isArray(fetchedMessages) || fetchedMessages.length === 0) {
+          console.log("ℹ️ Không có tin nhắn mới khi polling");
+          setPollingStatus('idle');
+          return;
+        }
+        
+        // Đảm bảo các tin nhắn được sắp xếp theo thời gian
+        const sortedMessages = fetchedMessages.sort((a, b) => {
+          const timeA = new Date(a.CreatedAt || a.$createdAt).getTime();
+          const timeB = new Date(b.CreatedAt || b.$createdAt).getTime();
+          return timeA - timeB;
+        });
+        
+        // Xử lý tin nhắn mới để tránh trùng lặp
+        let hasNewMessages = false;
+        
+        setMessages((prevMessages) => {
+          // Tìm tin nhắn chưa có trong danh sách hiện tại
+          const newMessages = sortedMessages.filter((newMsg) => {
+            // Kiểm tra bằng ID
+            const existsById = prevMessages.some(msg => msg.$id === newMsg.$id);
+            if (existsById) return false;
+            
+            // Kiểm tra xem có phải tin nhắn tạm thời không
+            const isTempVersion = prevMessages.some(
+              msg => msg.content === newMsg.content && 
+                    msg.memberId === newMsg.memberId && 
+                    msg.$id.startsWith('temp-')
+            );
+            
+            // Nếu là tin nhắn mới hoàn toàn, đánh dấu là có tin nhắn mới
+            if (!isTempVersion) {
+              hasNewMessages = true;
+            }
+            
+            return true;
+          });
+          
+          // Nếu không có tin nhắn mới, giữ nguyên danh sách cũ
+          if (newMessages.length === 0) {
+            console.log("ℹ️ Không phát hiện tin nhắn mới trong kết quả polling");
+            return prevMessages;
+          }
+          
+          console.log(`📥 Tìm thấy ${newMessages.length} tin nhắn mới khi polling`);
+          
+          // Kết hợp tin nhắn mới và tin nhắn hiện tại, loại bỏ tin nhắn tạm
+          let mergedMessages = [...prevMessages];
+          
+          // Thêm từng tin nhắn mới và xử lý tin nhắn tạm thời
+          newMessages.forEach(newMsg => {
+            // Tìm tin nhắn tạm có nội dung tương tự để thay thế
+            const tempIndex = mergedMessages.findIndex(
+              msg => msg.content === newMsg.content && 
+                    msg.memberId === newMsg.memberId && 
+                    msg.$id.startsWith('temp-')
+            );
+            
+            if (tempIndex !== -1) {
+              // Thay thế tin nhắn tạm bằng tin nhắn thật
+              console.log(`🔄 Thay thế tin nhắn tạm ${mergedMessages[tempIndex].$id} bằng tin nhắn thật ${newMsg.$id}`);
+              mergedMessages[tempIndex] = newMsg;
+            } else {
+              // Thêm tin nhắn mới vào cuối
+              mergedMessages.push(newMsg);
+            }
+          });
+          
+          // Lọc bỏ trùng lặp theo ID (phòng trường hợp)
+          const uniqueMessages = mergedMessages.filter((msg, index, self) => 
+            index === self.findIndex(m => m.$id === msg.$id)
+          );
+          
+          // Sắp xếp tin nhắn theo thời gian
+          return uniqueMessages.sort((a, b) => {
+            const timeA = new Date(a.CreatedAt || a.$createdAt).getTime();
+            const timeB = new Date(b.CreatedAt || b.$createdAt).getTime();
+            return timeA - timeB;
+          });
+        });
+        
+        // Nếu có tin nhắn mới (không phải thay thế tin nhắn tạm thời)
+        if (hasNewMessages) {
+          // Hiển thị thông báo khi phát hiện tin nhắn mới 
+          setPollingStatus('newMessages');
+          
+          // Chỉ phát âm thanh và cập nhật tiêu đề nếu tin nhắn không phải của người dùng hiện tại
+          const newMessagesFromOthers = sortedMessages.some(msg => 
+            msg.memberId !== memberId && 
+            !messages.some(existingMsg => existingMsg.$id === msg.$id)
+          );
+          
+          if (newMessagesFromOthers) {
+            console.log("🔔 Phát hiện tin nhắn mới từ người khác qua polling");
+            // Phát âm thanh thông báo nếu người dùng không ở tab hiện tại
+            if (!isFocused.current && notificationAudioRef.current) {
+              notificationAudioRef.current.play().catch(e => console.log("Không thể phát âm thanh: ", e));
+            }
+            
+            // Cập nhật tiêu đề trang
+            if (!isFocused.current && typeof document !== 'undefined') {
+              document.title = `(1) Tin nhắn mới - ${documentTitle.current}`;
+            }
+          }
+          
+          // Tự động reset trạng thái sau 2 giây
+          setTimeout(() => {
+            setPollingStatus('idle');
+          }, 2000);
+        } else {
+          setPollingStatus('idle');
+        }
+        
+        // Scroll xuống khi có tin nhắn mới
+        if (hasNewMessages && typeof window !== 'undefined') {
+          setTimeout(() => {
+            const messagesEndElement = document.getElementById('messages-end');
+            if (messagesEndElement) {
+              messagesEndElement.scrollIntoView({ behavior: 'smooth' });
+            }
+          }, 100);
+        }
+      } catch (error) {
+        console.error("❌ Lỗi khi polling tin nhắn:", error);
+        setPollingStatus('error');
+        setTimeout(() => {
+          setPollingStatus('idle');
+        }, 2000);
+      }
+    };
+    
+    // Tải tin nhắn mới ngay khi chọn chat
+    fetchLatestMessages();
+    
+    // Thiết lập interval để tự động tải tin nhắn mới sau 3 giây
+    const pollingInterval = setInterval(fetchLatestMessages, 3000);
+    
+    // Xóa interval khi component unmount hoặc khi chat thay đổi
+    return () => clearInterval(pollingInterval);
+  }, [selectedChat, messages, memberId]);
+
   // Fetch member ID
   useEffect(() => {
     if (!workspaceId) return;
@@ -199,8 +427,14 @@ export default function ChatPage() {
   useEffect(() => {
     if (!workspaceId || isInitializing) return;
 
+    let isMounted = true; // Theo dõi component còn mounted không
+    let isCreatingChat = false; // Biến cờ kiểm soát quá trình tạo chat
+
     const fetchChats = async () => {
+      if (isCreatingChat) return; // Tránh gọi nhiều lần khi đang tạo chat
+
       try {
+        setIsChatsLoading(true);
         const response = await fetch(`/api/chats?workspaceId=${workspaceId}`);
         
         if (!response.ok) {
@@ -208,16 +442,56 @@ export default function ChatPage() {
         }
         
         const data = await response.json();
-        if (data.data && data.data.documents) {
+        if (data.data && data.data.documents && isMounted) {
+          console.log("Fetched chats before deduplication:", data.data.documents.length);
+          
+          // Loại bỏ các chat trùng lặp bằng cách dùng Map với $id là key
+          const uniqueChatsMap = new Map();
+          data.data.documents.forEach((chat: Chats) => {
+            // Chỉ thêm vào nếu chat chưa tồn tại trong Map hoặc ghi đè nếu đã tồn tại
+            uniqueChatsMap.set(chat.$id, chat);
+          });
+          
+          // Chuyển đổi Map thành mảng
+          const uniqueChats = Array.from(uniqueChatsMap.values());
+          console.log("Unique chats after deduplication:", uniqueChats.length);
+          
+          // Cập nhật documents với mảng đã được lọc bỏ trùng lặp
+          data.data.documents = uniqueChats;
+          
           // Kiểm tra có nhóm chat nào không
-          const hasGroupChat = data.data.documents.some(
+          const hasGroupChat = uniqueChats.some(
             (chat: Chats) => chat.isGroup === true
           );
           
-          if (!hasGroupChat && memberId) {
-            // Nếu không có nhóm chat và đã có memberId, tạo một nhóm chat mặc định
+          // Tạo nhóm chat mặc định nếu chưa có và đã có memberId
+          if (!hasGroupChat && memberId && !isCreatingChat && isMounted) {
+            // Đánh dấu đang tạo chat để tránh tạo nhiều lần
+            isCreatingChat = true;
             setIsInitializing(true);
+
             try {
+              console.log("Bắt đầu tạo nhóm chat mặc định cho workspace:", workspaceId);
+              
+              // Kiểm tra lần nữa xem đã có chat nhóm chưa để tránh race condition
+              const doubleCheckResponse = await fetch(`/api/chats?workspaceId=${workspaceId}`);
+              if (doubleCheckResponse.ok) {
+                const doubleCheckData = await doubleCheckResponse.json();
+                const hasGroup = doubleCheckData.data?.documents?.some(
+                  (chat: Chats) => chat.isGroup === true
+                );
+                
+                if (hasGroup) {
+                  console.log("Phát hiện nhóm chat đã tồn tại trong lần kiểm tra thứ hai, hủy tạo mới");
+                  if (isMounted) {
+                    setIsInitializing(false);
+                    // Tải lại chat
+                    fetchChats();
+                  }
+                  return;
+                }
+              }
+              
               // Lấy thông tin workspace để lấy tên chính xác
               const wsResponse = await fetch(`/api/workspaces/${workspaceId}`);
               
@@ -232,64 +506,95 @@ export default function ChatPage() {
                 console.error("Không thể lấy thông tin workspace");
               }
               
-              // Tạo một nhóm chat mới
-              const newChat = await chatApi.createChat({
-                workspaceId,
-                name: chatName,
-                isGroup: true
+              // Sử dụng API initialize-default thay vì tự tạo chat
+              const initResponse = await fetch('/api/chats/initialize-default', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  workspaceId,
+                  workspaceName: chatName
+                }),
               });
               
-              if (newChat.data) {
-                try {
-                  // Đồng bộ tất cả thành viên vào nhóm chat mới
-                  const syncResult = await chatApi.syncMembers(newChat.data.$id, workspaceId);
-                  console.log('Sync result:', syncResult);
-                  
-                  // Lấy lại chat với thành viên mới
-                  const updatedChatResponse = await fetch(`/api/chats/${newChat.data.$id}`);
-                  if (updatedChatResponse.ok) {
-                    const updatedChatData = await updatedChatResponse.json();
-                    if (updatedChatData?.data) {
-                      // Thay thế chat mới bằng phiên bản có members
-                      data.data.documents = data.data.documents.filter((c: any) => c.$id !== newChat.data.$id);
-                      data.data.documents.push(updatedChatData.data);
+              if (!initResponse.ok) {
+                throw new Error(`Failed to initialize default chat: ${initResponse.status}`);
+              }
+              
+              const initData = await initResponse.json();
+              console.log("Kết quả khởi tạo nhóm chat mặc định:", initData);
+              
+              if (isMounted) {
+                // Tải lại danh sách chat sau khi tạo chat mặc định
+                const refreshResponse = await fetch(`/api/chats?workspaceId=${workspaceId}`);
+                if (refreshResponse.ok) {
+                  const refreshData = await refreshResponse.json();
+                  if (refreshData.data && refreshData.data.documents) {
+                    // Loại bỏ trùng lặp một lần nữa
+                    const refreshedChats = Array.from(
+                      new Map(refreshData.data.documents.map((chat: Chats) => [chat.$id, chat])).values()
+                    ) as (Chats & { members?: ChatMembers[] })[];
+                    setChats(refreshedChats);
+                    
+                    // Tự động chọn chat nhóm
+                    const defaultGroupChat = refreshedChats.find(
+                      (chat: Chats) => chat.isGroup === true
+                    );
+                    
+                    if (defaultGroupChat) {
+                      setSelectedChat(defaultGroupChat);
+                    } else if (refreshedChats.length > 0) {
+                      setSelectedChat(refreshedChats[0]);
                     }
                   }
-                } catch (syncError) {
-                  console.error("Error syncing members:", syncError);
                 }
               }
             } catch (error) {
               console.error("Error creating default chat:", error);
             } finally {
-              setIsInitializing(false);
+              if (isMounted) {
+                setIsInitializing(false);
+                isCreatingChat = false;
+              }
             }
-          }
-          
-          setChats(data.data.documents);
-          
-          // Nếu có chat và chưa chọn chat nào, chọn chat đầu tiên
-          if (data.data.documents.length > 0 && !selectedChat) {
-            // Ưu tiên chọn nhóm chat (group chat)
-            const defaultGroupChat = data.data.documents.find(
-              (chat: Chats) => chat.isGroup === true
-            );
-            
-            if (defaultGroupChat) {
-              setSelectedChat(defaultGroupChat);
-            } else if (data.data.documents.length > 0) {
-              setSelectedChat(data.data.documents[0]);
+          } else {
+            if (isMounted) {
+              // Lưu chats vào state
+              setChats(data.data.documents);
+              
+              // Nếu có chat và chưa chọn chat nào, chọn chat đầu tiên
+              if (data.data.documents.length > 0 && !selectedChat) {
+                // Ưu tiên chọn nhóm chat (group chat)
+                const defaultGroupChat = data.data.documents.find(
+                  (chat: Chats) => chat.isGroup === true
+                );
+                
+                if (defaultGroupChat) {
+                  setSelectedChat(defaultGroupChat);
+                } else if (data.data.documents.length > 0) {
+                  setSelectedChat(data.data.documents[0]);
+                }
+              }
             }
           }
         }
       } catch (error) {
-        setError(`Could not load chats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        if (isMounted) {
+          setError(`Could not load chats: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
       } finally {
-        setIsChatsLoading(false);
+        if (isMounted) {
+          setIsChatsLoading(false);
+        }
       }
     };
 
     fetchChats();
+
+    return () => {
+      isMounted = false; // Cleanup function để tránh setState sau khi unmount
+    };
   }, [workspaceId, memberId, isInitializing, selectedChat]);
 
   // Fetch messages when a chat is selected
@@ -334,6 +639,14 @@ export default function ChatPage() {
     
     setIsSyncing(true);
     setSyncNotification(null);
+    
+    console.log("Đang đồng bộ thành viên cho chat:", {
+      chatId: selectedChat.$id,
+      chatName: selectedChat.name,
+      currentMembers: selectedChat.members,
+      workspaceId
+    });
+    
     try {
       const response = await chatApi.syncMembers(selectedChat.$id, workspaceId);
       
@@ -341,18 +654,41 @@ export default function ChatPage() {
         throw new Error("Failed to sync members");
       }
       
+      console.log("Kết quả đồng bộ thành viên:", response.data);
+      
       setSyncNotification(response.data.message || "Đã đồng bộ thành viên.");
       
       const chatsData = await chatApi.getChats(workspaceId);
       
       if (chatsData?.data?.documents) {
-        setChats(chatsData.data.documents);
+        // Loại bỏ các chat trùng lặp
+        const uniqueChats = Array.from(
+          new Map(chatsData.data.documents.map((chat: Chats) => [chat.$id, chat])).values()
+        );
         
-        const updatedSelectedChat = chatsData.data.documents.find(
+        console.log("Danh sách chat sau khi đồng bộ:", {
+          total: uniqueChats.length,
+          chats: uniqueChats.map((chat: any) => ({
+            id: chat.$id,
+            name: chat.name,
+            isGroup: chat.isGroup,
+            membersCount: chat.members?.length || 0
+          }))
+        });
+        
+        setChats(uniqueChats);
+        
+        const updatedSelectedChat = uniqueChats.find(
           (chat: Chats) => chat.$id === selectedChat.$id
         );
         
         if (updatedSelectedChat) {
+          console.log("Cập nhật chat được chọn sau khi đồng bộ:", {
+            id: updatedSelectedChat.$id,
+            name: updatedSelectedChat.name,
+            membersCount: updatedSelectedChat.members?.length || 0
+          });
+          
           setSelectedChat(updatedSelectedChat);
         }
       }
@@ -528,20 +864,50 @@ export default function ChatPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Chat {workspaceName && `- ${workspaceName}`}</h1>
         <div className="flex items-center gap-2">
+          {/* Hiển thị trạng thái polling và realtime */}
+          {pollingStatus === 'newMessages' && (
+            <div className="text-sm text-green-600 dark:text-green-500 bg-green-100 dark:bg-green-900/30 px-3 py-1 rounded-full flex items-center">
+              <span className="h-2 w-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
+              Tin nhắn mới đã được tải
+            </div>
+          )}
+          
+          {pollingStatus === 'loading' && (
+            <div className="text-sm text-blue-600 dark:text-blue-500 bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full flex items-center">
+              <span className="h-2 w-2 rounded-full bg-blue-500 mr-2 animate-pulse"></span>
+              Đang kiểm tra tin nhắn mới...
+            </div>
+          )}
+          
+          {pollingStatus === 'error' && (
+            <div className="text-sm text-red-600 dark:text-red-500 bg-red-100 dark:bg-red-900/30 px-3 py-1 rounded-full flex items-center">
+              <span className="h-2 w-2 rounded-full bg-red-500 mr-2"></span>
+              Lỗi cập nhật tin nhắn
+            </div>
+          )}
+          
           {newMessageNotification && (
             <div className="text-sm text-yellow-600 dark:text-yellow-500 bg-yellow-100 dark:bg-yellow-900/30 px-3 py-1 rounded-full flex items-center animate-pulse">
               <span className="h-2 w-2 rounded-full bg-yellow-500 mr-2"></span>
               {newMessageNotification}
             </div>
           )}
+          
           {realtimeStatus && (
-            <div className="text-sm text-green-500 bg-green-50 dark:bg-green-900/20 px-3 py-1 rounded-full flex items-center">
-              <span className="animate-pulse h-2 w-2 rounded-full bg-green-500 mr-2"></span>
+            <div className="text-sm text-purple-600 dark:text-purple-500 bg-purple-100 dark:bg-purple-900/30 px-3 py-1 rounded-full flex items-center">
+              <span className="animate-pulse h-2 w-2 rounded-full bg-purple-500 mr-2"></span>
               {realtimeStatus}
             </div>
           )}
         </div>
       </div>
+      
+      {/* Audio cho thông báo tin nhắn mới */}
+      <audio
+        ref={notificationAudioRef}
+        src="/sounds/notification.mp3"
+        preload="auto"
+      />
       
       <Suspense fallback={<ChatSkeleton />}>
         {error && error.includes("not a member") ? (

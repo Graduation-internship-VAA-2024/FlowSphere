@@ -65,13 +65,6 @@ export const typingIndicatorSchema = z.object({
   isTyping: z.boolean(),
 });
 
-// Schema for message reactions
-export const messageReactionSchema = z.object({
-  messageId: z.string(),
-  memberId: z.string(),
-  reaction: z.string(),
-});
-
 // Schema for pinning messages
 export const pinMessageSchema = z.object({
   messageId: z.string(),
