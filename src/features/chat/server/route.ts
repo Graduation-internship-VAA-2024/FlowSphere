@@ -52,55 +52,37 @@ const app = new Hono()
 
     try {
       // Kiểm tra quyền
-      const userMember = await getMember({
-        databases,
-        workspaceId,
-        userId: user.$id,
-      });
+      const userMember = await getMember({ databases, workspaceId, userId: user.$id });
+      if (!userMember) return c.json({ error: "Bạn không có quyền truy cập" }, 401);
 
-      if (!userMember) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
-
-      // Lấy chat
+      // Lấy chat và kiểm tra
       const chat = await databases.getDocument(DATABASE_ID, CHATS_ID, chatId);
-      
-      if (chat.workspaceId !== workspaceId) {
-        return c.json({ error: "Chat không thuộc workspace này" }, 400);
-      }
+      if (chat.workspaceId !== workspaceId) return c.json({ error: "Chat không thuộc workspace này" }, 400);
 
-      // Lấy tất cả thành viên của workspace - đây là nguồn dữ liệu chuẩn
-      const workspaceMembers = await databases.listDocuments(DATABASE_ID, MEMBERS_ID, [
-        Query.equal("workspaceId", workspaceId),
+      // Lấy dữ liệu thành viên workspace và chat
+      const [workspaceMembers, chatMembers] = await Promise.all([
+        databases.listDocuments(DATABASE_ID, MEMBERS_ID, [Query.equal("workspaceId", workspaceId)]),
+        databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [Query.equal("chatsId", chatId)])
       ]);
       
-      // Lấy thành viên hiện tại của chat
-      const chatMembers = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatId),
-      ]);
-      
-      // Tạo Map để theo dõi các thành viên
+      // Tạo Map để theo dõi thành viên
       const workspaceMemberIds = new Set(workspaceMembers.documents.map(member => member.$id));
       const chatMemberIds = new Map(chatMembers.documents.map(member => [member.memberId, member.$id]));
       
       // Thống kê
-      let added = 0;
-      let removed = 0;
-      let kept = 0;
+      let added = 0, removed = 0, kept = 0;
+      let addedMembers: any[] = [];
       
-      // 1. Xóa các thành viên chat không còn trong workspace
-      for (const chatMember of chatMembers.documents) {
+      // 1. Xóa thành viên chat không còn trong workspace
+      await Promise.all(chatMembers.documents.map(async chatMember => {
         if (!workspaceMemberIds.has(chatMember.memberId)) {
           await databases.deleteDocument(DATABASE_ID, CHAT_MEMBERS_ID, chatMember.$id);
           removed++;
-        } else {
-          kept++;
-        }
-      }
+        } else kept++;
+      }));
       
       // 2. Thêm thành viên mới từ workspace vào chat
-      const addedMembers = [];
-      for (const workspaceMember of workspaceMembers.documents) {
+      await Promise.all(workspaceMembers.documents.map(async workspaceMember => {
         if (!chatMemberIds.has(workspaceMember.$id)) {
           await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
             chatsId: chatId,
@@ -111,23 +93,19 @@ const app = new Hono()
           addedMembers.push(workspaceMember);
           added++;
         }
-      }
+      }));
 
       // 3. Gửi tin nhắn hệ thống thông báo về việc đồng bộ thành viên
       if (added > 0 || removed > 0) {
         let systemMessage = `Đã đồng bộ thành viên: `;
         if (added > 0) {
-          const newMemberNames = addedMembers
-            .slice(0, 3)
+          const newMemberNames = addedMembers.slice(0, 3)
             .map(member => member.name || "Người dùng mới")
             .join(", ");
           systemMessage += `Thêm ${added} thành viên mới${added <= 3 ? ` (${newMemberNames})` : ''}.`;
         }
-        if (removed > 0) {
-          systemMessage += ` Xóa ${removed} thành viên không hợp lệ.`;
-        }
+        if (removed > 0) systemMessage += ` Xóa ${removed} thành viên không hợp lệ.`;
         
-        // Tạo tin nhắn hệ thống
         await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
           chatsId: chatId,
           memberId: userMember.$id,
@@ -138,12 +116,7 @@ const app = new Hono()
       }
 
       return c.json({ 
-        data: { 
-          added, 
-          removed,
-          kept,
-          total: workspaceMembers.total
-        },
+        data: { added, removed, kept, total: workspaceMembers.total },
         message: `Đã đồng bộ thành viên từ workspace vào nhóm chat`
       });
     } catch (error) {
@@ -159,39 +132,33 @@ const app = new Hono()
     const { workspaceId, name, isGroup } = c.req.valid("json");
 
     try {
-      const member = await getMember({
-        databases,
-        workspaceId,
-        userId: user.$id,
-      });
+      const member = await getMember({ databases, workspaceId, userId: user.$id });
+      if (!member) return c.json({ error: "Bạn không có quyền truy cập" }, 401);
 
-      if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
-
-      // Tạo chat
+      // Tạo chat và thêm người tạo vào chat cùng lúc
       const chat = await databases.createDocument(DATABASE_ID, CHATS_ID, ID.unique(), {
-        workspaceId,
-        name,
-        isGroup,
+        workspaceId, name, isGroup,
       });
 
-      // Thêm người tạo vào chat với quyền admin
-      await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
-        chatsId: chat.$id,
-        memberId: member.$id,
-        content: `${member.name || "Người dùng"} đã tạo cuộc trò chuyện`,
-        CreatedAt: new Date(),
-      });
-
-      // Tạo tin nhắn hệ thống thông báo chat được tạo
-      await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
-        chatsId: chat.$id,
-        memberId: member.$id,
-        content: `${member.name || "Người dùng"} đã tạo cuộc trò chuyện ${isGroup ? "nhóm" : ""}`,
-        isSystemMessage: true,
-        CreatedAt: new Date(),
-      });
+      // Thêm người tạo và tạo tin nhắn hệ thống
+      await Promise.all([
+        // Thêm người tạo vào chat
+        databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
+          chatsId: chat.$id,
+          memberId: member.$id,
+          content: `${member.name || "Người dùng"} đã tạo cuộc trò chuyện`,
+          CreatedAt: new Date(),
+        }),
+        
+        // Tạo tin nhắn hệ thống
+        databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
+          chatsId: chat.$id,
+          memberId: member.$id,
+          content: `${member.name || "Người dùng"} đã tạo cuộc trò chuyện ${isGroup ? "nhóm" : ""}`,
+          isSystemMessage: true,
+          CreatedAt: new Date(),
+        })
+      ]);
 
       return c.json({ data: chat });
     } catch (error) {
@@ -206,31 +173,17 @@ const app = new Hono()
     const { workspaceId, query, limit } = c.req.valid("query");
 
     try {
-      const member = await getMember({
-        databases,
-        workspaceId,
-        userId: user.$id,
-      });
+      // Kiểm tra quyền
+      const member = await getMember({ databases, workspaceId, userId: user.$id });
+      if (!member) return c.json({ error: "Bạn không có quyền truy cập" }, 401);
 
-      if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
-
-      // Lấy tất cả chat trong workspace
+      // Lấy tất cả chat và thành viên workspace
       const filters = [Query.equal("workspaceId", workspaceId)];
+      if (query) filters.push(Query.search("name", query));
       
-      if (query) {
-        filters.push(Query.search("name", query));
-      }
-
-      const chats = await databases.listDocuments(DATABASE_ID, CHATS_ID, [
-        ...filters,
-        Query.limit(limit),
-      ]);
-
-      // Lấy tổng số thành viên workspace để hiển thị trong UI
-      const workspaceMembers = await databases.listDocuments(DATABASE_ID, MEMBERS_ID, [
-        Query.equal("workspaceId", workspaceId),
+      const [chats, workspaceMembers] = await Promise.all([
+        databases.listDocuments(DATABASE_ID, CHATS_ID, [...filters, Query.limit(limit)]),
+        databases.listDocuments(DATABASE_ID, MEMBERS_ID, [Query.equal("workspaceId", workspaceId)])
       ]);
       
       // Lấy thành viên chat cho mỗi chat
@@ -249,10 +202,7 @@ const app = new Hono()
       );
 
       return c.json({ 
-        data: { 
-          documents: chatsWithMembers, 
-          total: chats.total 
-        } 
+        data: { documents: chatsWithMembers, total: chats.total } 
       });
     } catch (error) {
       console.error("Error listing chats:", error);
@@ -270,15 +220,8 @@ const app = new Hono()
       const chat = await databases.getDocument(DATABASE_ID, CHATS_ID, chatsId);
       
       // Kiểm tra quyền truy cập workspace
-      const member = await getMember({
-        databases,
-        workspaceId: chat.workspaceId,
-        userId: user.$id,
-      });
-
-      if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập workspace này" }, 401);
-      }
+      const member = await getMember({ databases, workspaceId: chat.workspaceId, userId: user.$id });
+      if (!member) return c.json({ error: "Bạn không có quyền truy cập workspace này" }, 401);
 
       // Kiểm tra người dùng đã là thành viên của chat chưa
       const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
@@ -286,33 +229,24 @@ const app = new Hono()
         Query.equal("memberId", member.$id),
       ]);
 
-      // Nếu người dùng không phải là thành viên của chat nhưng là thành viên hợp lệ của workspace
-      // thì tự động thêm họ vào nhóm chat
+      // Tự động thêm người dùng vào chat nếu họ chưa là thành viên
       if (!chatMember.documents.length) {
         try {
-          // Tự động thêm người dùng vào chat vì họ là thành viên hợp lệ của workspace
-          console.log(`Tự động thêm thành viên workspace ${member.$id} vào chat ${chatsId}`);
           await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
             chatsId: chatsId,
             memberId: member.$id,
             content: `${member.name || "Người dùng"} đã tham gia cuộc trò chuyện`,
             CreatedAt: new Date(),
           });
-          console.log(`Đã tự động thêm thành viên ${member.$id} vào chat ${chatsId}`);
         } catch (addError) {
           console.error("Không thể tự động thêm thành viên vào chat:", addError);
-          // Vẫn tiếp tục để người dùng có thể xem thông tin chat
         }
       }
       
-      // Lấy thành viên chat
-      const chatMembers = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatsId),
-      ]);
-
-      // Lấy tổng số thành viên workspace để hiển thị trong UI
-      const workspaceMembers = await databases.listDocuments(DATABASE_ID, MEMBERS_ID, [
-        Query.equal("workspaceId", chat.workspaceId),
+      // Lấy thành viên chat và tổng số thành viên workspace
+      const [chatMembers, workspaceMembers] = await Promise.all([
+        databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [Query.equal("chatsId", chatsId)]),
+        databases.listDocuments(DATABASE_ID, MEMBERS_ID, [Query.equal("workspaceId", chat.workspaceId)])
       ]);
 
       return c.json({ 
@@ -379,17 +313,10 @@ const app = new Hono()
       const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
       
       // Kiểm tra quyền xóa
-      const member = await getMember({
-        databases,
-        workspaceId: chat.workspaceId,
-        userId: user.$id,
-      });
+      const member = await getMember({ databases, workspaceId: chat.workspaceId, userId: user.$id });
+      if (!member) return c.json({ error: "Bạn không có quyền truy cập" }, 401);
 
-      if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
-
-      // Kiểm tra người dùng là admin của chat
+      // Kiểm tra người dùng là thành viên của chat
       const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
         Query.equal("chatsId", chatsId),
         Query.equal("memberId", member.$id),
@@ -399,25 +326,25 @@ const app = new Hono()
         return c.json({ error: "Bạn không có quyền xóa chat này" }, 401);
       }
 
-      // Xóa tất cả tin nhắn trước
-      const messages = await databases.listDocuments(DATABASE_ID, MESSAGES_ID, [
-        Query.equal("chatsId", chatsId),
+      // Lấy tất cả thành phần liên quan để xóa
+      const [messages, chatMembers] = await Promise.all([
+        databases.listDocuments(DATABASE_ID, MESSAGES_ID, [Query.equal("chatsId", chatsId)]),
+        databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [Query.equal("chatsId", chatsId)])
       ]);
 
-      for (const message of messages.documents) {
-        await databases.deleteDocument(DATABASE_ID, MESSAGES_ID, message.$id);
-      }
-
-      // Xóa tất cả thành viên
-      const chatMembers = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatsId),
+      // Xóa tin nhắn, thành viên, và chat
+      await Promise.all([
+        // Xóa tin nhắn
+        ...messages.documents.map(message => 
+          databases.deleteDocument(DATABASE_ID, MESSAGES_ID, message.$id)
+        ),
+        // Xóa thành viên
+        ...chatMembers.documents.map(chatMember => 
+          databases.deleteDocument(DATABASE_ID, CHAT_MEMBERS_ID, chatMember.$id)
+        )
       ]);
-
-      for (const chatMember of chatMembers.documents) {
-        await databases.deleteDocument(DATABASE_ID, CHAT_MEMBERS_ID, chatMember.$id);
-      }
-
-      // Xóa chat
+      
+      // Cuối cùng xóa chat
       await databases.deleteDocument(DATABASE_ID, CHATS_ID, chatsId);
 
       return c.json({ data: { $id: chatsId } });

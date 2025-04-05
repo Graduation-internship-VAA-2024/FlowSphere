@@ -186,16 +186,8 @@ export const ChatArea = React.memo(({
   // Auto sync members when chat loads if necessary
   useEffect(() => {
     if (chats && chats.isGroup && !isSyncing && !localIsSyncing) {
-      // Check if the chat needs member sync
-      const chatMembersCount = chats.members?.length || 0;
-      const workspaceMembersCount = chats.totalWorkspaceMembers || 0;
-      
-      // If there's a significant difference, suggest syncing
-      if (workspaceMembersCount > 0 && 
-          (chatMembersCount === 0 || 
-           Math.abs(chatMembersCount - workspaceMembersCount) > 2)) {
-        setAddMembersNotification("Phát hiện thay đổi thành viên. Bạn nên cập nhật lại danh sách thành viên chat.");
-      }
+      // No longer checking for member count differences or showing automatic alerts
+      // This was causing the "Phát hiện thay đổi thành viên" message
     }
   }, [chats, isSyncing, localIsSyncing]);
 
@@ -401,20 +393,6 @@ export const ChatArea = React.memo(({
                   <RefreshCw className="h-3 w-3 mr-2" />
                 )}
                 <p className="font-medium">{addMembersNotification}</p>
-              </div>
-            </div>
-          )}
-          
-          {!addMembersNotification && chats.totalWorkspaceMembers && chats.members.length !== chats.totalWorkspaceMembers && (
-            <div className="bg-amber-100 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300 p-2 text-sm text-center border-t border-b border-amber-200 dark:border-amber-800/50">
-              <div className="flex items-center justify-center">
-                <p className="font-medium">
-                  Phát hiện sự khác biệt giữa thành viên workspace ({chats.totalWorkspaceMembers}) 
-                  và thành viên chat ({chats.members.length}). 
-                  <Button variant="primary" size="sm" onClick={handleSyncMembers} className="px-1 h-auto">
-                    Cập nhật ngay
-                  </Button>
-                </p>
               </div>
             </div>
           )}
