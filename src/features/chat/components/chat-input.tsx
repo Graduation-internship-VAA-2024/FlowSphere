@@ -133,33 +133,6 @@ export const ChatInput = ({
           />
         </div>
         
-        {onToggleMediaGallery && (
-          <Button 
-            variant={mediaGalleryOpen ? "secondary" : "outline"}
-            size="sm"
-            onClick={onToggleMediaGallery}
-            className={cn(
-              "flex items-center gap-1 h-10 px-3",
-              mediaGalleryOpen ? "bg-primary/10" : ""
-            )}
-          >
-            <Images className="h-4 w-4" />
-            <span className="hidden sm:inline">Thư viện</span>
-          </Button>
-        )}
-        
-        {onOpenSearch && (
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={onOpenSearch}
-            className="flex items-center gap-1 h-10 px-3"
-          >
-            <Search className="h-4 w-4" />
-            <span className="hidden sm:inline">Tìm kiếm</span>
-          </Button>
-        )}
-        
         <Input 
           value={message}
           onChange={handleInputChange}

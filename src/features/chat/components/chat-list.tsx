@@ -327,7 +327,7 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
                         <div className="font-medium truncate">{chat.name}</div>
                         <div className="text-xs text-muted-foreground">
                           {chat.isGroup
-                            ? `${chat.members?.length || 0} thành viên`
+                            ? "Nhóm chat"
                             : "Tin nhắn riêng tư"}
                         </div>
                       </div>

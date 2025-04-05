@@ -86,8 +86,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         <div className="text-sm text-muted-foreground mr-2 flex items-center">
           <Users className="h-4 w-4 mr-1" />
           <span>
-            {chats?.members?.length || 0}
-            {chats?.totalWorkspaceMembers && ` / ${chats.totalWorkspaceMembers}`}
+            {chats?.totalWorkspaceMembers || 0} thành viên
           </span>
         </div>
         
@@ -102,7 +101,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             className="flex items-center gap-1"
           >
             <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-            <span className="hidden md:inline ml-1">Cập nhật thành viên</span>
+            <span className="hidden md:inline ml-1">Cập nhật thành viên từ workspace</span>
             {chats.totalWorkspaceMembers && chats.members && 
               chats.totalWorkspaceMembers !== chats.members.length && (
                 <span className="bg-amber-100 text-amber-800 dark:bg-amber-800 dark:text-amber-100 w-4 h-4 inline-flex items-center justify-center rounded-full text-xs">

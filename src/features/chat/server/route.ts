@@ -73,15 +73,11 @@ const app = new Hono()
       const workspaceMembers = await databases.listDocuments(DATABASE_ID, MEMBERS_ID, [
         Query.equal("workspaceId", workspaceId),
       ]);
-
-      console.log(`Workspace ${workspaceId} có ${workspaceMembers.total} thành viên`);
       
       // Lấy thành viên hiện tại của chat
       const chatMembers = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
         Query.equal("chatsId", chatId),
       ]);
-      
-      console.log(`Chat ${chatId} hiện có ${chatMembers.total} thành viên, sẽ đồng bộ với workspace`);
       
       // Tạo Map để theo dõi các thành viên
       const workspaceMemberIds = new Set(workspaceMembers.documents.map(member => member.$id));
@@ -95,7 +91,6 @@ const app = new Hono()
       // 1. Xóa các thành viên chat không còn trong workspace
       for (const chatMember of chatMembers.documents) {
         if (!workspaceMemberIds.has(chatMember.memberId)) {
-          console.log(`Xóa thành viên ${chatMember.memberId} khỏi chat vì không còn trong workspace`);
           await databases.deleteDocument(DATABASE_ID, CHAT_MEMBERS_ID, chatMember.$id);
           removed++;
         } else {
@@ -107,7 +102,6 @@ const app = new Hono()
       const addedMembers = [];
       for (const workspaceMember of workspaceMembers.documents) {
         if (!chatMemberIds.has(workspaceMember.$id)) {
-          console.log(`Thêm thành viên mới ${workspaceMember.$id} vào chat`);
           await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
             chatsId: chatId,
             memberId: workspaceMember.$id,
@@ -148,10 +142,9 @@ const app = new Hono()
           added, 
           removed,
           kept,
-          total: workspaceMemberIds.size,
-          message: `Đã đồng bộ thành viên: Giữ lại ${kept} thành viên, thêm ${added} thành viên mới, xóa ${removed} thành viên cũ.`
+          total: workspaceMembers.total
         },
-        message: `Đã đồng bộ thành viên: Giữ lại ${kept} thành viên, thêm ${added} thành viên mới, xóa ${removed} thành viên cũ.`
+        message: `Đã đồng bộ thành viên từ workspace vào nhóm chat`
       });
     } catch (error) {
       console.error("Error syncing chat members:", error);
@@ -235,6 +228,11 @@ const app = new Hono()
         Query.limit(limit),
       ]);
 
+      // Lấy tổng số thành viên workspace để hiển thị trong UI
+      const workspaceMembers = await databases.listDocuments(DATABASE_ID, MEMBERS_ID, [
+        Query.equal("workspaceId", workspaceId),
+      ]);
+      
       // Lấy thành viên chat cho mỗi chat
       const chatsWithMembers = await Promise.all(
         chats.documents.map(async (chat) => {
@@ -245,6 +243,7 @@ const app = new Hono()
           return {
             ...chat,
             members: members.documents,
+            totalWorkspaceMembers: workspaceMembers.total
           };
         })
       );
@@ -311,10 +310,16 @@ const app = new Hono()
         Query.equal("chatsId", chatsId),
       ]);
 
+      // Lấy tổng số thành viên workspace để hiển thị trong UI
+      const workspaceMembers = await databases.listDocuments(DATABASE_ID, MEMBERS_ID, [
+        Query.equal("workspaceId", chat.workspaceId),
+      ]);
+
       return c.json({ 
         data: { 
           ...chat, 
-          members: chatMembers.documents 
+          members: chatMembers.documents,
+          totalWorkspaceMembers: workspaceMembers.total
         } 
       });
     } catch (error) {

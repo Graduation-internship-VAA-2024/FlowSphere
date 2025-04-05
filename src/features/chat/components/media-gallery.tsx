@@ -188,9 +188,10 @@ export const MediaGallery = ({ open, onOpenChange, messages, chatsId }: MediaGal
       {/* Image Viewer */}
       {selectedImage && (
         <ImageViewer 
+          isOpen={true}
           imageUrl={selectedImage}
           onClose={() => setSelectedImage(null)}
-          images={imagesMessages.map(msg => msg.imageUrl!)}
+          allImages={imagesMessages.map(msg => msg.imageUrl!)}
           currentIndex={imagesMessages.findIndex(msg => msg.imageUrl === selectedImage)}
         />
       )}
