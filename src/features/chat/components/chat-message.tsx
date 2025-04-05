@@ -4,28 +4,68 @@ import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 import { Messages } from "../type";
 import { useMemo, useEffect, useState } from "react";
-import { FileText, Image as ImageIcon } from "lucide-react";
+import { FileText, Image as ImageIcon, FileArchive, File as FileIcon, Headphones, Video, Code, Download } from "lucide-react";
 import { MessageReadStatus } from "./message-read-status";
+import { bytesToSize } from "@/lib/utils";
+import { ImageViewer } from "./image-viewer";
+import { Button } from "@/components/ui/button";
 
 interface ChatMessageProps {
   message: Messages;
   currentMemberId: string;
   memberName?: string;
+  chatsId: string;
+  id?: string;
   totalMembers?: number;
-  chatsId?: string;
+  allMessages?: Messages[];
+  highlighted?: boolean;
 }
+
+// Function to get appropriate icon based on file type
+const getFileIcon = (fileType: string | undefined) => {
+  if (!fileType) return <FileIcon className="h-4 w-4" />;
+  
+  if (fileType.startsWith('image/')) return <ImageIcon className="h-4 w-4" />;
+  if (fileType.startsWith('video/')) return <Video className="h-4 w-4" />;
+  if (fileType.startsWith('audio/')) return <Headphones className="h-4 w-4" />;
+  
+  if (fileType.includes('pdf')) return <FileText className="h-4 w-4" />;
+  if (fileType.includes('word') || fileType.includes('doc')) return <FileText className="h-4 w-4" />;
+  if (fileType.includes('excel') || fileType.includes('sheet') || fileType.includes('csv')) return <FileText className="h-4 w-4" />;
+  if (fileType.includes('zip') || fileType.includes('rar') || fileType.includes('compressed')) return <FileArchive className="h-4 w-4" />;
+  if (fileType.includes('json') || fileType.includes('javascript') || fileType.includes('html') || fileType.includes('css')) return <Code className="h-4 w-4" />;
+  
+  return <FileIcon className="h-4 w-4" />;
+};
 
 export const ChatMessage = ({ 
   message, 
   currentMemberId, 
   memberName,
   totalMembers = 1,
-  chatsId
+  chatsId,
+  allMessages = [],
+  highlighted = false
 }: ChatMessageProps) => {
   const [senderName, setSenderName] = useState<string>(memberName || "");
+  const [viewerOpen, setViewerOpen] = useState<boolean>(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const isCurrentUser = useMemo(() => {
     return message.memberId === currentMemberId;
   }, [message.memberId, currentMemberId]);
+
+  // Tìm tất cả ảnh trong cuộc trò chuyện
+  const allImages = useMemo(() => {
+    return allMessages
+      .filter(msg => msg.imageUrl)
+      .map(msg => msg.imageUrl as string);
+  }, [allMessages]);
+
+  // Tìm index của ảnh hiện tại trong tất cả các ảnh
+  const currentImageIndex = useMemo(() => {
+    if (!message.imageUrl || allImages.length === 0) return 0;
+    return allImages.indexOf(message.imageUrl) || 0;
+  }, [message.imageUrl, allImages]);
 
   // Format date for message timestamp
   const formattedTime = useMemo(() => {
@@ -77,6 +117,60 @@ export const ChatMessage = ({
     return 'sent';
   };
 
+  // Hàm xử lý tải file
+  const handleDownload = (url: string, fileName: string) => {
+    try {
+      // Sử dụng fetch để tải file (hoạt động tốt hơn với file từ API)
+      fetch(url)
+        .then(response => response.blob())
+        .then(blob => {
+          // Tạo URL object từ blob
+          const blobUrl = URL.createObjectURL(blob);
+          
+          // Tạo một thẻ a tạm thời để tải xuống
+          const link = document.createElement('a');
+          link.href = blobUrl;
+          link.download = fileName || 'file';
+          document.body.appendChild(link);
+          link.click();
+          
+          // Dọn dẹp
+          setTimeout(() => {
+            document.body.removeChild(link);
+            URL.revokeObjectURL(blobUrl);
+          }, 100);
+        })
+        .catch(error => {
+          console.error("Lỗi khi tải file:", error);
+          // Fallback nếu fetch không hoạt động
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = fileName || 'file';
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        });
+    } catch (error) {
+      console.error("Lỗi khi tải file:", error);
+      // Fallback cho trường hợp lỗi
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName || 'file';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  // Mở ảnh
+  const openImageViewer = () => {
+    if (message.imageUrl) {
+      console.log("Opening image viewer for:", message.imageUrl);
+      setSelectedImage(message.imageUrl);
+      setViewerOpen(true);
+    }
+  };
+
   return (
     <div className={cn(
       "flex gap-2 mb-4",
@@ -100,10 +194,11 @@ export const ChatMessage = ({
         )}
         
         <div className={cn(
-          "rounded-lg p-3 shadow-sm",
+          "rounded-lg shadow-sm overflow-hidden",
           isCurrentUser 
             ? "bg-primary text-primary-foreground rounded-tr-none" 
-            : "bg-muted rounded-tl-none"
+            : "bg-muted rounded-tl-none",
+          message.imageUrl && !message.content ? "p-0" : "p-3"
         )}>
           {/* Nội dung tin nhắn */}
           {message.content && (
@@ -112,48 +207,116 @@ export const ChatMessage = ({
             </div>
           )}
           
-          {/* Hiển thị ảnh đính kèm */}
+          {/* Hiển thị ảnh đính kèm - thiết kế giống Messenger */}
           {message.imageUrl && (
-            <div className="mt-2 relative">
-              <div className="relative rounded-md overflow-hidden max-w-[300px]">
-                <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/20">
-                  <ImageIcon className="h-6 w-6 text-white animate-pulse" />
-                </div>
+            <div className="flex flex-col items-center">
+              <div 
+                className={cn(
+                  "relative group cursor-pointer",
+                  message.content ? "mt-2" : ""
+                )}
+                onClick={openImageViewer}
+              >
                 <img 
                   src={message.imageUrl} 
                   alt="Hình ảnh đính kèm" 
-                  className="w-full h-auto object-contain z-20 relative"
+                  className={cn(
+                    "object-cover",
+                    !message.content ? "w-full rounded-lg max-w-[240px]" : "w-full rounded-md max-w-[240px]"
+                  )}
                   onLoad={(e) => {
-                    // Ẩn icon loading khi ảnh đã tải xong
                     const target = e.target as HTMLImageElement;
-                    const parent = target.parentElement;
-                    if (parent) {
-                      const overlay = parent.querySelector('div');
-                      if (overlay) overlay.style.display = 'none';
+                    if (target.naturalHeight > 300) {
+                      target.style.maxHeight = "300px";
                     }
                   }}
                 />
+                
+                {/* Overlay với các nút xem và tải xuống */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 bg-black/40 rounded-lg">
+                  {/* Nút xem ảnh */}
+                  <div className="flex flex-col items-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 border border-white/20"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openImageViewer();
+                      }}
+                      title="Xem ảnh"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
+                        <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </Button>
+                    <span className="text-white text-xs mt-1 font-medium bg-black/40 px-2 py-0.5 rounded-md">Xem</span>
+                  </div>
+                  
+                  {/* Nút tải xuống */}
+                  <div className="flex flex-col items-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 border border-white/20"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (message.imageUrl) {
+                          handleDownload(message.imageUrl, message.fileName || "image.jpg");
+                        }
+                      }}
+                      title="Tải xuống ảnh"
+                    >
+                      <Download className="h-4 w-4 text-white" />
+                    </Button>
+                    <span className="text-white text-xs mt-1 font-medium bg-black/40 px-2 py-0.5 rounded-md">Tải xuống</span>
+                  </div>
+                </div>
               </div>
             </div>
           )}
           
           {/* Hiển thị file đính kèm */}
           {message.fileUrl && !message.imageUrl && (
-            <div className="mt-2">
-              <a 
-                href={message.fileUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className={cn(
-                  "flex items-center gap-2 text-sm p-2 rounded",
-                  isCurrentUser ? "text-primary-foreground hover:bg-primary-foreground/20" : "text-primary hover:bg-muted-foreground/10"
-                )}
+            <div className="flex flex-col">
+              <div 
+                className="bg-background rounded-md p-3 border relative group cursor-pointer"
+                onClick={() => handleDownload(message.fileUrl!, message.fileName || 'file')}
               >
-                <FileText className="h-4 w-4" />
-                <span className="underline truncate max-w-[200px]">
-                  {message.fileName || "Xem tệp đính kèm"}
-                </span>
-              </a>
+                <div className="flex items-center gap-2 max-w-[200px]">
+                  <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    {getFileIcon(message.fileType)}
+                  </div>
+                  <div className="truncate">
+                    <div className="text-sm font-medium truncate">
+                      {message.fileName || "File đính kèm"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {message.fileSize ? bytesToSize(message.fileSize) : ""}
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Overlay khi hover vào file */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 bg-black/40 rounded-md">
+                  <div className="flex flex-col items-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 border border-white/20"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDownload(message.fileUrl!, message.fileName || 'file');
+                      }}
+                      title="Tải xuống"
+                    >
+                      <Download className="h-4 w-4 text-white" />
+                    </Button>
+                    <span className="text-white text-xs mt-1 font-medium bg-black/40 px-2 py-0.5 rounded-md">Tải xuống</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -175,6 +338,20 @@ export const ChatMessage = ({
           )}
         </div>
       </div>
+      
+      {/* Image Viewer phong cách Messenger */}
+      {viewerOpen && selectedImage && (
+        <ImageViewer 
+          isOpen={viewerOpen}
+          imageUrl={selectedImage}
+          onClose={() => {
+            console.log("Closing image viewer");
+            setViewerOpen(false);
+          }}
+          allImages={allImages}
+          currentIndex={currentImageIndex}
+        />
+      )}
     </div>
   );
 };

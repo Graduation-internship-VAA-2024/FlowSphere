@@ -34,6 +34,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
   const isConnectingRef = useRef<boolean>(false);
   const messageQueueRef = useRef<RealtimeMessage[]>([]);
   const connectionReadyRef = useRef<boolean>(false);
+  const memberNameCacheRef = useRef<Record<string, string>>({});
   
   // Fetch member name asynchronously
   const fetchMemberName = useCallback(async (memberId: string): Promise<string | null> => {
@@ -52,7 +53,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
     }
   }, []);
   
-  // Process received message
+  // Process received message - tối ưu hóa để giảm độ trễ
   const processMessage = useCallback(async (payload: RealtimeMessage) => {
     if (!payload || !payload.chatsId || !payload.$id) {
       console.warn("⚠️ Nhận được payload không hợp lệ:", payload);
@@ -62,47 +63,53 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
     // Kiểm tra kết nối WebSocket - nếu không kết nối, đưa vào hàng đợi
     if (!connectionReadyRef.current) {
       console.log(`⏳ Kết nối chưa sẵn sàng, đưa tin nhắn vào hàng đợi: ${payload.$id}`);
-      messageQueueRef.current.push(payload);
+      // Giới hạn kích thước hàng đợi để tránh tràn bộ nhớ
+      if (messageQueueRef.current.length < 50) {
+        messageQueueRef.current.push(payload);
+      }
       return null;
     }
     
     // Fix: Tạo ID duy nhất cho tin nhắn để kiểm tra trùng lặp tốt hơn
     // Sử dụng nhiều thuộc tính hơn để đảm bảo tin nhắn thực sự là duy nhất
-    const messageUniqueId = `${payload.$id}_${payload.chatsId}_${payload.memberId}_${payload.content || ''}`;
+    const messageUniqueId = `${payload.$id}_${payload.chatsId}`;
     
-    // Kiểm tra xem tin nhắn đã được xử lý chưa
+    // Kiểm tra xem tin nhắn đã được xử lý chưa - tối ưu hóa với Set
     if (processedMessagesRef.current.has(messageUniqueId)) {
-      console.log(`⏭️ Bỏ qua tin nhắn đã xử lý: ${payload.$id}`);
       return null;
     }
     
-    // Kiểm tra nếu tin nhắn quá cũ (hơn 10 phút) thì bỏ qua
+    // Kiểm tra nếu tin nhắn quá cũ (hơn 5 phút) thì bỏ qua để giảm tải xử lý
     const messageTime = new Date(payload.$createdAt || payload.CreatedAt).getTime();
     const currentTime = Date.now();
-    const tenMinutesMs = 10 * 60 * 1000;
+    const fiveMinutesMs = 5 * 60 * 1000; // Giảm từ 10 phút xuống 5 phút
     
-    if (currentTime - messageTime > tenMinutesMs) {
-      console.log(`⏭️ Bỏ qua tin nhắn cũ (> 10 phút): ${payload.$id}`);
+    if (currentTime - messageTime > fiveMinutesMs) {
       return null;
     }
-    
-    console.log(`⭐ Xử lý tin nhắn: ${payload.$id} cho chat ${payload.chatsId}`);
     
     // Đánh dấu tin nhắn đã được xử lý
     processedMessagesRef.current.add(messageUniqueId);
     
     // Giới hạn kích thước của tập hợp đã xử lý để tránh rò rỉ bộ nhớ
-    if (processedMessagesRef.current.size > 500) {
-      // Xóa 200 phần tử cũ nhất bằng cách chuyển thành mảng, cắt và chuyển lại thành Set
+    if (processedMessagesRef.current.size > 300) { // Giảm từ 500 xuống 300
+      // Xóa 100 phần tử cũ nhất (giảm từ 200 xuống 100)
       const processedArray = Array.from(processedMessagesRef.current);
-      processedMessagesRef.current = new Set(processedArray.slice(200));
+      processedMessagesRef.current = new Set(processedArray.slice(100));
     }
     
-    // Add sender name if missing
+    // Thêm tên người gửi nếu thiếu - tối ưu hóa bằng caching
     if (!payload.senderName && payload.memberId) {
-      const name = await fetchMemberName(payload.memberId);
-      if (name) {
-        payload.senderName = name;
+      // Kiểm tra xem đã có trong cache chưa
+      if (memberNameCacheRef.current[payload.memberId]) {
+        payload.senderName = memberNameCacheRef.current[payload.memberId];
+      } else {
+        const name = await fetchMemberName(payload.memberId);
+        if (name) {
+          payload.senderName = name;
+          // Lưu vào cache
+          memberNameCacheRef.current[payload.memberId] = name;
+        }
       }
     }
     

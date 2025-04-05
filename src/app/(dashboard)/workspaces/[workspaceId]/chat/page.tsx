@@ -31,6 +31,10 @@ export default function ChatPage() {
   const isFocused = useRef<boolean>(true);
   const messageProcessorRef = useRef<((newMessage: any) => void) | null>(null);
   const [pollingStatus, setPollingStatus] = useState<'idle' | 'loading' | 'newMessages' | 'error'>('idle');
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [createChatError, setCreateChatError] = useState<string | null>(null);
+  const lastFetchTimeRef = useRef<number>(0);
+  const isInitializingRef = useRef(false);
   
   // Tạo client cho fetch API
   const fetchClient = {
@@ -428,22 +432,41 @@ export default function ChatPage() {
     if (!workspaceId || isInitializing) return;
 
     let isMounted = true; // Theo dõi component còn mounted không
-    let isCreatingChat = false; // Biến cờ kiểm soát quá trình tạo chat
+    
+    // Thời gian cache hợp lệ (10 giây)
+    const CACHE_VALIDITY = 10000;
 
-    const fetchChats = async () => {
-      if (isCreatingChat) return; // Tránh gọi nhiều lần khi đang tạo chat
+    const fetchChats = async (forceFetch = false) => {
+      // Tránh tải lại khi đang khởi tạo/tạo chat
+      if (isInitializingRef.current || isCreatingChat) return;
+      
+      // Kiểm tra thời gian cache
+      const now = Date.now();
+      if (!forceFetch && now - lastFetchTimeRef.current < CACHE_VALIDITY) {
+        console.log("Sử dụng dữ liệu chat từ cache");
+        return;
+      }
 
       try {
+        if (!isMounted) return;
+        
         setIsChatsLoading(true);
-        const response = await fetch(`/api/chats?workspaceId=${workspaceId}`);
+        console.log("🔄 Bắt đầu fetch danh sách chat...");
+        
+        const response = await fetch(`/api/chats?workspaceId=${workspaceId}`, {
+          cache: 'no-store' // Đảm bảo luôn lấy dữ liệu mới nhất khi yêu cầu
+        });
         
         if (!response.ok) {
           throw new Error(`Failed to fetch chats: ${response.status}`);
         }
         
+        // Cập nhật thời gian fetch
+        lastFetchTimeRef.current = Date.now();
+        
         const data = await response.json();
         if (data.data && data.data.documents && isMounted) {
-          console.log("Fetched chats before deduplication:", data.data.documents.length);
+          console.log("✅ Đã fetch được danh sách chat, tổng số:", data.data.documents.length);
           
           // Loại bỏ các chat trùng lặp bằng cách dùng Map với $id là key
           const uniqueChatsMap = new Map();
@@ -454,7 +477,6 @@ export default function ChatPage() {
           
           // Chuyển đổi Map thành mảng
           const uniqueChats = Array.from(uniqueChatsMap.values());
-          console.log("Unique chats after deduplication:", uniqueChats.length);
           
           // Cập nhật documents với mảng đã được lọc bỏ trùng lặp
           data.data.documents = uniqueChats;
@@ -467,7 +489,8 @@ export default function ChatPage() {
           // Tạo nhóm chat mặc định nếu chưa có và đã có memberId
           if (!hasGroupChat && memberId && !isCreatingChat && isMounted) {
             // Đánh dấu đang tạo chat để tránh tạo nhiều lần
-            isCreatingChat = true;
+            setIsCreatingChat(true);
+            isInitializingRef.current = true;
             setIsInitializing(true);
 
             try {
@@ -485,8 +508,10 @@ export default function ChatPage() {
                   console.log("Phát hiện nhóm chat đã tồn tại trong lần kiểm tra thứ hai, hủy tạo mới");
                   if (isMounted) {
                     setIsInitializing(false);
+                    isInitializingRef.current = false;
+                    setIsCreatingChat(false);
                     // Tải lại chat
-                    fetchChats();
+                    fetchChats(true);
                   }
                   return;
                 }
@@ -526,36 +551,16 @@ export default function ChatPage() {
               console.log("Kết quả khởi tạo nhóm chat mặc định:", initData);
               
               if (isMounted) {
-                // Tải lại danh sách chat sau khi tạo chat mặc định
-                const refreshResponse = await fetch(`/api/chats?workspaceId=${workspaceId}`);
-                if (refreshResponse.ok) {
-                  const refreshData = await refreshResponse.json();
-                  if (refreshData.data && refreshData.data.documents) {
-                    // Loại bỏ trùng lặp một lần nữa
-                    const refreshedChats = Array.from(
-                      new Map(refreshData.data.documents.map((chat: Chats) => [chat.$id, chat])).values()
-                    ) as (Chats & { members?: ChatMembers[] })[];
-                    setChats(refreshedChats);
-                    
-                    // Tự động chọn chat nhóm
-                    const defaultGroupChat = refreshedChats.find(
-                      (chat: Chats) => chat.isGroup === true
-                    );
-                    
-                    if (defaultGroupChat) {
-                      setSelectedChat(defaultGroupChat);
-                    } else if (refreshedChats.length > 0) {
-                      setSelectedChat(refreshedChats[0]);
-                    }
-                  }
-                }
+                // Tải lại danh sách chat sau khi tạo chat mặc định (force fetch)
+                fetchChats(true);
               }
             } catch (error) {
               console.error("Error creating default chat:", error);
             } finally {
               if (isMounted) {
                 setIsInitializing(false);
-                isCreatingChat = false;
+                isInitializingRef.current = false;
+                setIsCreatingChat(false);
               }
             }
           } else {
@@ -591,11 +596,17 @@ export default function ChatPage() {
     };
 
     fetchChats();
+    
+    // Đặt thời gian fetch lại dữ liệu là 30 giây
+    const refreshInterval = setInterval(() => {
+      fetchChats();
+    }, 30000);
 
     return () => {
       isMounted = false; // Cleanup function để tránh setState sau khi unmount
+      clearInterval(refreshInterval); // Xóa interval khi component unmount
     };
-  }, [workspaceId, memberId, isInitializing, selectedChat]);
+  }, [workspaceId, memberId, isCreatingChat, selectedChat]);
 
   // Fetch messages when a chat is selected
   useEffect(() => {
@@ -859,6 +870,87 @@ export default function ChatPage() {
     }
   };
 
+  // Hàm tạo chat mới
+  const handleCreateChat = async (name: string, isGroup: boolean, selectedMemberId?: string) => {
+    if (!workspaceId || !name) return;
+
+    setIsCreatingChat(true);
+    isInitializingRef.current = true;
+    setCreateChatError(null);
+
+    try {
+      const response = await fetch("/api/chats", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceId,
+          name,
+          isGroup,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Could not create chat");
+      }
+
+      const data = await response.json();
+      
+      // Thêm chat mới vào danh sách chat hiện có
+      if (data.data) {
+        setChats((prev) => {
+          // Kiểm tra xem chat đã tồn tại chưa
+          const exists = prev.some((chat) => chat.$id === data.data.$id);
+          if (exists) return prev;
+          return [...prev, data.data];
+        });
+        
+        // Tự động chọn chat mới tạo
+        setSelectedChat(data.data);
+        
+        // Nếu là chat trực tiếp (không phải nhóm), thêm thành viên khác vào chat
+        if (!isGroup && selectedMemberId) {
+          try {
+            await fetch(`/api/chats/${data.data.$id}/members`, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                chatsId: data.data.$id,
+                memberId: selectedMemberId,
+              }),
+            });
+            
+            // Cập nhật danh sách chat sau khi thêm thành viên
+            const updatedChatResponse = await fetch(`/api/chats/${data.data.$id}`);
+            if (updatedChatResponse.ok) {
+              const updatedChatData = await updatedChatResponse.json();
+              if (updatedChatData.data) {
+                setChats((prev) =>
+                  prev.map((chat) =>
+                    chat.$id === data.data.$id ? updatedChatData.data : chat
+                  )
+                );
+                setSelectedChat(updatedChatData.data);
+              }
+            }
+          } catch (error) {
+            console.error("Lỗi khi thêm thành viên vào chat:", error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error creating chat:", error);
+      setCreateChatError(`Không thể tạo chat: ${error instanceof Error ? error.message : "Lỗi không xác định"}`);
+    } finally {
+      setIsCreatingChat(false);
+      isInitializingRef.current = false;
+    }
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -946,6 +1038,9 @@ export default function ChatPage() {
             messages={messages}
             isSending={isSending}
             isRealtimeConnected={isConnected}
+            onCreateChat={handleCreateChat}
+            isCreatingChat={isCreatingChat}
+            createChatError={createChatError}
           />
         )}
       </Suspense>

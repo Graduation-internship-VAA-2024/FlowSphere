@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
 import { createChatSchema, messageSchema, updateChatSchema, chatMemberSchema, chatFilterSchema, chatMemberFilterSchema, messageReadSchema, typingIndicatorSchema, pinMessageSchema, messageSearchSchema } from "../schema";
 import { getMember } from "@/features/members/utils";
-import { DATABASE_ID, MEMBERS_ID, CHATS_ID, MESSAGES_ID, CHAT_MEMBERS_ID, WORKSPACES_ID, IMAGES_BUCKET_ID, MESSAGE_READS_ID } from "@/config";
+import { DATABASE_ID, MEMBERS_ID, CHATS_ID, MESSAGES_ID, CHAT_MEMBERS_ID, WORKSPACES_ID, IMAGES_BUCKET_ID, FILES_BUCKET_ID, MESSAGE_READS_ID } from "@/config";
 import { ID, Query } from "node-appwrite";
 import { z } from "zod";
 import { Chats, ChatMembers, Messages } from "../type";
@@ -883,61 +883,138 @@ const app = new Hono()
         return c.json({ error: "ID thành viên không hợp lệ" }, 400);
       }
 
-      // Xác thực file
-      const allowedTypes = [
-        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-        'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'text/plain', 'video/mp4', 'audio/mpeg', 'audio/mp3'
-      ];
-      
-      const maxSize = 20 * 1024 * 1024; // 20MB
-      
-      if (!allowedTypes.includes(file.type)) {
-        return c.json({ error: "Loại file không được hỗ trợ" }, 400);
-      }
-      
-      if (file.size > maxSize) {
-        return c.json({ error: "Kích thước file quá lớn (tối đa 20MB)" }, 400);
-      }
-      
-      // Upload file
-      const uploadedFile = await storage.createFile(
-        IMAGES_BUCKET_ID,
-        ID.unique(),
-        file
-      );
-      
-      const fileUrl = storage.getFileView(IMAGES_BUCKET_ID, uploadedFile.$id);
-      
       // Xác định loại file
       const isImage = file.type.startsWith('image/');
       
-      // Tạo tin nhắn với file đính kèm
-      const messageData = {
-        chatsId,
-        memberId,
-        content: '',
-        fileUrl: fileUrl,
-        imageUrl: isImage ? fileUrl : undefined,
+      // In ra thông tin về file để debug
+      console.log("File upload request:", {
         fileName: file.name,
-        fileSize: file.size,
         fileType: file.type,
-        CreatedAt: new Date(),
-      };
+        fileSize: file.size,
+        isImage,
+        chatsId,
+        memberId
+      });
       
-      const message = await databases.createDocument(
-        DATABASE_ID,
-        MESSAGES_ID,
-        ID.unique(),
-        messageData
-      );
+      // Upload file vào bucket phù hợp với loại file
+      const bucketId = isImage ? IMAGES_BUCKET_ID : FILES_BUCKET_ID;
+      console.log("Sử dụng bucket:", bucketId);
       
-      return c.json({ data: message });
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      return c.json({ error: "Không thể upload file" }, 500);
+      try {
+        // Tạo ID cho file
+        const fileId = ID.unique();
+        
+        // Đảm bảo tên file có phần mở rộng hợp lệ
+        let fileName = file.name;
+        let fileToUpload = file; // Tạo biến mới để có thể thay đổi
+        const fileExt = fileName.split('.').pop()?.toLowerCase();
+        
+        // Xử lý định dạng jfif - chuyển thành jpg
+        if (fileExt === 'jfif') {
+          fileName = fileName.substring(0, fileName.lastIndexOf('.')) + '.jpg';
+          console.log("Đã chuyển đổi phần mở rộng .jfif sang .jpg:", fileName);
+          
+          // Tạo một Blob mới với phần mở rộng .jpg
+          const blob = await file.arrayBuffer();
+          fileToUpload = new File([blob], fileName, { type: file.type });
+        }
+        // Thêm phần mở rộng .bin nếu không có phần mở rộng hoặc không nhận dạng được
+        else if (!fileName.includes('.') || fileName.split('.').pop()?.length === 0) {
+          fileName = `${fileName}.bin`;
+          console.log("Đã thêm phần mở rộng .bin cho file:", fileName);
+        }
+        
+        // Kiểm tra kích thước file
+        const maxSize = 15 * 1024 * 1024; // 15MB
+        if (fileToUpload.size > maxSize) {
+          return c.json({ 
+            error: "Kích thước file quá lớn (tối đa 15MB)",
+          }, 400);
+        }
+        
+        console.log("Bắt đầu upload file với ID:", fileId);
+        
+        // Upload file
+        let uploadedFile;
+        try {
+          uploadedFile = await storage.createFile(
+            bucketId,
+            fileId,
+            fileToUpload
+          );
+          console.log("Upload file thành công:", uploadedFile.$id);
+        } catch (uploadError: any) {
+          console.error("Lỗi khi upload file:", uploadError);
+          
+          if (uploadError.type === 'storage_file_type_unsupported') {
+            return c.json({ 
+              error: "Định dạng file không được hỗ trợ trên máy chủ. Vui lòng chọn một định dạng file khác.",
+              details: uploadError.message
+            }, 400);
+          }
+          
+          if (uploadError.type === 'storage_file_size_exceeded') {
+            return c.json({ 
+              error: "Kích thước file vượt quá giới hạn cho phép trên máy chủ.",
+              details: uploadError.message
+            }, 400);
+          }
+          
+          return c.json({ 
+            error: "Không thể upload file lên storage",
+            details: uploadError.message
+          }, 400);
+        }
+        
+        // Tạo URL cho file đã upload
+        const appwriteEndpoint = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "https://cloud.appwrite.io/v1";
+        const appwriteProject = process.env.NEXT_PUBLIC_APPWRITE_PROJECT || "";
+        
+        // Tạo URL trực tiếp - đảm bảo là chuỗi (không phải Promise)
+        const directFileUrl = `${appwriteEndpoint}/storage/buckets/${bucketId}/files/${uploadedFile.$id}/view?project=${appwriteProject}`;
+        console.log("File URL (trực tiếp):", directFileUrl);
+        
+        // Tạo tin nhắn chứa file
+        try {
+          const message = await databases.createDocument(
+            DATABASE_ID,
+            MESSAGES_ID,
+            ID.unique(),
+            {
+              chatsId,
+              memberId,
+              content: '',
+              fileUrl: directFileUrl,
+              imageUrl: isImage ? directFileUrl : undefined,
+              fileName: file.name,
+              fileSize: file.size,
+              fileType: file.type,
+              CreatedAt: new Date(),
+            }
+          );
+          
+          console.log("Tạo tin nhắn thành công:", message.$id);
+          return c.json({ data: message });
+        } catch (messageError: any) {
+          console.error("Lỗi khi tạo tin nhắn:", messageError);
+          return c.json({ 
+            error: "Không thể tạo tin nhắn chứa file",
+            details: messageError.message
+          }, 500);
+        }
+      } catch (error: any) {
+        console.error("Lỗi tổng thể khi xử lý file:", error);
+        return c.json({ 
+          error: "Không thể xử lý file upload",
+          details: error.message
+        }, 500);
+      }
+    } catch (error: any) {
+      console.error("Lỗi chung trong route upload:", error);
+      return c.json({ 
+        error: "Không thể xử lý yêu cầu upload file",
+        details: error.message
+      }, 500);
     }
   })
   

@@ -89,6 +89,44 @@ const app = new Hono()
       });
     }
   )
+  .get("/:memberId", sessionMiddleware, async (c) => {
+    const { memberId } = c.req.param();
+    const { users } = await createAdminClient();
+    const databases = c.get("databases");
+
+    try {
+      // Lấy thông tin thành viên
+      const member = await databases.getDocument(
+        DATABASE_ID,
+        MEMBERS_ID,
+        memberId
+      );
+
+      if (!member) {
+        return c.json({ error: "Member not found" }, 404);
+      }
+
+      // Lấy thông tin user tương ứng
+      const userDetails = await users.get(member.userId);
+
+      return c.json({
+        data: {
+          ...member,
+          name: userDetails.name,
+          email: userDetails.email,
+        },
+      });
+    } catch (error: any) {
+      console.error("Error fetching member:", error);
+      
+      // Trả về lỗi cụ thể nếu không tìm thấy document
+      if (error.code === 404) {
+        return c.json({ error: "Member not found" }, 404);
+      }
+      
+      return c.json({ error: "Failed to get member information" }, 500);
+    }
+  })
   .delete("/:memberId", sessionMiddleware, async (c) => {
     const { memberId } = c.req.param();
     const user = c.get("user");

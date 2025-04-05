@@ -1,9 +1,12 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Paperclip, ImageIcon, Smile, Send, X } from "lucide-react";
+import { Paperclip, ImageIcon, Smile, Send, X, FileText, File as FileIcon, Images, Search } from "lucide-react";
 import { Tooltip } from "@/components/ui/tooltip";
 import { useTypingStatus } from "./typing-indicator";
+import { bytesToSize } from "@/lib/utils";
+import { FileUploadPreview } from "./file-upload-preview";
+import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   onSend: (message: string, file?: File) => void;
@@ -11,21 +14,39 @@ interface ChatInputProps {
   isLoading?: boolean;
   chatsId?: string;
   memberId?: string;
+  onToggleMediaGallery?: () => void;
+  mediaGalleryOpen?: boolean;
+  onOpenSearch?: () => void;
 }
 
-export const ChatInput = ({ onSend, onFileUpload, isLoading, chatsId, memberId }: ChatInputProps) => {
+export const ChatInput = ({ 
+  onSend, 
+  onFileUpload, 
+  isLoading, 
+  chatsId, 
+  memberId,
+  onToggleMediaGallery,
+  mediaGalleryOpen,
+  onOpenSearch
+}: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   
   const { handleTyping } = useTypingStatus(chatsId || '', memberId || '');
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (message.trim() || selectedFile) {
+      if (selectedFile) {
+        setIsUploading(true);
+      }
+      
       onSend(message, selectedFile || undefined);
       setMessage("");
       setSelectedFile(null);
+      setIsUploading(false);
     }
   };
 
@@ -39,7 +60,8 @@ export const ChatInput = ({ onSend, onFileUpload, isLoading, chatsId, memberId }
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      setSelectedFile(e.target.files[0]);
+      const file = e.target.files[0];
+      setSelectedFile(file);
     }
   };
 
@@ -49,84 +71,113 @@ export const ChatInput = ({ onSend, onFileUpload, isLoading, chatsId, memberId }
     if (imageInputRef.current) imageInputRef.current.value = '';
   };
 
+  // Xử lý phím tắt Ctrl+F để mở tìm kiếm
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Kiểm tra Ctrl+F (hoặc Command+F trên macOS)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+      e.preventDefault(); // Ngăn chặn hành vi mặc định của trình duyệt
+      if (onOpenSearch) {
+        onOpenSearch();
+      }
+    }
+  };
+
   return (
     <div className="p-4 border-t">
       {selectedFile && (
-        <div className="mb-2 p-2 bg-muted/30 rounded flex items-center justify-between">
-          <span className="text-sm truncate max-w-[200px]">{selectedFile.name}</span>
-          <Button 
-            variant="ghost" 
-            size="icon" 
-            className="h-6 w-6" 
-            onClick={handleFileClear}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
+        <FileUploadPreview 
+          file={selectedFile}
+          onClear={handleFileClear}
+          isUploading={isUploading}
+        />
       )}
       
       <div className="flex items-center gap-2">
-        <Tooltip content="Attach file">
+        <div className="flex gap-1">
           <Button 
-            variant="ghost" 
-            size="icon" 
+            variant="outline" 
+            size="sm"
             onClick={() => fileInputRef.current?.click()}
-            disabled={isLoading}
+            disabled={isLoading || isUploading}
+            className="flex items-center gap-1 h-10 px-3"
           >
-            <Paperclip className="h-5 w-5" />
+            <Paperclip className="h-4 w-4" />
+            <span className="hidden sm:inline">Tệp</span>
           </Button>
-        </Tooltip>
-        
-        <input 
-          type="file" 
-          ref={fileInputRef} 
-          onChange={handleFileSelect} 
-          className="hidden" 
-          accept=".pdf,.doc,.docx,.txt"
-        />
-        
-        <Tooltip content="Attach image">
+          
           <Button 
-            variant="ghost" 
-            size="icon"
+            variant="outline" 
+            size="sm"
             onClick={() => imageInputRef.current?.click()}
-            disabled={isLoading}
+            disabled={isLoading || isUploading}
+            className="flex items-center gap-1 h-10 px-3"
           >
-            <ImageIcon className="h-5 w-5" />
+            <ImageIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Ảnh</span>
           </Button>
-        </Tooltip>
+          
+          <input 
+            type="file" 
+            ref={fileInputRef} 
+            onChange={handleFileSelect} 
+            className="hidden" 
+            accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,.json"
+          />
+          
+          <input 
+            type="file" 
+            ref={imageInputRef} 
+            onChange={handleFileSelect} 
+            className="hidden" 
+            accept="image/*"
+          />
+        </div>
         
-        <input 
-          type="file" 
-          ref={imageInputRef} 
-          onChange={handleFileSelect} 
-          className="hidden" 
-          accept="image/*"
-        />
+        {onToggleMediaGallery && (
+          <Button 
+            variant={mediaGalleryOpen ? "secondary" : "outline"}
+            size="sm"
+            onClick={onToggleMediaGallery}
+            className={cn(
+              "flex items-center gap-1 h-10 px-3",
+              mediaGalleryOpen ? "bg-primary/10" : ""
+            )}
+          >
+            <Images className="h-4 w-4" />
+            <span className="hidden sm:inline">Thư viện</span>
+          </Button>
+        )}
+        
+        {onOpenSearch && (
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={onOpenSearch}
+            className="flex items-center gap-1 h-10 px-3"
+          >
+            <Search className="h-4 w-4" />
+            <span className="hidden sm:inline">Tìm kiếm</span>
+          </Button>
+        )}
         
         <Input 
           value={message}
           onChange={handleInputChange}
-          placeholder="Type a message..." 
+          onKeyDown={(e) => {
+            handleKeyDown(e);
+            if (e.key === 'Enter' && !e.shiftKey) handleSend();
+          }}
+          placeholder="Nhập tin nhắn..." 
           className="flex-1"
-          onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-          disabled={isLoading}
+          disabled={isLoading || isUploading}
         />
         
-        <Tooltip content="Emoji (coming soon)">
-          <Button 
-            variant="ghost" 
-            size="icon"
-            disabled={isLoading}
-          >
-            <Smile className="h-5 w-5" />
-          </Button>
-        </Tooltip>
-        
         <Button 
+          variant="primary"
           size="icon"
           onClick={handleSend}
-          disabled={(!message.trim() && !selectedFile) || isLoading}
+          disabled={(!message.trim() && !selectedFile) || isLoading || isUploading}
+          className="h-10 w-10"
         >
           <Send className="h-5 w-5" />
         </Button>

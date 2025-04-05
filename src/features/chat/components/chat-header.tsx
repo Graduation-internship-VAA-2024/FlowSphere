@@ -1,7 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Users, RefreshCw, UserPlus, Wifi, WifiOff } from "lucide-react";
+import { MoreVertical, Users, RefreshCw, UserPlus, Wifi, WifiOff, Image as ImageIcon, Search } from "lucide-react";
 import { Chats, ChatMembers } from "../type";
 import { RealtimeIndicator } from "./realtime-indicator";
 import { cn } from "@/lib/utils";
@@ -46,6 +46,8 @@ interface ChatHeaderProps {
   isSyncing: boolean;
   isAddingMembers?: boolean;
   isRealtimeConnected?: boolean;
+  onOpenMediaGallery?: () => void;
+  onOpenSearch?: () => void;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -54,8 +56,12 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   onAddAllMembers,
   isSyncing,
   isAddingMembers,
-  isRealtimeConnected = false
+  isRealtimeConnected = false,
+  onOpenMediaGallery,
+  onOpenSearch
 }) => {
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
   if (!chats) return null;
 
   // Get up to 3 member names to display
@@ -118,6 +124,40 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             <UserPlus className={cn("h-4 w-4", isAddingMembers && "animate-spin")} />
           </Button>
         )}
+      </div>
+      
+      {/* Header Actions */}
+      <div className="flex items-center gap-2">
+        {/* Nút tìm kiếm tin nhắn */}
+        {onOpenSearch && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-full"
+            onClick={onOpenSearch}
+            title="Tìm kiếm tin nhắn"
+          >
+            <Search className="h-5 w-5" />
+          </Button>
+        )}
+        
+        {/* Thêm nút xem media và file */}
+        {onOpenMediaGallery && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 rounded-full"
+            onClick={onOpenMediaGallery}
+            title="Xem ảnh và file đã chia sẻ"
+          >
+            <ImageIcon className="h-5 w-5" />
+          </Button>
+        )}
+        
+        {/* Dropdown menu button */}
+        <div className="relative">
+          {/* Dropdown content */}
+        </div>
       </div>
     </div>
   );

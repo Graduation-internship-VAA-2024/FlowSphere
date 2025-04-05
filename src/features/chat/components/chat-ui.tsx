@@ -53,6 +53,9 @@ interface ChatUIProps {
   messages?: any[];
   isSending?: boolean;
   isRealtimeConnected?: boolean;
+  onCreateChat?: (name: string, isGroup: boolean) => void;
+  isCreatingChat?: boolean;
+  createChatError?: string | null;
 }
 
 export const ChatUI: React.FC<ChatUIProps> = ({
@@ -71,8 +74,21 @@ export const ChatUI: React.FC<ChatUIProps> = ({
   onSendMessage,
   messages = [],
   isSending = false,
-  isRealtimeConnected = false
+  isRealtimeConnected = false,
+  onCreateChat,
+  isCreatingChat,
+  createChatError
 }) => {
+  // Tạo ref để theo dõi vị trí cuộn
+  const scrollPositionRef = React.useRef<number | null>(null);
+  
+  // Hàm để nhảy đến một tin nhắn cụ thể
+  const handleJumpToMessage = (messageId: string) => {
+    console.log("Jumping to message:", messageId);
+    // Thực hiện logic nhảy đến tin nhắn
+    // Có thể bổ sung thêm code xử lý nếu cần
+  };
+
   if (!workspaceId) {
     return (
       <Card className="p-8 text-center">
@@ -135,6 +151,10 @@ export const ChatUI: React.FC<ChatUIProps> = ({
             isLoading={isChatsLoading}
             selectedChatId={selectedChat?.$id}
             onSelectChat={onSelectChat}
+            currentMemberId={memberId}
+            onCreateChat={onCreateChat}
+            isCreatingChat={isCreatingChat}
+            createChatError={createChatError}
           />
           
           <ChatArea 
@@ -147,6 +167,8 @@ export const ChatUI: React.FC<ChatUIProps> = ({
             isSending={isSending}
             syncNotification={syncNotification}
             isRealtimeConnected={isRealtimeConnected}
+            onJumpToMessage={handleJumpToMessage}
+            scrollPositionRef={scrollPositionRef}
           />
         </>
       )}
