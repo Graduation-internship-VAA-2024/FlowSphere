@@ -1,5 +1,5 @@
 "use client";
-import { useGetWorkspaces } from "@/features/workspaces/api/use-get-workspace";
+import { useGetWorkspaces } from "@/features/workspaces/api/use-get-workspaces";
 import { RiAddCircleFill } from "react-icons/ri";
 import {
   Select,

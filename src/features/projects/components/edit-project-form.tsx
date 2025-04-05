@@ -27,7 +27,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useConfirm } from "@/hooks/use-confirm";
 import { Project } from "../type";
-import { useUpdateProject } from "../api/use-update-projec";
+import { useUpdateProject } from "../api/use-update-project";
 import { updateProjectSchema } from "../schema";
 import { useDeleteProject } from "../api/use-delete-project";
 import { motion } from "framer-motion";
@@ -100,14 +100,7 @@ export const EditProjectForm = ({
       ...values,
       image: values.image instanceof File ? values.image : "",
     };
-    mutate(
-      { form: finalValues, param: { projectId: initiaValues.$id } },
-      {
-        onSuccess: () => {
-          form.reset();
-        },
-      }
-    );
+    mutate({ form: finalValues, param: { projectId: initiaValues.$id } });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
