@@ -1,6 +1,11 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
-import { loginSchema, registerSchema } from "../schemas";
+import {
+  changeNameSchema,
+  changePasswordSchema,
+  loginSchema,
+  registerSchema,
+} from "../schemas";
 import { createAdminClient } from "@/lib/appwrite";
 import { ID } from "node-appwrite";
 import { deleteCookie, setCookie } from "hono/cookie";
@@ -45,6 +50,52 @@ const app = new Hono()
     deleteCookie(c, AUTH_COOKIE);
     await account.deleteSession("current");
     return c.json({ success: true });
-  });
+  })
+  .patch(
+    "/change-password",
+    sessionMiddleware,
+    zValidator("json", changePasswordSchema),
+    async (c) => {
+      try {
+        const { oldPassword, newPassword } = c.req.valid("json");
+        const account = c.get("account");
+
+        try {
+          // Use updatePassword with oldPassword parameter for verification
+          await account.updatePassword(newPassword, oldPassword);
+          return c.json({ success: true });
+        } catch (error) {
+          console.error("Password change error:", error);
+          return c.json({ error: "Current password is incorrect" }, 400);
+        }
+      } catch (error) {
+        console.error("Password change error:", error);
+        return c.json({ error: "Failed to change password" }, 500);
+      }
+    }
+  )
+  .patch(
+    "/change-name",
+    sessionMiddleware,
+    zValidator("json", changeNameSchema),
+    async (c) => {
+      try {
+        const { name } = c.req.valid("json");
+        const account = c.get("account");
+
+        try {
+          // Update the user's name
+          await account.updateName(name);
+          return c.json({ success: true });
+        } catch (error) {
+          console.error("Name change error:", error);
+          return c.json({ error: "Failed to update name" }, 400);
+        }
+      } catch (error) {
+        console.error("Name change error:", error);
+        return c.json({ error: "Failed to update name" }, 500);
+      }
+    }
+  );
 
 export default app;
