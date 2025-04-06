@@ -18,6 +18,14 @@ import { createAdminClient } from "@/lib/appwrite";
 import { Project } from "@/features/projects/type";
 
 const app = new Hono()
+  .onError((err, c) => {
+    console.error("API Error:", err.message);
+    console.error(
+      "Error details:",
+      JSON.stringify(err, Object.getOwnPropertyNames(err), 2)
+    );
+    return c.json({ error: err.message }, 500);
+  })
   .delete("/:taskId", sessionMiddleware, async (c) => {
     const user = c.get("user");
     const databases = c.get("databases");
@@ -208,84 +216,105 @@ const app = new Hono()
         file,
       } = c.req.valid("form");
 
-      const existingTask = await databases.getDocument<Task>(
-        DATABASE_ID,
-        TASKS_ID,
-        taskId
-      );
-
-      const member = await getMember({
-        databases,
-        workspaceId: existingTask.workspaceId,
-        userId: user.$id,
-      });
-      if (!member) {
-        return c.json({ error: "Member not found" }, 401);
-      }
-
-      let uploadedImageUrl: string | undefined = undefined;
-      if (image instanceof File) {
-        const fileObj = await storage.createFile(
-          IMAGES_BUCKET_ID,
-          ID.unique(),
-          image
+      try {
+        const existingTask = await databases.getDocument<Task>(
+          DATABASE_ID,
+          TASKS_ID,
+          taskId
         );
-        const arrayBuffer = await storage.getFileView(
-          IMAGES_BUCKET_ID,
-          fileObj.$id
+
+        const member = await getMember({
+          databases,
+          workspaceId: existingTask.workspaceId,
+          userId: user.$id,
+        });
+        if (!member) {
+          return c.json({ error: "Member not found" }, 401);
+        }
+
+        // Xử lý hình ảnh
+        let uploadedImageUrl: string | undefined = undefined;
+        if (image instanceof File) {
+          // Kiểm tra kích thước hình ảnh (giới hạn 2MB)
+          if (image.size > 2 * 1024 * 1024) {
+            return c.json({ error: "Image must be less than 2MB" }, 400);
+          }
+
+          const fileObj = await storage.createFile(
+            IMAGES_BUCKET_ID,
+            ID.unique(),
+            image
+          );
+          const arrayBuffer = await storage.getFileView(
+            IMAGES_BUCKET_ID,
+            fileObj.$id
+          );
+          uploadedImageUrl = `data:image/png;base64,${Buffer.from(
+            arrayBuffer
+          ).toString("base64")}`;
+        } else {
+          uploadedImageUrl = image;
+        }
+
+        // Xử lý tệp
+        let uploadedFileUrl: string | undefined = undefined;
+        let fileName: string | undefined = undefined;
+        if (file instanceof File) {
+          // Kiểm tra kích thước tệp (giới hạn 2MB)
+          if (file.size > 2 * 1024 * 1024) {
+            return c.json({ error: "File must be less than 2MB" }, 400);
+          }
+
+          const uploadedFile = await storage.createFile(
+            FILES_BUCKET_ID,
+            ID.unique(),
+            file
+          );
+          const arrayBuffer = await storage.getFileView(
+            FILES_BUCKET_ID,
+            uploadedFile.$id
+          );
+          uploadedFileUrl = `data:application/octet-stream;base64,${Buffer.from(
+            arrayBuffer
+          ).toString("base64")}`;
+          fileName = file.name;
+        } else {
+          uploadedFileUrl = file;
+        }
+
+        const updateData: Record<string, any> = {};
+
+        if (name !== undefined) updateData.name = name;
+        if (status !== undefined) updateData.status = status;
+        if (description !== undefined) updateData.description = description;
+        if (projectId !== undefined) updateData.projectId = projectId;
+        if (dueDate !== undefined) updateData.dueDate = dueDate;
+        if (assigneeId !== undefined) updateData.assigneeId = assigneeId;
+        if (uploadedImageUrl !== undefined)
+          updateData.imageUrl = uploadedImageUrl;
+        if (uploadedFileUrl !== undefined) updateData.fileUrl = uploadedFileUrl;
+        if (fileName !== undefined) updateData.fileName = fileName;
+
+        if (Object.keys(updateData).length === 0) {
+          return c.json({ message: "No data to update" });
+        }
+
+        console.log("Updating task:", taskId);
+        console.log("Update data:", JSON.stringify(updateData, null, 2));
+
+        const task = await databases.updateDocument(
+          DATABASE_ID,
+          TASKS_ID,
+          taskId,
+          updateData
         );
-        uploadedImageUrl = `data:image/png;base64,${Buffer.from(
-          arrayBuffer
-        ).toString("base64")}`;
-      } else {
-        uploadedImageUrl = image;
+        console.log("Task updated successfully");
+
+        return c.json({ data: task });
+      } catch (error) {
+        console.error("Error in update task:", error);
+        return c.json({ error: "Failed to update task" }, 500);
       }
-
-      let uploadedFileUrl: string | undefined = undefined;
-      let fileName: string | undefined = undefined;
-      if (file instanceof File) {
-        const uploadedFile = await storage.createFile(
-          FILES_BUCKET_ID,
-          ID.unique(),
-          file
-        );
-        const arrayBuffer = await storage.getFileView(
-          FILES_BUCKET_ID,
-          uploadedFile.$id
-        );
-        uploadedFileUrl = `data:application/octet-stream;base64,${Buffer.from(
-          arrayBuffer
-        ).toString("base64")}`;
-        fileName = file.name;
-      } else {
-        uploadedFileUrl = file;
-      }
-
-      const updateData: Record<string, any> = {};
-
-      if (name !== undefined) updateData.name = name;
-      if (status !== undefined) updateData.status = status;
-      if (description !== undefined) updateData.description = description;
-      if (projectId !== undefined) updateData.projectId = projectId;
-      if (dueDate !== undefined) updateData.dueDate = dueDate;
-      if (assigneeId !== undefined) updateData.assigneeId = assigneeId;
-      if (uploadedImageUrl !== undefined)
-        updateData.imageUrl = uploadedImageUrl;
-      if (uploadedFileUrl !== undefined) updateData.fileUrl = uploadedFileUrl;
-      if (fileName !== undefined) updateData.fileName = fileName;
-
-      if (Object.keys(updateData).length === 0) {
-        return c.json({ message: "No data to update" });
-      }
-
-      const task = await databases.updateDocument(
-        DATABASE_ID,
-        TASKS_ID,
-        taskId,
-        updateData
-      );
-
-      return c.json({ data: task });
     }
   )
   .patch(
@@ -309,6 +338,7 @@ const app = new Hono()
         // Lấy dữ liệu JSON đã được xác thực từ zValidator
         const validated = c.req.valid("json");
         console.log("JSON data received for task:", taskId);
+        console.log("Validated data:", JSON.stringify(validated, null, 2));
 
         const {
           name,
@@ -368,6 +398,8 @@ const app = new Hono()
         }
 
         console.log("Updating task:", taskId);
+        console.log("Update data:", JSON.stringify(updateData, null, 2));
+
         const task = await databases.updateDocument(
           DATABASE_ID,
           TASKS_ID,
@@ -378,7 +410,7 @@ const app = new Hono()
 
         return c.json({ data: task });
       } catch (error) {
-        console.error("Error updating task:", error);
+        console.error("Error in update task:", error);
         return c.json({ error: "Failed to update task" }, 500);
       }
     }

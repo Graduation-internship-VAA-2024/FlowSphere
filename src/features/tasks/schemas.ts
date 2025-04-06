@@ -1,6 +1,19 @@
 import { z } from "zod";
 import { TaskStatus } from "./types";
 
+// Schema cho mỗi hình ảnh trong mảng
+const taskImageSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+});
+
+// Schema cho mỗi tệp tin trong mảng
+const taskFileSchema = z.object({
+  id: z.string(),
+  url: z.string(),
+  name: z.string(),
+});
+
 export const createTaskSchema = z.object({
   name: z.string().min(3, "Name must be at least 3 characters"),
   status: z.nativeEnum(TaskStatus),
@@ -9,6 +22,8 @@ export const createTaskSchema = z.object({
   dueDate: z.coerce.date(),
   assigneeId: z.string().trim().min(1, "Required"),
   description: z.string().optional(),
+  images: z.array(taskImageSchema).optional(),
+  files: z.array(taskFileSchema).optional(),
 });
 
 export const updateTaskSchema = z.object({
@@ -20,4 +35,8 @@ export const updateTaskSchema = z.object({
   description: z.string().optional(),
   image: z.union([z.instanceof(File), z.string()]).optional(),
   file: z.union([z.instanceof(File), z.string()]).optional(),
+  images: z.array(z.instanceof(File)).optional(),
+  files: z.array(z.instanceof(File)).optional(),
+  imageUrls: z.array(taskImageSchema).optional(),
+  fileUrls: z.array(taskFileSchema).optional(),
 });
