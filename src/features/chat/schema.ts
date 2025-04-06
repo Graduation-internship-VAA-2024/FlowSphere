@@ -3,9 +3,9 @@ import { MemberRole } from "./type";
 
 // Schema for creating a new chat/group
 export const createChatSchema = z.object({
-  workspaceId: z.string(),
-  name: z.string().trim().min(1, "Chat name is required"),
-  isGroup: z.boolean().default(false),
+  workspaceId: z.string().min(1, "WorkspaceId is required"),
+  name: z.string().min(1, "Name is required"),
+  isGroup: z.boolean().default(true),
 });
 
 // Schema for chat members
@@ -56,19 +56,6 @@ export const chatMemberFilterSchema = z.object({
 export const messageReadSchema = z.object({
   messageId: z.string(),
   memberId: z.string(),
-});
-
-// Schema for typing indicators
-export const typingIndicatorSchema = z.object({
-  chatsId: z.string(),
-  memberId: z.string(),
-  isTyping: z.boolean(),
-});
-
-// Schema for pinning messages
-export const pinMessageSchema = z.object({
-  messageId: z.string(),
-  isPinned: z.boolean(),
 });
 
 // Schema for searching messages

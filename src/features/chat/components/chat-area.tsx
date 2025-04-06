@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import { ChatInput } from "./chat-input";
 import { ChatHeader } from "./chat-header";
 import { ChatMessage } from "./chat-message";
-import { TypingIndicatorDisplay } from "./typing-indicator";
 import Link from "next/link";
 import { chatApi } from "../api";
 import { MediaGallery } from "./media-gallery";
@@ -27,7 +26,7 @@ interface ChatAreaProps {
     totalWorkspaceMembers?: number;
   };
   memberId: string;
-  onSyncMembers: () => void;
+  onSyncMembers?: () => void;
   onAddAllMembers?: () => void;
   isSyncing?: boolean;
   isAddingMembers?: boolean;
@@ -84,7 +83,6 @@ export const ChatArea = React.memo(({
   const messageRefsMap = useRef<Record<string, HTMLDivElement | null>>({});
   const [showReturnBanner, setShowReturnBanner] = useState(false);
   const lastScrollPositionRef = useRef<number | null>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [lastScrollPosition, setLastScrollPosition] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -205,8 +203,10 @@ export const ChatArea = React.memo(({
       if (added > 0) statusMessage += ` Thêm ${added} thành viên mới.`;
       if (removed > 0) statusMessage += ` Xóa ${removed} thành viên không hợp lệ.`;
       
-      // Gọi callback để refresh dữ liệu từ parent component
-      onSyncMembers();
+      // Gọi callback để refresh dữ liệu từ parent component nếu tồn tại
+      if (onSyncMembers) {
+        onSyncMembers();
+      }
       
       // Hiển thị thông báo chi tiết
       setAddMembersNotification(statusMessage);
@@ -232,10 +232,12 @@ export const ChatArea = React.memo(({
 
   // Hàm để cuộn đến một tin nhắn cụ thể
   const jumpToMessage = useCallback((messageId: string) => {
-    // Lưu vị trí scroll hiện tại
-    if (scrollAreaRef.current) {
-      const currentPosition = (scrollAreaRef.current as any).scrollTop;
+    // Lưu vị trí scroll hiện tại vào cả state và ref
+    if (scrollRef.current) {
+      const currentPosition = (scrollRef.current as any).scrollTop;
       setLastScrollPosition(currentPosition);
+      lastScrollPositionRef.current = currentPosition;
+      console.log("Đã lưu vị trí cuộn:", currentPosition);
     }
     
     // Tìm và cuộn đến tin nhắn
@@ -252,17 +254,26 @@ export const ChatArea = React.memo(({
         
         // Hiển thị banner để quay lại vị trí ban đầu
         setShowReturnBanner(true);
+      } else {
+        console.error(`Không tìm thấy tin nhắn có ID: message-${messageId}`);
       }
     }, 100);
   }, []);
 
   // Hàm để quay lại vị trí cuộn trước đó
   const returnToLastPosition = useCallback(() => {
-    if (scrollAreaRef.current && lastScrollPosition > 0) {
-      (scrollAreaRef.current as any).scrollTop = lastScrollPosition;
+    if (scrollRef.current) {
+      if (lastScrollPositionRef.current && lastScrollPositionRef.current > 0) {
+        // Sử dụng giá trị từ ref để đảm bảo luôn có giá trị mới nhất
+        (scrollRef.current as any).scrollTop = lastScrollPositionRef.current;
+      } else {
+        // Nếu không có vị trí trước đó, cuộn đến tin nhắn mới nhất
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+      // Ẩn banner sau khi cuộn
       setShowReturnBanner(false);
     }
-  }, [lastScrollPosition]);
+  }, []);
 
   // Tìm kiếm tin nhắn
   const handleSearch = useCallback(async (term: string) => {
@@ -292,6 +303,19 @@ export const ChatArea = React.memo(({
       setIsSearching(false);
     }
   }, [chats]);
+
+  // Effect để tự động hiển thị và cuộn khi có highlighted message
+  useEffect(() => {
+    if (highlightedMessage) {
+      jumpToMessage(highlightedMessage);
+    }
+  }, [highlightedMessage, jumpToMessage]);
+
+  // Log thông tin để debug
+  console.log("Chat details:", {
+    chatId: chats?.$id,
+    members: chats?.members?.length,
+  });
 
   if (!chats) {
     return (
@@ -350,16 +374,18 @@ export const ChatArea = React.memo(({
   }
 
   return (
-    <Card className="flex-1 flex flex-col h-full">
+    <Card className="flex-1 flex flex-col h-full overflow-hidden">
       <ChatHeader 
-        chats={chats} 
-        onSyncMembers={handleSyncMembers} 
-        isSyncing={isSyncing || localIsSyncing}
+        name={chats?.name || "Chọn một cuộc trò chuyện"}
+        isGroup={chats?.isGroup}
+        membersCount={chats?.members?.length || 0}
+        totalWorkspaceMembers={chats?.totalWorkspaceMembers || 0}
+        syncNotification={syncNotification || addMembersNotification}
+        onToggleMediaGallery={() => setMediaGallerySidebarOpen(!mediaGallerySidebarOpen)}
+        isMediaGalleryOpen={mediaGallerySidebarOpen}
+        onSearch={() => setSearchOpen(true)}
         isRealtimeConnected={isRealtimeConnected}
-        onOpenMediaGallery={() => setMediaGallerySidebarOpen(!mediaGallerySidebarOpen)}
-        onOpenSearch={() => setSearchOpen(true)}
       />
-
       {/* Thanh tìm kiếm */}
       {searchOpen && (
         <MessageSearch 
@@ -406,59 +432,51 @@ export const ChatArea = React.memo(({
           "relative flex-1 flex flex-col overflow-hidden min-w-0",
           mediaGallerySidebarOpen ? "w-[calc(100%-320px)]" : "w-full"
         )}>
-          <div ref={scrollAreaRef} className="flex-1 h-full relative">
-            <ScrollArea ref={scrollRef} className="flex-1 p-4 h-full overflow-y-auto">
-              {messages.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
-                  <MessageCircle className="h-12 w-12 mb-3 opacity-20" />
-                  <p>Chưa có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!</p>
-                </div>
-              ) : (
-                <div className="space-y-4 py-2">
-                  {messages.map((msg) => (
-                    msg.isSystemMessage ? (
-                      <div 
-                        key={msg.$id}
-                        className="mx-auto bg-muted/50 text-center max-w-[90%] italic rounded-lg p-3"
-                      >
-                        <p className="text-sm text-muted-foreground">{msg.content}</p>
-                        <p className="text-xs mt-1 opacity-70">
-                          {new Date(msg.$createdAt || msg.CreatedAt || '').toLocaleTimeString()}
-                        </p>
-                      </div>
-                    ) : (
-                      <div
-                        key={msg.$id || `temp-${Date.now()}-${Math.random()}`}
-                        ref={(ref) => {
-                          if (msg.$id) registerMessageRef(msg.$id, ref);
-                        }}
-                        className="transition-colors duration-300"
-                      >
-                        <ChatMessage 
-                          message={msg}
-                          currentMemberId={memberId}
-                          memberName={membersMap[msg.memberId] || msg.senderName}
-                          chatsId={chats?.$id}
-                          totalMembers={chats?.members?.length || 0}
-                          allMessages={messages}
-                          highlighted={highlightedMessage === msg.$id}
-                        />
-                      </div>
-                    )
-                  ))}
-                  <div ref={messagesEndRef} id="messages-end" className="h-1" />
-
-                  {/* Hiển thị indicator đang nhập */}
-                  {chats && (
-                    <TypingIndicatorDisplay 
-                      chatsId={chats.$id} 
-                      memberId={memberId} 
-                    />
-                  )}
-                </div>
-              )}
-            </ScrollArea>
-          </div>
+          <ScrollArea ref={scrollRef} className="flex-1 p-4 h-full overflow-y-auto">
+            {messages.length === 0 ? (
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
+                <MessageCircle className="h-12 w-12 mb-3 opacity-20" />
+                <p>Chưa có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!</p>
+              </div>
+            ) : (
+              <div className="space-y-4 py-2">
+                {messages.map((msg) => (
+                  msg.isSystemMessage ? (
+                    <div 
+                      key={msg.$id}
+                      id={`message-${msg.$id}`}
+                      className="mx-auto bg-muted/50 text-center max-w-[90%] italic rounded-lg p-3"
+                    >
+                      <p className="text-sm text-muted-foreground">{msg.content}</p>
+                      <p className="text-xs mt-1 opacity-70">
+                        {new Date(msg.$createdAt || msg.CreatedAt || '').toLocaleTimeString()}
+                      </p>
+                    </div>
+                  ) : (
+                    <div
+                      key={msg.$id || `temp-${Date.now()}-${Math.random()}`}
+                      id={`message-${msg.$id}`}
+                      ref={(ref) => {
+                        if (msg.$id) registerMessageRef(msg.$id, ref);
+                      }}
+                      className="transition-colors duration-300"
+                    >
+                      <ChatMessage 
+                        message={msg}
+                        currentMemberId={memberId}
+                        memberName={membersMap[msg.memberId] || msg.senderName}
+                        chatsId={chats?.$id}
+                        totalMembers={chats?.members?.length || 0}
+                        allMessages={messages}
+                        highlighted={highlightedMessage === msg.$id}
+                      />
+                    </div>
+                  )
+                ))}
+                <div ref={messagesEndRef} id="messages-end" className="h-1" />
+              </div>
+            )}
+          </ScrollArea>
           
           {/* Scroll to bottom button */}
           {showScrollButton && (
@@ -475,20 +493,21 @@ export const ChatArea = React.memo(({
           
           {/* Banner để quay lại vị trí trước khi tìm kiếm */}
           {showReturnBanner && (
-            <div
-              className={cn(
-                "sticky bottom-0 w-full flex justify-center",
-                !showReturnBanner && "hidden"
-              )}
-              style={{ zIndex: 10 }}
-            >
-              <div className="animate-fade-in bg-primary text-primary-foreground rounded-full py-2 px-4 mb-4 flex items-center gap-2 shadow-md">
+            <div className="absolute bottom-12 left-0 right-0 px-4 py-2 flex justify-center z-10">
+              <div className="bg-card border shadow-md rounded-lg flex items-center px-4 py-2 max-w-xs">
                 <button
                   onClick={returnToLastPosition}
-                  className="text-sm font-medium flex items-center gap-1"
+                  className="text-sm flex items-center gap-2 text-primary hover:underline flex-1"
                 >
-                  <ArrowDown className="h-3 w-3" />
-                  Quay lại tin nhắn mới nhất
+                  <ArrowUpCircle className="h-4 w-4" />
+                  Quay lại vị trí cuộn trước đó
+                </button>
+                <button 
+                  onClick={() => setShowReturnBanner(false)}
+                  className="ml-2 h-6 w-6 rounded-full hover:bg-muted flex items-center justify-center"
+                  aria-label="Đóng"
+                >
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>

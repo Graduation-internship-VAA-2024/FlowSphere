@@ -1,9 +1,7 @@
 import React, { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { MoreVertical, Users, RefreshCw, UserPlus, Wifi, WifiOff, Image as ImageIcon, Search } from "lucide-react";
-import { Chats, ChatMembers } from "../type";
-import { RealtimeIndicator } from "./realtime-indicator";
+import { MoreVertical, Users, Wifi, WifiOff, Image as ImageIcon, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -37,97 +35,62 @@ const LiveStatusIndicator = ({ isConnected }: { isConnected: boolean }) => (
 );
 
 interface ChatHeaderProps {
-  chats?: Chats & { 
-    members?: ChatMembers[];
-    totalWorkspaceMembers?: number;
-  };
-  onSyncMembers: () => void;
+  name: string;
+  isGroup?: boolean;
+  membersCount: number;
+  totalWorkspaceMembers: number;
+  onSyncMembers?: () => void;
   onAddAllMembers?: () => void;
-  isSyncing: boolean;
+  isSyncing?: boolean;
   isAddingMembers?: boolean;
   isRealtimeConnected?: boolean;
-  onOpenMediaGallery?: () => void;
-  onOpenSearch?: () => void;
+  onToggleMediaGallery?: () => void;
+  isMediaGalleryOpen?: boolean;
+  onSearch?: () => void;
+  syncNotification?: string | null;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
-  chats,
+  name,
+  isGroup = false,
+  membersCount,
+  totalWorkspaceMembers,
   onSyncMembers,
   onAddAllMembers,
   isSyncing,
   isAddingMembers,
   isRealtimeConnected = false,
-  onOpenMediaGallery,
-  onOpenSearch
+  onToggleMediaGallery,
+  isMediaGalleryOpen,
+  onSearch,
+  syncNotification
 }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
-
-  if (!chats) return null;
-
-  // Get up to 3 member names to display
-  const memberNames = chats.members
-    ?.filter(m => m.memberDetails?.name)
-    .slice(0, 3)
-    .map(m => m.memberDetails?.name)
-    .filter(Boolean);
 
   return (
     <div className="border-b p-4 flex justify-between items-center">
       <div className="flex items-center space-x-2">
         <h3 className="font-medium text-lg truncate">
-          {chats?.name || "Chat"}
+          {name || "Chat"}
         </h3>
         
-        {/* Hiển thị chỉ báo realtime */}
-        <LiveStatusIndicator isConnected={isRealtimeConnected} />
-      </div>
-      
-      <div className="flex items-center space-x-2">
-        <div className="text-sm text-muted-foreground mr-2 flex items-center">
-          <Users className="h-4 w-4 mr-1" />
-          <span>
-            {chats?.totalWorkspaceMembers || 0} thành viên
-          </span>
-        </div>
-        
-        {/* Nút đồng bộ thành viên */}
-        {chats?.isGroup && (
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={onSyncMembers}
-            disabled={isSyncing}
-            title="Đồng bộ thành viên từ workspace vào nhóm chat"
-            className="flex items-center gap-1"
-          >
-            <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
-            <span className="hidden md:inline ml-1">Cập nhật thành viên từ workspace</span>
-          </Button>
-        )}
-        
-        {/* Nút thêm tất cả thành viên (nếu cần) */}
-        {onAddAllMembers && (
-          <Button 
-            variant="outline"
-            size="sm"
-            onClick={onAddAllMembers}
-            disabled={isAddingMembers}
-            title="Thêm tất cả thành viên workspace vào chat"
-          >
-            <UserPlus className={cn("h-4 w-4", isAddingMembers && "animate-spin")} />
-          </Button>
+        {/* Hiển thị thông báo đồng bộ */}
+        {syncNotification && (
+          <div className="bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs px-2 py-1 rounded-full ml-2">
+            {syncNotification}
+          </div>
         )}
       </div>
       
       {/* Header Actions */}
       <div className="flex items-center gap-2">
         {/* Nút tìm kiếm tin nhắn */}
-        {onOpenSearch && (
+        {onSearch && (
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-full"
-            onClick={onOpenSearch}
+            onClick={onSearch}
             title="Tìm kiếm tin nhắn"
           >
             <Search className="h-5 w-5" />
@@ -135,22 +98,17 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         )}
         
         {/* Thêm nút xem media và file */}
-        {onOpenMediaGallery && (
+        {onToggleMediaGallery && (
           <Button
-            variant="ghost"
+            variant={isMediaGalleryOpen ? "primary" : "ghost"}
             size="icon"
             className="h-8 w-8 rounded-full"
-            onClick={onOpenMediaGallery}
-            title="Xem ảnh và file đã chia sẻ"
+            onClick={onToggleMediaGallery}
+            title={isMediaGalleryOpen ? "Đóng thư viện media" : "Xem ảnh và file đã chia sẻ"}
           >
             <ImageIcon className="h-5 w-5" />
           </Button>
         )}
-        
-        {/* Dropdown menu button */}
-        <div className="relative">
-          {/* Dropdown content */}
-        </div>
       </div>
     </div>
   );

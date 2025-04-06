@@ -144,29 +144,6 @@ export const chatApi = {
       path: `/api/chats/${chatsId}/messages/${messageId}/reads`,
     }),
 
-  // Cập nhật trạng thái đang gõ
-  updateTypingStatus: (chatsId: string, memberId: string, isTyping: boolean) =>
-    rpc<{ data: any }>({
-      method: "POST",
-      path: `/api/chats/${chatsId}/typing`,
-      body: { chatsId, memberId, isTyping },
-    }),
-
-  // Ghim/bỏ ghim tin nhắn
-  pinMessage: (chatsId: string, messageId: string, isPinned: boolean) =>
-    rpc<{ data: Messages }>({
-      method: "POST",
-      path: `/api/chats/${chatsId}/messages/${messageId}/pin`,
-      body: { isPinned },
-    }),
-
-  // Lấy danh sách tin nhắn đã ghim
-  getPinnedMessages: (chatsId: string) =>
-    rpc<{ data: { documents: Messages[]; total: number } }>({
-      method: "GET",
-      path: `/api/chats/${chatsId}/pinned-messages`,
-    }),
-
   // Tìm kiếm tin nhắn
   searchMessages: (chatsId: string, query: string, limit: number = 20) =>
     rpc<{ data: { documents: Messages[]; total: number } }>({

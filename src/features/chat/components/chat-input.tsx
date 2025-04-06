@@ -1,9 +1,8 @@
 import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Paperclip, ImageIcon, Smile, Send, X, FileText, File as FileIcon, Images, Search } from "lucide-react";
+import { Paperclip, ImageIcon, Send, X, FileText, File as FileIcon, Images, Search } from "lucide-react";
 import { Tooltip } from "@/components/ui/tooltip";
-import { useTypingStatus } from "./typing-indicator";
 import { bytesToSize } from "@/lib/utils";
 import { FileUploadPreview } from "./file-upload-preview";
 import { cn } from "@/lib/utils";
@@ -35,8 +34,6 @@ export const ChatInput = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   
-  const { handleTyping } = useTypingStatus(chatsId || '', memberId || '');
-
   const handleSend = async () => {
     if (message.trim() || selectedFile) {
       if (selectedFile) {
@@ -52,10 +49,6 @@ export const ChatInput = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessage(e.target.value);
-    
-    if (chatsId && memberId) {
-      handleTyping();
-    }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -29,9 +29,6 @@ export type Messages = Models.Document & {
   createdAt?: Date;
   CreatedAt?: Date;
   isSystemMessage?: boolean;
-  isPinned?: boolean;
-  pinnedBy?: string;
-  pinnedAt?: Date;
   replyTo?: string; // ID của tin nhắn được trả lời
 };
 
@@ -44,15 +41,8 @@ export type MessageRead = Models.Document & {
   readAt: Date;
 };
 
-// Type cho typing indicator
-export type TypingIndicator = {
-  chatsId: string;
-  memberId: string;
-  timestamp: Date;
-};
-
 // Type cho event realtime
 export type RealtimeEvent = {
-  type: 'message' | 'typing' | 'read' | 'pin';
+  type: 'message' | 'read';
   payload: any;
 };

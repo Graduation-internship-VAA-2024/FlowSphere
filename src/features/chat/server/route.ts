@@ -1,7 +1,7 @@
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { createChatSchema, messageSchema, updateChatSchema, chatMemberSchema, chatFilterSchema, chatMemberFilterSchema, messageReadSchema, typingIndicatorSchema, pinMessageSchema, messageSearchSchema } from "../schema";
+import { createChatSchema, messageSchema, updateChatSchema, chatMemberSchema, chatFilterSchema, chatMemberFilterSchema, messageReadSchema, messageSearchSchema } from "../schema";
 import { getMember } from "@/features/members/utils";
 import { DATABASE_ID, MEMBERS_ID, CHATS_ID, MESSAGES_ID, CHAT_MEMBERS_ID, WORKSPACES_ID, IMAGES_BUCKET_ID, FILES_BUCKET_ID, MESSAGE_READS_ID } from "@/config";
 import { ID, Query } from "node-appwrite";
@@ -129,15 +129,17 @@ const app = new Hono()
   .post("/", sessionMiddleware, zValidator("json", createChatSchema), async (c) => {
     const databases = c.get("databases");
     const user = c.get("user");
-    const { workspaceId, name, isGroup } = c.req.valid("json");
+    const { workspaceId, name } = c.req.valid("json");
 
     try {
       const member = await getMember({ databases, workspaceId, userId: user.$id });
       if (!member) return c.json({ error: "Bạn không có quyền truy cập" }, 401);
 
-      // Tạo chat và thêm người tạo vào chat cùng lúc
+      // Luôn tạo nhóm chat, bất kể giá trị isGroup từ client
       const chat = await databases.createDocument(DATABASE_ID, CHATS_ID, ID.unique(), {
-        workspaceId, name, isGroup,
+        workspaceId, 
+        name, 
+        isGroup: true, // Luôn đặt là true để chỉ tạo nhóm chat
       });
 
       // Thêm người tạo và tạo tin nhắn hệ thống
@@ -146,7 +148,7 @@ const app = new Hono()
         databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
           chatsId: chat.$id,
           memberId: member.$id,
-          content: `${member.name || "Người dùng"} đã tạo cuộc trò chuyện`,
+          content: `${member.name || "Người dùng"} đã tạo nhóm chat`,
           CreatedAt: new Date(),
         }),
         
@@ -154,7 +156,7 @@ const app = new Hono()
         databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
           chatsId: chat.$id,
           memberId: member.$id,
-          content: `${member.name || "Người dùng"} đã tạo cuộc trò chuyện ${isGroup ? "nhóm" : ""}`,
+          content: `${member.name || "Người dùng"} đã tạo nhóm chat`,
           isSystemMessage: true,
           CreatedAt: new Date(),
         })
@@ -163,7 +165,13 @@ const app = new Hono()
       return c.json({ data: chat });
     } catch (error) {
       console.error("Error creating chat:", error);
-      return c.json({ error: "Không thể tạo cuộc trò chuyện" }, 500);
+      
+      // Trả về lỗi chi tiết hơn cho client
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Không thể tạo nhóm chat";
+      
+      return c.json({ error: errorMessage }, 500);
     }
   })
   
@@ -633,151 +641,6 @@ const app = new Hono()
     } catch (error) {
       console.error("Error getting message reads:", error);
       return c.json({ error: "Không thể lấy thông tin đã đọc" }, 500);
-    }
-  })
-  
-  // Route xử lý typing indicator (đang gõ)
-  .post("/:chatsId/typing", sessionMiddleware, zValidator("json", typingIndicatorSchema), async (c) => {
-    const databases = c.get("databases");
-    const user = c.get("user");
-    const { chatsId } = c.req.param();
-    const { isTyping } = c.req.valid("json");
-
-    try {
-      // Lấy thông tin chat
-      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
-      
-      // Kiểm tra thành viên
-      const member = await getMember({
-        databases,
-        workspaceId: chat.workspaceId,
-        userId: user.$id,
-      });
-
-      if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
-
-      // Kiểm tra người dùng là thành viên của chat
-      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatsId),
-        Query.equal("memberId", member.$id),
-      ]);
-
-      if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
-      }
-
-      // Trả về dữ liệu đang gõ để client xử lý realtime
-      // Không lưu vào database vì đây là trạng thái tạm thời
-      return c.json({ 
-        data: { 
-          chatsId,
-          memberId: member.$id,
-          memberName: member.name || user.name,
-          isTyping,
-          timestamp: new Date(),
-        } 
-      });
-    } catch (error) {
-      console.error("Error updating typing status:", error);
-      return c.json({ error: "Không thể cập nhật trạng thái đang gõ" }, 500);
-    }
-  })
-  
-  // Route xử lý ghim/bỏ ghim tin nhắn
-  .post("/:chatsId/messages/:messageId/pin", sessionMiddleware, zValidator("json", pinMessageSchema), async (c) => {
-    const databases = c.get("databases");
-    const user = c.get("user");
-    const { chatsId, messageId } = c.req.param();
-    const { isPinned } = c.req.valid("json");
-
-    try {
-      // Lấy thông tin chat
-      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
-      
-      // Kiểm tra thành viên
-      const member = await getMember({
-        databases,
-        workspaceId: chat.workspaceId,
-        userId: user.$id,
-      });
-
-      if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
-
-      // Kiểm tra người dùng là thành viên của chat
-      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatsId),
-        Query.equal("memberId", member.$id),
-      ]);
-
-      if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
-      }
-
-      // Cập nhật tin nhắn
-      const updatedMessage = await databases.updateDocument(DATABASE_ID, MESSAGES_ID, messageId, {
-        isPinned,
-        pinnedBy: isPinned ? member.$id : null,
-        pinnedAt: isPinned ? new Date() : null,
-      });
-
-      return c.json({ data: updatedMessage });
-    } catch (error) {
-      console.error("Error pinning/unpinning message:", error);
-      return c.json({ error: "Không thể ghim/bỏ ghim tin nhắn" }, 500);
-    }
-  })
-  
-  // Route lấy tất cả tin nhắn đã ghim trong một cuộc trò chuyện
-  .get("/:chatsId/pinned-messages", sessionMiddleware, async (c) => {
-    const databases = c.get("databases");
-    const user = c.get("user");
-    const { chatsId } = c.req.param();
-
-    try {
-      // Lấy thông tin chat
-      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
-      
-      // Kiểm tra thành viên
-      const member = await getMember({
-        databases,
-        workspaceId: chat.workspaceId,
-        userId: user.$id,
-      });
-
-      if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
-
-      // Kiểm tra người dùng là thành viên của chat
-      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatsId),
-        Query.equal("memberId", member.$id),
-      ]);
-
-      if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
-      }
-
-      // Lấy danh sách tin nhắn đã ghim
-      const pinnedMessages = await databases.listDocuments(DATABASE_ID, MESSAGES_ID, [
-        Query.equal("chatsId", chatsId),
-        Query.equal("isPinned", true),
-        Query.orderDesc("pinnedAt"),
-      ]);
-
-      return c.json({ 
-        data: { 
-          documents: pinnedMessages.documents, 
-          total: pinnedMessages.total 
-        } 
-      });
-    } catch (error) {
-      console.error("Error getting pinned messages:", error);
-      return c.json({ error: "Không thể lấy danh sách tin nhắn đã ghim" }, 500);
     }
   })
   

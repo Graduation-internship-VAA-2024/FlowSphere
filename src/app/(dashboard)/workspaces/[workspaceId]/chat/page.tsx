@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
 import { chatApi } from "@/features/chat/api";
 import { useRealtimeMessages } from "@/hooks/use-realtime";
+import { toast } from "sonner";
 
 export default function ChatPage() {
   const params = useParams();
@@ -35,6 +36,9 @@ export default function ChatPage() {
   const [createChatError, setCreateChatError] = useState<string | null>(null);
   const lastFetchTimeRef = useRef<number>(0);
   const isInitializingRef = useRef(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [lastScrollPosition, setLastScrollPosition] = useState<number>(0);
+  const [showReturnBanner, setShowReturnBanner] = useState<boolean>(false);
   
   // Tạo client cho fetch API
   const fetchClient = {
@@ -210,15 +214,11 @@ export default function ChatPage() {
     }
   );
 
-  // Hiển thị trạng thái realtime khi kết nối thay đổi
+  // Theo dõi kết nối realtime nhưng không hiển thị thông báo
   useEffect(() => {
+    // Chỉ lưu trạng thái kết nối, không hiển thị thông báo
     if (isConnected && selectedChat) {
-      setRealtimeStatus("Realtime đã kết nối");
-      // Ẩn thông báo sau 3 giây
-      const timer = setTimeout(() => {
-        setRealtimeStatus(null);
-      }, 3000);
-      return () => clearTimeout(timer);
+      console.log("✅ Realtime đã kết nối");
     }
   }, [isConnected, selectedChat]);
 
@@ -292,7 +292,7 @@ export default function ChatPage() {
           
           console.log(`📥 Tìm thấy ${newMessages.length} tin nhắn mới khi polling`);
           
-          // Kết hợp tin nhắn mới và tin nhắn hiện tại, loại bỏ tin nhắn tạm
+          // Kết hợp tin nhắn mới và tin nhắn hiện tại, loại bỏ tin nhắn tạm thời
           let mergedMessages = [...prevMessages];
           
           // Thêm từng tin nhắn mới và xử lý tin nhắn tạm thời
@@ -718,6 +718,14 @@ export default function ChatPage() {
   const handleSendMessage = async (content: string, file?: File) => {
     if (!selectedChat?.$id || (!content.trim() && !file)) return;
     
+    // Log thông tin để debug
+    console.log("Gửi tin nhắn đến chat:", {
+      chatId: selectedChat.$id,
+      chatName: selectedChat.name,
+      isGroup: selectedChat.isGroup,
+      members: selectedChat.members?.length || 0
+    });
+    
     setIsSending(true);
     
     // Tạo ID tạm thời với thời gian để đảm bảo duy nhất
@@ -759,6 +767,9 @@ export default function ChatPage() {
     }
     
     try {
+      // Xác nhận lại chat ID để đảm bảo gửi đến đúng chat
+      const targetChatId = selectedChat.$id;
+      
       // Chỉ gửi tin nhắn, không cập nhật thành viên
       let messageResponse;
       
@@ -766,7 +777,7 @@ export default function ChatPage() {
         // Handle file upload
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('chatsId', selectedChat.$id);
+        formData.append('chatsId', targetChatId);
         formData.append('memberId', memberId);
         
         messageResponse = await fetch('/api/chats/upload', {
@@ -775,7 +786,9 @@ export default function ChatPage() {
         });
       } else {
         // Gửi tin nhắn văn bản
-        const response = await fetch(`/api/chats/${selectedChat.$id}/messages`, {
+        console.log(`Gửi tin nhắn văn bản đến chat ID: ${targetChatId}`);
+        
+        const response = await fetch(`/api/chats/${targetChatId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
@@ -783,7 +796,7 @@ export default function ChatPage() {
           body: JSON.stringify({
             memberId,
             content,
-            chatsId: selectedChat.$id,
+            chatsId: targetChatId,
           })
         });
         
@@ -797,7 +810,11 @@ export default function ChatPage() {
       const data = await messageResponse.json();
       
       if (data.data) {
-        console.log("✅ Tin nhắn đã được gửi:", data.data);
+        console.log("✅ Tin nhắn đã được gửi:", {
+          messageId: data.data.$id,
+          targetChatId,
+          chatName: selectedChat.name
+        });
         
         // Thay thế tin nhắn tạm thời bằng tin nhắn thật từ server
         setMessages((prevMessages) => {
@@ -871,24 +888,30 @@ export default function ChatPage() {
   };
 
   // Hàm tạo chat mới
-  const handleCreateChat = async (name: string, isGroup: boolean, selectedMemberId?: string) => {
+  const handleCreateChat = async (name: string, isGroup: boolean) => {
     if (!workspaceId || !name) return;
+
+    // Luôn đặt isGroup = true để chỉ tạo nhóm chat
+    isGroup = true;
 
     setIsCreatingChat(true);
     isInitializingRef.current = true;
     setCreateChatError(null);
 
     try {
+      // Tạo chat nhóm
+      const requestBody: any = {
+        workspaceId,
+        name,
+        isGroup: true, // Luôn là true
+      };
+      
       const response = await fetch("/api/chats", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          workspaceId,
-          name,
-          isGroup,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!response.ok) {
@@ -898,8 +921,15 @@ export default function ChatPage() {
 
       const data = await response.json();
       
-      // Thêm chat mới vào danh sách chat hiện có
+      // Thêm chat mới vào danh sách chat hiện có và chọn nó
       if (data.data) {
+        console.log("Nhóm chat mới được tạo:", {
+          id: data.data.$id,
+          name: data.data.name,
+          isGroup: data.data.isGroup
+        });
+
+        // Đảm bảo chat mới thêm vào state và không bị trùng lặp
         setChats((prev) => {
           // Kiểm tra xem chat đã tồn tại chưa
           const exists = prev.some((chat) => chat.$id === data.data.$id);
@@ -907,44 +937,39 @@ export default function ChatPage() {
           return [...prev, data.data];
         });
         
-        // Tự động chọn chat mới tạo
+        // Tự động chọn chat mới tạo ngay lập tức
         setSelectedChat(data.data);
         
-        // Nếu là chat trực tiếp (không phải nhóm), thêm thành viên khác vào chat
-        if (!isGroup && selectedMemberId) {
-          try {
-            await fetch(`/api/chats/${data.data.$id}/members`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                chatsId: data.data.$id,
-                memberId: selectedMemberId,
-              }),
-            });
-            
-            // Cập nhật danh sách chat sau khi thêm thành viên
-            const updatedChatResponse = await fetch(`/api/chats/${data.data.$id}`);
-            if (updatedChatResponse.ok) {
-              const updatedChatData = await updatedChatResponse.json();
-              if (updatedChatData.data) {
-                setChats((prev) =>
-                  prev.map((chat) =>
-                    chat.$id === data.data.$id ? updatedChatData.data : chat
-                  )
-                );
-                setSelectedChat(updatedChatData.data);
-              }
+        // Thông báo thành công
+        toast.success(`Đã tạo nhóm chat "${name}" thành công!`);
+        
+        // Fetch messages để đảm bảo UI hiển thị đúng
+        try {
+          const messagesResponse = await fetch(`/api/chats/${data.data.$id}/messages`);
+          if (messagesResponse.ok) {
+            const messagesData = await messagesResponse.json();
+            if (messagesData.data && messagesData.data.documents) {
+              const sortedMessages = [...messagesData.data.documents].sort((a, b) => {
+                const timeA = new Date(a.CreatedAt || a.$createdAt).getTime();
+                const timeB = new Date(b.CreatedAt || b.$createdAt).getTime();
+                return timeA - timeB;
+              });
+              setMessages(sortedMessages);
             }
-          } catch (error) {
-            console.error("Lỗi khi thêm thành viên vào chat:", error);
           }
+        } catch (err) {
+          console.error("Không thể tải tin nhắn cho chat mới:", err);
         }
       }
     } catch (error) {
-      console.error("Error creating chat:", error);
-      setCreateChatError(`Không thể tạo chat: ${error instanceof Error ? error.message : "Lỗi không xác định"}`);
+      console.error("Lỗi khi tạo nhóm chat:", error);
+      setCreateChatError(`Không thể tạo nhóm chat: ${error instanceof Error ? error.message : "Lỗi không xác định"}`);
+      
+      toast.error(
+        error instanceof Error 
+          ? `Không thể tạo nhóm chat: ${error.message}` 
+          : "Đã xảy ra lỗi khi tạo nhóm chat, vui lòng thử lại sau"
+      );
     } finally {
       setIsCreatingChat(false);
       isInitializingRef.current = false;
@@ -956,18 +981,11 @@ export default function ChatPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">Chat {workspaceName && `- ${workspaceName}`}</h1>
         <div className="flex items-center gap-2">
-          {/* Hiển thị trạng thái polling và realtime */}
+          {/* Chỉ hiển thị thông báo quan trọng */}
           {pollingStatus === 'newMessages' && (
             <div className="text-sm text-green-600 dark:text-green-500 bg-green-100 dark:bg-green-900/30 px-3 py-1 rounded-full flex items-center">
               <span className="h-2 w-2 rounded-full bg-green-500 mr-2 animate-pulse"></span>
               Tin nhắn mới đã được tải
-            </div>
-          )}
-          
-          {pollingStatus === 'loading' && (
-            <div className="text-sm text-blue-600 dark:text-blue-500 bg-blue-100 dark:bg-blue-900/30 px-3 py-1 rounded-full flex items-center">
-              <span className="h-2 w-2 rounded-full bg-blue-500 mr-2 animate-pulse"></span>
-              Đang kiểm tra tin nhắn mới...
             </div>
           )}
           
@@ -982,13 +1000,6 @@ export default function ChatPage() {
             <div className="text-sm text-yellow-600 dark:text-yellow-500 bg-yellow-100 dark:bg-yellow-900/30 px-3 py-1 rounded-full flex items-center animate-pulse">
               <span className="h-2 w-2 rounded-full bg-yellow-500 mr-2"></span>
               {newMessageNotification}
-            </div>
-          )}
-          
-          {realtimeStatus && (
-            <div className="text-sm text-purple-600 dark:text-purple-500 bg-purple-100 dark:bg-purple-900/30 px-3 py-1 rounded-full flex items-center">
-              <span className="animate-pulse h-2 w-2 rounded-full bg-purple-500 mr-2"></span>
-              {realtimeStatus}
             </div>
           )}
         </div>
@@ -1028,11 +1039,9 @@ export default function ChatPage() {
             chats={chats}
             isLoading={isLoading || isInitializing}
             isChatsLoading={isChatsLoading}
-            isSyncing={isSyncing}
             error={error}
             syncNotification={syncNotification}
             onSelectChat={handleSelectChat}
-            onSyncMembers={handleSyncMembers}
             onRetry={handleRetry}
             onSendMessage={handleSendMessage}
             messages={messages}
@@ -1041,6 +1050,24 @@ export default function ChatPage() {
             onCreateChat={handleCreateChat}
             isCreatingChat={isCreatingChat}
             createChatError={createChatError}
+            onJumpToMessage={(messageId) => {
+              console.log(`Jumping to message with ID: ${messageId}`);
+              // Find the message element and scroll to it
+              setTimeout(() => {
+                const messageEl = document.getElementById(`message-${messageId}`);
+                if (messageEl) {
+                  messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  
+                  // Highlight the message temporarily
+                  messageEl.classList.add('bg-accent');
+                  setTimeout(() => {
+                    messageEl.classList.remove('bg-accent');
+                  }, 2000);
+                } else {
+                  console.error(`Message element with ID message-${messageId} not found`);
+                }
+              }, 100);
+            }}
           />
         )}
       </Suspense>

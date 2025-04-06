@@ -3,7 +3,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { MessageCircle, Plus, Search, User, UserPlus, Users, MessageSquare } from "lucide-react";
+import { MessageCircle, Plus, Search, User, UserPlus, Users, MessageSquare, X } from "lucide-react";
 import { Chats, ChatMembers } from "../type";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -18,11 +18,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
 import { chatApi } from "../api";
 import { useGetMembers } from "@/features/members/api/use-get-members";
+import { toast } from "sonner";
 
 interface ChatListProps {
   workspaceId: string;
@@ -48,9 +48,6 @@ interface ChatListProps {
     })[];
     totalWorkspaceMembers?: number;
   }) => void;
-  onCreateChat?: (name: string, isGroup: boolean) => void;
-  isCreatingChat?: boolean;
-  createChatError?: string | null;
   userName?: string;
   currentMemberId?: string;
 }
@@ -71,19 +68,12 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
   isLoading,
   selectedChatId,
   onSelectChat,
-  onCreateChat,
-  isCreatingChat = false,
-  createChatError = null,
   userName = "Bạn",
   currentMemberId
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [filteredChats, setFilteredChats] = useState(chats);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [newChatName, setNewChatName] = useState("");
-  const [isGroup, setIsGroup] = useState(true);
   const [activeTab, setActiveTab] = useState<string>("chats");
-  const [isCreatingDirectChat, setIsCreatingDirectChat] = useState(false);
   
   // Tối ưu hook useGetMembers bằng cách thêm memo và tránh re-fetch
   const { data: membersData, isLoading: isMembersLoading } = useGetMembers({ 
@@ -112,66 +102,31 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
     setFilteredChats(filtered);
   }, [searchTerm, chats]);
 
-  // Tối ưu các hàm xử lý sự kiện bằng useCallback để tránh re-render không cần thiết
-  const handleCreateChat = useCallback(() => {
-    if (!newChatName.trim() || !onCreateChat) return;
-    
-    onCreateChat(newChatName.trim(), isGroup);
-    
-    // Reset form
-    setNewChatName("");
-    setIsGroup(true);
-    setDialogOpen(false);
-  }, [newChatName, isGroup, onCreateChat]);
-  
-  // Hàm tạo chat trực tiếp với một thành viên
-  const handleCreateDirectChat = useCallback(async (member: Member) => {
-    if (!member || !currentMemberId || isCreatingDirectChat) return;
-    
-    setIsCreatingDirectChat(true);
-    console.log("Đang tạo chat trực tiếp với:", member.name);
-    
-    try {
-      // Kiểm tra xem đã có chat trực tiếp giữa hai người dùng chưa
-      const existingChat = chats.find(chat => {
-        // Chat không phải là nhóm và chỉ có 2 thành viên
-        if (!chat.isGroup && chat.members && chat.members.length === 2) {
-          // Kiểm tra xem có cả hai thành viên trong chat không
-          const hasBothMembers = chat.members.some(m => m.memberId === currentMemberId) &&
-                                  chat.members.some(m => m.memberId === member.$id);
-          return hasBothMembers;
-        }
-        return false;
-      });
-      
-      if (existingChat) {
-        // Nếu chat đã tồn tại, chọn chat đó
-        console.log("Đã tìm thấy chat hiện có, chuyển đến chat");
-        onSelectChat(existingChat);
-        // Chuyển về tab chat sau khi chọn
-        setActiveTab("chats");
-      } else {
-        // Nếu chưa có, tạo chat mới
-        const chatName = `${userName} & ${member.name || "Người dùng"}`;
-        console.log("Tạo chat mới:", chatName);
-        
-        // Gọi API tạo chat
-        if (onCreateChat) {
-          onCreateChat(chatName, false);
-          // Chuyển về tab chat sau khi tạo
-          setActiveTab("chats");
-        } else {
-          console.error("Không thể tạo chat: onCreateChat không được định nghĩa");
-        }
-      }
-    } catch (error) {
-      console.error("Lỗi khi tạo chat trực tiếp:", error);
-      alert("Có lỗi xảy ra khi tạo chat trực tiếp, vui lòng thử lại sau");
-    } finally {
-      setIsCreatingDirectChat(false);
+  // Filter theo searchTerm - Nếu tìm kiếm thì chuyển sang tab members
+  useEffect(() => {
+    if (searchTerm.trim().length > 0) {
+      // Khi nhập tìm kiếm, tự động chuyển sang tab members
+      setActiveTab("members");
     }
-  }, [chats, currentMemberId, isCreatingDirectChat, onCreateChat, onSelectChat, userName]);
-  
+    
+    // Logic lọc chats vẫn giữ nguyên cho trường hợp không có searchTerm
+    if (!searchTerm) {
+      const uniqueChats = Array.from(
+        new Map(chats.map(chat => [chat.$id, chat])).values()
+      );
+      setFilteredChats(uniqueChats);
+    } else {
+      // Vẫn lọc chat để giữ chức năng hiện tại
+      const uniqueChats = Array.from(
+        new Map(chats.map(chat => [chat.$id, chat])).values()
+      );
+      const filtered = uniqueChats.filter(chat => 
+        chat.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredChats(filtered);
+    }
+  }, [searchTerm, chats]);
+
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   }, []);
@@ -204,60 +159,27 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
   return (
     <Card className="w-80 p-4 flex flex-col h-full">
       <div className="flex justify-between items-center mb-4">
-        <h3 className="font-medium text-lg">Chats</h3>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="rounded-full">
-              <Plus className="h-4 w-4 mr-1" />
-              New
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create a new chat</DialogTitle>
-              <DialogDescription>
-                Create a new chat or group conversation.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Chat name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter chat name"
-                  value={newChatName}
-                  onChange={(e) => setNewChatName(e.target.value)}
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox 
-                  id="isGroup" 
-                  checked={isGroup}
-                  onCheckedChange={() => setIsGroup(!isGroup)}
-                />
-                <Label htmlFor="isGroup" className="cursor-pointer">Group chat</Label>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                onClick={handleCreateChat}
-                disabled={!newChatName.trim() || isCreatingChat}
-              >
-                {isCreatingChat ? "Creating..." : "Create Chat"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <h3 className="font-medium text-lg">Chat</h3>
       </div>
       
       <div className="relative mb-4">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search chats..."
+          placeholder="Tìm kiếm thành viên trong nhóm..."
           className="pl-9"
           value={searchTerm}
           onChange={handleSearchChange}
+          title="Nhập tên hoặc email để tìm kiếm thành viên"
         />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm("")}
+            className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
+            title="Xóa tìm kiếm"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
       
       <Tabs defaultValue="chats" className="flex-1 flex flex-col" value={activeTab} onValueChange={handleTabChange}>
@@ -269,12 +191,6 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
         <TabsContent value="chats" className="flex-1 overflow-hidden relative">
           <ScrollArea className="h-full pr-2">
             <div className="space-y-2">
-              {createChatError && (
-                <div className="p-3 text-sm text-destructive bg-destructive/10 rounded-md">
-                  {createChatError}
-                </div>
-              )}
-              
               {filteredChats.length === 0 ? (
                 <div className="p-8 text-center">
                   <div className="mb-4 flex justify-center">
@@ -283,22 +199,19 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
                     </div>
                   </div>
                   <h3 className="font-medium mb-2">
-                    {searchTerm ? "Không tìm thấy chat nào" : "Bạn chưa có cuộc trò chuyện nào"}
+                    {searchTerm ? "Không tìm thấy nhóm chat" : "Không có nhóm chat nào"}
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     {searchTerm 
-                      ? "Thử tìm kiếm với từ khóa khác" 
-                      : "Hãy tạo một cuộc trò chuyện mới để bắt đầu"}
+                      ? "Hãy thử tìm kiếm với từ khóa khác" 
+                      : "Nhóm chat sẽ được tạo tự động khi thêm thành viên vào workspace"}
                   </p>
-                  {!searchTerm && (
-                    <Button onClick={() => setDialogOpen(true)} className="mx-auto">
-                      <Plus className="h-4 w-4 mr-2" />
-                      Tạo chat mới
-                    </Button>
-                  )}
                 </div>
               ) : (
                 filteredChats.map((chat) => {
+                  // Bỏ qua các chat riêng tư
+                  if (!chat.isGroup) return null;
+                  
                   // Kiểm tra xem chat này có phải là workspace chat với chỉ một thành viên không
                   const isSingleUserWorkspaceChat = 
                     chat.isGroup && chat.members?.length === 1;
@@ -313,22 +226,14 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
                       onClick={() => onSelectChat(chat)}
                     >
                       <div className="flex-shrink-0">
-                        {chat.isGroup ? (
-                          <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                            <Users className="h-5 w-5 text-primary" />
-                          </div>
-                        ) : (
-                          <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
-                            <User className="h-5 w-5 text-primary" />
-                          </div>
-                        )}
+                        <div className="h-10 w-10 bg-primary/10 rounded-full flex items-center justify-center">
+                          <Users className="h-5 w-5 text-primary" />
+                        </div>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{chat.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {chat.isGroup
-                            ? "Nhóm chat"
-                            : "Tin nhắn riêng tư"}
+                          Nhóm chat
                         </div>
                       </div>
                     </div>
@@ -342,33 +247,87 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
         <TabsContent value="members" className="flex-1 overflow-hidden relative">
           <ScrollArea className="h-full pr-2">
             <div className="space-y-2">
-              {isMembersLoading ? (
+              {/* Hiển thị skeleton khi đang tải */}
+              {isMembersLoading && (
                 <div className="space-y-4">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <Skeleton className="h-10 w-10 rounded-full" />
-                      <div className="space-y-1 flex-1">
-                        <Skeleton className="h-4 w-24" />
-                        <Skeleton className="h-3 w-32" />
-                      </div>
+                  {searchTerm ? (
+                    <div className="p-4 text-center">
+                      <p className="text-sm text-muted-foreground">Đang tìm kiếm thành viên...</p>
                     </div>
-                  ))}
+                  ) : (
+                    [1, 2, 3, 4].map((i) => (
+                      <div key={i} className="flex items-center gap-3 p-3">
+                        <Skeleton className="h-10 w-10 rounded-full" />
+                        <div className="space-y-1 flex-1">
+                          <Skeleton className="h-4 w-24" />
+                          <Skeleton className="h-3 w-32" />
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
-              ) : membersData?.documents.length === 0 ? (
+              )}
+
+              {/* Hiển thị khi không có thành viên nào */}
+              {!isMembersLoading && membersData?.documents.length === 0 && (
                 <div className="p-8 text-center">
                   <p className="text-muted-foreground text-sm">
                     Không có thành viên nào trong workspace
                   </p>
                 </div>
-              ) : (
-                membersData?.documents.map((member: Member) => {
-                  // Bỏ qua thành viên hiện tại
-                  if (member.$id === currentMemberId) return null;
-                  
+              )}
+
+              {/* Hiển thị danh sách thành viên */}
+              {!isMembersLoading && membersData?.documents.length > 0 && (() => {
+                const filteredMembers = membersData.documents.filter((member: Member) => {
+                  if (!searchTerm) return true;
+                  // Tìm kiếm trong tên và email
+                  return (
+                    (member.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+                    (member.email?.toLowerCase() || "").includes(searchTerm.toLowerCase())
+                  );
+                });
+                
+                // Hiển thị thông báo nếu không có kết quả
+                if (searchTerm && filteredMembers.length === 0) {
+                  return (
+                    <div className="p-8 text-center">
+                      <div className="mb-4 flex justify-center">
+                        <div className="h-14 w-14 bg-muted rounded-full flex items-center justify-center">
+                          <User className="h-7 w-7 text-muted-foreground" />
+                        </div>
+                      </div>
+                      <h3 className="font-medium mb-2">Không tìm thấy thành viên</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Không tìm thấy thành viên nào khớp với "{searchTerm}"
+                      </p>
+                    </div>
+                  );
+                }
+                
+                // Hiển thị danh sách thành viên được lọc
+                return filteredMembers.map((member: Member) => {
+                  // Highlight phần text khớp với từ khóa tìm kiếm
+                  const highlightText = (text: string = "") => {
+                    if (!searchTerm) return text;
+                    const regex = new RegExp(`(${searchTerm})`, 'gi');
+                    return text.replace(regex, '<mark class="bg-yellow-200 dark:bg-yellow-900">$1</mark>');
+                  };
+
                   return (
                     <div
                       key={member.$id}
-                      className="p-3 rounded-lg hover:bg-accent transition-colors flex items-center gap-3"
+                      className="p-3 rounded-lg hover:bg-accent transition-colors flex items-center gap-3 cursor-pointer"
+                      onClick={() => {
+                        // Mở chat với thành viên này
+                        const groupChat = chats.find(chat => chat.isGroup === true);
+                        if (groupChat) {
+                          onSelectChat(groupChat);
+                          // Có thể thêm logic scroll đến tin nhắn của thành viên này trong tương lai
+                        }
+                        // Xóa từ khóa tìm kiếm sau khi đã chọn thành viên
+                        setSearchTerm("");
+                      }}
                     >
                       <div className="flex-shrink-0">
                         <Avatar className="h-10 w-10">
@@ -379,34 +338,19 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
                       </div>
                       
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{member.name}</div>
+                        <div 
+                          className="font-medium truncate"
+                          dangerouslySetInnerHTML={{ __html: highlightText(member.name) }}
+                        />
                         <div className="text-xs text-muted-foreground truncate">
-                          {member.email}
+                          <span dangerouslySetInnerHTML={{ __html: highlightText(member.email) }} />
+                          {member.$id === currentMemberId && " (Bạn)"}
                         </div>
                       </div>
-                      
-                      {/* Nút nhắn tin riêng */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 flex-shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCreateDirectChat(member);
-                        }}
-                        disabled={isCreatingDirectChat}
-                        title="Nhắn tin riêng"
-                      >
-                        {isCreatingDirectChat ? (
-                          <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <MessageSquare className="h-4 w-4" />
-                        )}
-                      </Button>
                     </div>
                   );
-                })
-              )}
+                });
+              })()}
             </div>
           </ScrollArea>
         </TabsContent>
@@ -419,8 +363,6 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
     prevProps.workspaceId === nextProps.workspaceId &&
     prevProps.isLoading === nextProps.isLoading &&
     prevProps.selectedChatId === nextProps.selectedChatId &&
-    prevProps.isCreatingChat === nextProps.isCreatingChat &&
-    prevProps.createChatError === nextProps.createChatError &&
     prevProps.currentMemberId === nextProps.currentMemberId &&
     // Kiểm tra sâu hơn cho mảng chats bằng cách so sánh độ dài và id
     prevProps.chats.length === nextProps.chats.length &&

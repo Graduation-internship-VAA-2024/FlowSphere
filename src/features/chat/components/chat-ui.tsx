@@ -34,7 +34,6 @@ interface ChatUIProps {
   })[];
   isLoading: boolean;
   isChatsLoading: boolean;
-  isSyncing: boolean;
   error: string | null;
   syncNotification?: string | null;
   onSelectChat: (chat: Chats & { 
@@ -47,7 +46,6 @@ interface ChatUIProps {
     })[];
     totalWorkspaceMembers?: number;
   }) => void;
-  onSyncMembers: () => void;
   onRetry: () => void;
   onSendMessage: (content: string, file?: File) => void;
   messages?: any[];
@@ -56,6 +54,8 @@ interface ChatUIProps {
   onCreateChat?: (name: string, isGroup: boolean) => void;
   isCreatingChat?: boolean;
   createChatError?: string | null;
+  highlightedMessage?: string | null;
+  onJumpToMessage?: (messageId: string) => void;
 }
 
 export const ChatUI: React.FC<ChatUIProps> = ({
@@ -65,11 +65,9 @@ export const ChatUI: React.FC<ChatUIProps> = ({
   chats,
   isLoading,
   isChatsLoading,
-  isSyncing,
   error,
   syncNotification,
   onSelectChat,
-  onSyncMembers,
   onRetry,
   onSendMessage,
   messages = [],
@@ -77,16 +75,20 @@ export const ChatUI: React.FC<ChatUIProps> = ({
   isRealtimeConnected = false,
   onCreateChat,
   isCreatingChat,
-  createChatError
+  createChatError,
+  highlightedMessage,
+  onJumpToMessage
 }) => {
   // Tạo ref để theo dõi vị trí cuộn
   const scrollPositionRef = React.useRef<number | null>(null);
   
-  // Hàm để nhảy đến một tin nhắn cụ thể
+  // Sử dụng prop onJumpToMessage nếu có, nếu không thì tạo một fallback function
   const handleJumpToMessage = (messageId: string) => {
-    console.log("Jumping to message:", messageId);
-    // Thực hiện logic nhảy đến tin nhắn
-    // Có thể bổ sung thêm code xử lý nếu cần
+    if (onJumpToMessage) {
+      onJumpToMessage(messageId);
+    } else {
+      console.log("Jump to message function not provided:", messageId);
+    }
   };
 
   if (!workspaceId) {
@@ -152,16 +154,11 @@ export const ChatUI: React.FC<ChatUIProps> = ({
             selectedChatId={selectedChat?.$id}
             onSelectChat={onSelectChat}
             currentMemberId={memberId}
-            onCreateChat={onCreateChat}
-            isCreatingChat={isCreatingChat}
-            createChatError={createChatError}
           />
           
           <ChatArea 
             chats={selectedChat || undefined}
             memberId={memberId}
-            onSyncMembers={onSyncMembers}
-            isSyncing={isSyncing}
             onSendMessage={onSendMessage}
             messages={messages}
             isSending={isSending}
@@ -169,6 +166,7 @@ export const ChatUI: React.FC<ChatUIProps> = ({
             isRealtimeConnected={isRealtimeConnected}
             onJumpToMessage={handleJumpToMessage}
             scrollPositionRef={scrollPositionRef}
+            highlightedMessage={highlightedMessage}
           />
         </>
       )}
