@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -75,62 +75,39 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
   const [filteredChats, setFilteredChats] = useState(chats);
   const [activeTab, setActiveTab] = useState<string>("chats");
   
-  // Tối ưu hook useGetMembers bằng cách thêm memo và tránh re-fetch
+  // Tối ưu hook useGetMembers bằng cách sử dụng useMemo và staleTime dài hơn
   const { data: membersData, isLoading: isMembersLoading } = useGetMembers({ 
     workspaceId,
-    enabled: activeTab === "members" // Chỉ fetch khi tab members được chọn
+    enabled: activeTab === "members", // Chỉ fetch khi tab members được chọn
   });
   
-  // Filter chats when search term or chats change - tối ưu sử dụng useMemo
-  useEffect(() => {
-    if (!searchTerm) {
-      // Loại bỏ các chat trùng lặp theo $id trước khi cập nhật state
-      const uniqueChats = Array.from(
-        new Map(chats.map(chat => [chat.$id, chat])).values()
-      );
-      setFilteredChats(uniqueChats);
-      return;
-    }
-    
-    // Lọc chat sau khi đã loại bỏ trùng lặp
-    const uniqueChats = Array.from(
+  // Tối ưu hóa bằng useMemo để tránh tính toán lại khi không cần thiết
+  const uniqueChats = useMemo(() => {
+    return Array.from(
       new Map(chats.map(chat => [chat.$id, chat])).values()
     );
-    const filtered = uniqueChats.filter(chat => 
+  }, [chats]);
+  
+  // Filter chats khi search term thay đổi - sử dụng useMemo thay vì useEffect
+  const filteredChatsBySearch = useMemo(() => {
+    if (!searchTerm) return uniqueChats;
+    
+    return uniqueChats.filter(chat => 
       chat.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
-    setFilteredChats(filtered);
-  }, [searchTerm, chats]);
-
-  // Filter theo searchTerm - Nếu tìm kiếm thì chuyển sang tab members
+  }, [searchTerm, uniqueChats]);
+  
+  // Cập nhật filteredChats chỉ khi cần thiết
   useEffect(() => {
-    if (searchTerm.trim().length > 0) {
-      // Khi nhập tìm kiếm, tự động chuyển sang tab members
-      setActiveTab("members");
-    }
-    
-    // Logic lọc chats vẫn giữ nguyên cho trường hợp không có searchTerm
-    if (!searchTerm) {
-      const uniqueChats = Array.from(
-        new Map(chats.map(chat => [chat.$id, chat])).values()
-      );
-      setFilteredChats(uniqueChats);
-    } else {
-      // Vẫn lọc chat để giữ chức năng hiện tại
-      const uniqueChats = Array.from(
-        new Map(chats.map(chat => [chat.$id, chat])).values()
-      );
-      const filtered = uniqueChats.filter(chat => 
-        chat.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-      setFilteredChats(filtered);
-    }
-  }, [searchTerm, chats]);
+    setFilteredChats(filteredChatsBySearch);
+  }, [filteredChatsBySearch]);
 
+  // Callback cho thay đổi Search (memoized)
   const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setSearchTerm(e.target.value);
   }, []);
   
+  // Callback cho thay đổi Tab (memoized)
   const handleTabChange = useCallback((value: string) => {
     setActiveTab(value);
   }, []);

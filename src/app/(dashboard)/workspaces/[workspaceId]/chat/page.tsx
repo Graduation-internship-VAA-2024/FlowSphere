@@ -27,7 +27,6 @@ export default function ChatPage() {
   const [syncNotification, setSyncNotification] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<string | null>(null);
   const [newMessageNotification, setNewMessageNotification] = useState<string | null>(null);
-  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
   const documentTitle = useRef<string>("");
   const isFocused = useRef<boolean>(true);
   const messageProcessorRef = useRef<((newMessage: any) => void) | null>(null);
@@ -39,15 +38,41 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const [lastScrollPosition, setLastScrollPosition] = useState<number>(0);
   const [showReturnBanner, setShowReturnBanner] = useState<boolean>(false);
+  const [activeChatsId, setActiveChatsId] = useState<string | null>(null);
   
-  // Tạo client cho fetch API
-  const fetchClient = {
-    get: async (url: string) => {
+  // Cache cho API calls
+  const apiCache = useRef<Map<string, { data: any, timestamp: number }>>(new Map());
+  const API_CACHE_VALIDITY = 30 * 1000; // Cache có hiệu lực trong 30 giây
+  
+  // Tạo enhanced fetch client với caching
+  const enhancedFetchClient = {
+    get: async (url: string, options: { forceRefresh?: boolean } = {}) => {
+      const { forceRefresh = false } = options;
+      const cacheKey = url;
+      const now = Date.now();
+      const cachedData = apiCache.current.get(cacheKey);
+      
+      // Nếu có dữ liệu trong cache và chưa hết hạn, trả về dữ liệu đó
+      if (!forceRefresh && cachedData && (now - cachedData.timestamp < API_CACHE_VALIDITY)) {
+        console.log(`🔄 Sử dụng dữ liệu cache cho ${url}`);
+        return { data: cachedData.data };
+      }
+      
+      // Không có trong cache hoặc đã hết hạn, gọi API
+      console.log(`🔄 Fetching từ server: ${url}`);
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Không thể tải dữ liệu: ${response.status}`);
       }
+      
       const json = await response.json();
+      
+      // Lưu vào cache
+      apiCache.current.set(cacheKey, {
+        data: json.data?.documents || [],
+        timestamp: now
+      });
+      
       return { data: json.data?.documents || [] };
     }
   };
@@ -58,10 +83,6 @@ export default function ChatPage() {
     if (typeof window !== 'undefined') {
       // Lưu title ban đầu
       documentTitle.current = document.title;
-      
-      // Tạo element audio để phát âm thanh thông báo
-      const audio = new Audio("/notification.mp3");
-      notificationAudioRef.current = audio;
       
       const handleFocus = () => {
         isFocused.current = true;
@@ -157,11 +178,6 @@ export default function ChatPage() {
           const senderName = newMessage.senderName || 'Ai đó';
           setNewMessageNotification(`Tin nhắn mới từ ${senderName}`);
           
-          // Phát âm thanh thông báo
-          if (notificationAudioRef.current) {
-            notificationAudioRef.current.play().catch(e => console.log("Không thể phát âm thanh: ", e));
-          }
-          
           // Thay đổi tiêu đề trang nếu người dùng không ở tab này
           if (!isFocused.current && typeof document !== 'undefined') {
             document.title = `(1) Tin nhắn mới - ${documentTitle.current}`;
@@ -222,8 +238,7 @@ export default function ChatPage() {
     }
   }, [isConnected, selectedChat]);
 
-  // Thêm cơ chế polling để tự động tải tin nhắn mới định kỳ
-  // Giải pháp này đặc biệt hữu ích khi làm việc với localhost hoặc khi Realtime không hoạt động
+  // Thêm cơ chế polling để tự động tải tin nhắn mới định kỳ - với tối ưu
   useEffect(() => {
     if (!selectedChat || !selectedChat.$id) return;
 
@@ -238,11 +253,14 @@ export default function ChatPage() {
       
       try {
         setPollingStatus('loading');
-        console.log("🔄 Đang polling tin nhắn mới...");
         
-        // Lấy tin nhắn mới từ API
-        const response: any = await fetchClient.get(
-          `/api/chats/${selectedChat.$id}/messages`
+        // Đặt biến cờ để theo dõi nếu có tin nhắn mới
+        let hasNewMessages = false;
+        
+        // Lấy tin nhắn mới từ API với enhanced client
+        const response = await enhancedFetchClient.get(
+          `/api/chats/${selectedChat.$id}/messages`,
+          { forceRefresh: !isFocused.current ? false : undefined } // Chỉ force refresh khi tab đang được focus
         );
         
         const fetchedMessages = response.data;
@@ -259,9 +277,6 @@ export default function ChatPage() {
           return timeA - timeB;
         });
         
-        // Xử lý tin nhắn mới để tránh trùng lặp
-        let hasNewMessages = false;
-        
         setMessages((prevMessages) => {
           // Tìm tin nhắn chưa có trong danh sách hiện tại
           const newMessages = sortedMessages.filter((newMsg) => {
@@ -272,8 +287,8 @@ export default function ChatPage() {
             // Kiểm tra xem có phải tin nhắn tạm thời không
             const isTempVersion = prevMessages.some(
               msg => msg.content === newMsg.content && 
-                    msg.memberId === newMsg.memberId && 
-                    msg.$id.startsWith('temp-')
+                     msg.memberId === newMsg.memberId && 
+                     msg.$id.startsWith('temp-')
             );
             
             // Nếu là tin nhắn mới hoàn toàn, đánh dấu là có tin nhắn mới
@@ -300,8 +315,8 @@ export default function ChatPage() {
             // Tìm tin nhắn tạm có nội dung tương tự để thay thế
             const tempIndex = mergedMessages.findIndex(
               msg => msg.content === newMsg.content && 
-                    msg.memberId === newMsg.memberId && 
-                    msg.$id.startsWith('temp-')
+                     msg.memberId === newMsg.memberId && 
+                     msg.$id.startsWith('temp-')
             );
             
             if (tempIndex !== -1) {
@@ -340,10 +355,6 @@ export default function ChatPage() {
           
           if (newMessagesFromOthers) {
             console.log("🔔 Phát hiện tin nhắn mới từ người khác qua polling");
-            // Phát âm thanh thông báo nếu người dùng không ở tab hiện tại
-            if (!isFocused.current && notificationAudioRef.current) {
-              notificationAudioRef.current.play().catch(e => console.log("Không thể phát âm thanh: ", e));
-            }
             
             // Cập nhật tiêu đề trang
             if (!isFocused.current && typeof document !== 'undefined') {
@@ -380,11 +391,33 @@ export default function ChatPage() {
     // Tải tin nhắn mới ngay khi chọn chat
     fetchLatestMessages();
     
-    // Thiết lập interval để tự động tải tin nhắn mới sau 3 giây
-    const pollingInterval = setInterval(fetchLatestMessages, 3000);
+    // Thiết lập interval với polling thích ứng theo focus state
+    const getPollingInterval = () => {
+      if (!isFocused.current) {
+        return 20000; // 20 giây khi tab không được focus
+      }
+      return 10000; // 10 giây khi tab đang được focus
+    };
     
-    // Xóa interval khi component unmount hoặc khi chat thay đổi
-    return () => clearInterval(pollingInterval);
+    // Sử dụng polling thích ứng
+    let pollingInterval = setInterval(fetchLatestMessages, getPollingInterval());
+    
+    // Cập nhật interval khi trạng thái focus thay đổi
+    const updatePollingRate = () => {
+      clearInterval(pollingInterval);
+      pollingInterval = setInterval(fetchLatestMessages, getPollingInterval());
+    };
+    
+    // Theo dõi sự kiện focus/blur
+    window.addEventListener('focus', updatePollingRate);
+    window.addEventListener('blur', updatePollingRate);
+    
+    // Xóa interval và event listeners khi component unmount hoặc khi chat thay đổi
+    return () => {
+      clearInterval(pollingInterval);
+      window.removeEventListener('focus', updatePollingRate);
+      window.removeEventListener('blur', updatePollingRate);
+    };
   }, [selectedChat, messages, memberId]);
 
   // Fetch member ID
@@ -1004,13 +1037,6 @@ export default function ChatPage() {
           )}
         </div>
       </div>
-      
-      {/* Audio cho thông báo tin nhắn mới */}
-      <audio
-        ref={notificationAudioRef}
-        src="/sounds/notification.mp3"
-        preload="auto"
-      />
       
       <Suspense fallback={<ChatSkeleton />}>
         {error && error.includes("not a member") ? (

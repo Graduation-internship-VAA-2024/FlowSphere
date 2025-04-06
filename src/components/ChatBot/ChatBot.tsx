@@ -11,6 +11,7 @@ import { useCurrentUser } from './hooks/userCurrent';
 import { IntentAnalyzer } from './utils/intentAnalyzer';
 import { SYSTEM_PROMPT } from './constants/prompts';
 import { useCreateProject } from '@/features/projects/api/use-create-project';
+import { usePersistentChat } from './hooks/usePersistentChat';
 
 interface ChatbotDialogProps {
   isOpen: boolean;
@@ -25,7 +26,7 @@ interface Message {
 
 interface ExampleQuestion {
   text: string;
-  intent: 'create_workspace' | 'create_project' | 'manage_tasks';
+  intent: 'create_workspace' | 'create_project';
   context?: string;
 }
 
@@ -50,10 +51,6 @@ const exampleQuestions: ExampleQuestion[] = [
     text: "Create a new project",
     intent: "create_project"
   },
-  {
-    text: "Help me organize my tasks",
-    intent: "manage_tasks"
-  }
 ];
 
 export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
@@ -69,13 +66,21 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     isCreating: false
   });
 
-  const [messages, setMessages] = useState<Message[]>([]);
+  // Use our persistent chat hook instead of direct state management
+  const { 
+    messages, 
+    setMessages, 
+    showIntro, 
+    setShowIntro, 
+    hasWelcomed, 
+    setHasWelcomed,
+    addMessage 
+  } = usePersistentChat();
+  
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [showIntro, setShowIntro] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [hasWelcomed, setHasWelcomed] = useState(false);
   
   useEffect(() => {
     if (isOpen && inputRef.current) {
@@ -90,17 +95,16 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
   }, [messages, isTyping]);
 
   useEffect(() => {
+    // Only show welcome message if no saved messages exist and user is logged in
     if (isOpen && user && !hasWelcomed && messages.length === 0) {
-      const welcomeMessage = {
-        id: Date.now().toString(),
+      addMessage({
         content: `Xin chào ${user.name}! Tôi là trợ lý ảo của FlowSphere. 
         Tôi có thể giúp gì cho bạn?`,
-        role: 'assistant' as const
-      };
-      setMessages([welcomeMessage]);
+        role: 'assistant'
+      });
       setHasWelcomed(true);
     }
-  }, [isOpen, user, hasWelcomed]);
+  }, [isOpen, user, hasWelcomed, messages.length, addMessage, setHasWelcomed]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -112,12 +116,11 @@ export function ChatbotDialog({ isOpen, onClose }: ChatbotDialogProps) {
     switch (question.intent) {
       case 'create_workspace':
         setWorkspaceIntent({ isCreating: true });
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
+        addMessage({
           content: question.text,
           role: 'user'
-        }, {
-          id: (Date.now() + 1).toString(),
+        });
+        addMessage({
           content: `Tôi sẽ giúp bạn tạo một workspace${question.context ? ` cho ${question.context}` : ''}.
           
 Bạn muốn đặt tên cho workspace là gì?
@@ -127,32 +130,30 @@ Gợi ý đặt tên:
 • Phản ánh mục đích sử dụng
 • Không sử dụng ký tự đặc biệt`,
           role: 'assistant'
-        }]);
+        });
         break;
 
       case 'create_project':
         if (!workspaceId) {
-          setMessages(prev => [...prev, {
-            id: Date.now().toString(),
+          addMessage({
             content: question.text,
             role: 'user'
-          }, {
-            id: (Date.now() + 1).toString(),
+          });
+          addMessage({
             content: `Để tạo project, bạn cần phải có workspace trước. 
           
 Bạn đã có workspace nhưng chưa chọn workspace nào. Vui lòng:
 1. Chọn một workspace từ menu
 2. Sau đó quay lại đây để tạo project`,
             role: 'assistant'
-          }]);
+          });
         } else {
           setProjectIntent({ isCreating: true });
-          setMessages(prev => [...prev, {
-            id: Date.now().toString(),
+          addMessage({
             content: question.text,
             role: 'user'
-          }, {
-            id: (Date.now() + 1).toString(),
+          });
+          addMessage({
             content: `Tôi sẽ giúp bạn tạo một project trong workspace hiện tại.
           
 Bạn muốn đặt tên cho project là gì?
@@ -162,7 +163,7 @@ Gợi ý đặt tên:
 • Phản ánh mục đích của project
 • Không sử dụng ký tự đặc biệt`,
             role: 'assistant'
-          }]);
+          });
         }
         break;
     }
@@ -171,13 +172,11 @@ Gợi ý đặt tên:
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
 
-    const newMessage: Message = {
-      id: Date.now().toString(),
+    addMessage({
       content,
       role: 'user'
-    };
-
-    setMessages(prev => [...prev, newMessage]);
+    });
+    
     setInput('');
     setIsTyping(true);
 
@@ -185,11 +184,10 @@ Gợi ý đặt tên:
       // Handle project creation
       if (projectIntent.isCreating && !projectIntent.name) {
         if (!workspaceId) {
-          setMessages(prev => [...prev, {
-            id: Date.now().toString(),
+          addMessage({
             content: 'Bạn cần chọn workspace trước khi tạo project.',
             role: 'assistant'
-          }]);
+          });
           setProjectIntent({ isCreating: false });
           return;
         }
@@ -206,11 +204,10 @@ Gợi ý đặt tên:
         });
 
         // Add confirmation message
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
+        addMessage({
           content: `Đã tạo project "${projectName}" thành công! Đang chuyển hướng...`,
           role: 'assistant'
-        }]);
+        });
 
         // Redirect to new project
         setTimeout(() => {
@@ -233,11 +230,10 @@ Gợi ý đặt tên:
         });
 
         // Thêm tin nhắn xác nhận
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
+        addMessage({
           content: `Đã tạo workspace "${workspaceName}" thành công! Đang chuyển hướng...`,
           role: 'assistant'
-        }]);
+        });
 
         setTimeout(() => {
           router.push(`/workspaces/${response.data.$id}`);
@@ -254,20 +250,18 @@ Gợi ý đặt tên:
       // Xử lý ý định tạo project
       if (intentAnalysis.type === 'create_project' && intentAnalysis.confidence > 0.6) {
         if (!workspaceId) {
-          setMessages(prev => [...prev, {
-            id: Date.now().toString(),
+          addMessage({
             content: `Bạn đang ở ngoài workspace. Vui lòng:
 1. Chọn một workspace từ menu điều hướng
 2. Hoặc tạo workspace mới nếu chưa có
 3. Sau đó quay lại đây để tạo project`,
             role: 'assistant'
-          }]);
+          });
           return;
         }
 
         setProjectIntent({ isCreating: true });
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
+        addMessage({
           content: `Tôi sẽ giúp bạn tạo một project trong workspace hiện tại.
           
 Bạn muốn đặt tên cho project là gì?
@@ -277,7 +271,7 @@ Gợi ý đặt tên:
 • Phản ánh mục đích của project
 • Không sử dụng ký tự đặc biệt`,
           role: 'assistant'
-        }]);
+        });
         return;
       }
 
@@ -286,11 +280,10 @@ Gợi ý đặt tên:
         setWorkspaceIntent({ isCreating: true });
         const response = intentAnalyzer.generateResponse(intentAnalysis);
 
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
+        addMessage({
           content: response,
           role: 'assistant'
-        }]);
+        });
         return;
       }
 
@@ -306,7 +299,7 @@ Gợi ý đặt tên:
             },
             ...messages,
             {
-              ...newMessage,
+              role: 'user',
               content: `
 Người dùng: ${user?.name}
 Email: ${user?.email}
@@ -329,8 +322,7 @@ Yêu cầu: ${content}
       if (hasWorkspaceIntent) {
         setWorkspaceIntent({ isCreating: true });
         // Thêm hướng dẫn chi tiết về đặt tên
-        setMessages(prev => [...prev, {
-          id: Date.now().toString(),
+        addMessage({
           content: `${aiMessage}
 
 Một số gợi ý cho tên workspace:
@@ -341,24 +333,22 @@ Một số gợi ý cho tên workspace:
 
 Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
           role: 'assistant'
-        }]);
+        });
         return;
       }
 
       // Thêm tin nhắn từ AI
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
+      addMessage({
         content: aiMessage,
         role: 'assistant'
-      }]);
+      });
 
     } catch (error) {
       console.error('Error:', error);
-      setMessages(prev => [...prev, {
-        id: Date.now().toString(),
+      addMessage({
         content: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
         role: 'assistant'
-      }]);
+      });
       setWorkspaceIntent({ isCreating: false });
     } finally {
       setIsTyping(false);
@@ -394,7 +384,6 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
         <span className="block mt-2 space-y-1">
           <span className="inline-block bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium mr-2 mb-1">Workspaces</span>
           <span className="inline-block bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium mr-2 mb-1">Projects</span>
-          <span className="inline-block bg-gray-800 text-white px-2 py-1 rounded text-sm font-medium mr-2 mb-1">Task Management</span>
         </span>
       </p>
       <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2 mt-6">
