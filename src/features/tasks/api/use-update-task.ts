@@ -4,18 +4,18 @@ import { client } from "@/lib/rpc";
 import { toast } from "sonner";
 
 type ResponseType = InferResponseType<
-  (typeof client.api.tasks)[":taskId"]["$patch"],
+  (typeof client.api.tasks)[":taskId"]["json"]["$patch"],
   200
 >;
 type RequestType = InferRequestType<
-  (typeof client.api.tasks)[":taskId"]["$patch"]
+  (typeof client.api.tasks)[":taskId"]["json"]["$patch"]
 >;
 
 export const useUpdateTask = () => {
   const queryClient = useQueryClient();
   const mutation = useMutation<ResponseType, Error, RequestType>({
     mutationFn: async ({ json, param }) => {
-      const response = await client.api.tasks[":taskId"]["$patch"]({
+      const response = await client.api.tasks[":taskId"]["json"]["$patch"]({
         json,
         param,
       });
@@ -24,11 +24,15 @@ export const useUpdateTask = () => {
       }
       return await response.json();
     },
-    onSuccess: ({ data }) => {
+    onSuccess: (response) => {
       toast.success("Task updated");
 
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["task", data.$id] });
+      if ("data" in response && response.data.$id) {
+        queryClient.invalidateQueries({
+          queryKey: ["task", response.data.$id],
+        });
+      }
     },
     onError: () => {
       toast.error("Failed to update task. Please try again later.");

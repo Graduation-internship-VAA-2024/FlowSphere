@@ -21,3 +21,23 @@ export function snakeCaseToTitleCase(str: string) {
     .replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
+
+/**
+ * Utility function to download a file from a URL
+ */
+export function download(url: string, filename: string) {
+  // Create an anchor element
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.target = "_blank";
+
+  // Append to the DOM to enable click
+  document.body.appendChild(a);
+
+  // Trigger click event
+  a.click();
+
+  // Cleanup
+  document.body.removeChild(a);
+}

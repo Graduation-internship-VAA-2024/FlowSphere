@@ -17,4 +17,7 @@ export type Task = Models.Document & {
   position: number;
   dueDate: string;
   description?: string;
+  imageUrl?: string; // URL for task image attachment
+  fileUrl?: string; // URL for task file attachment
+  fileName?: string; // Original filename for the file attachment
 };

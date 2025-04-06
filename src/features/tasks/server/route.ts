@@ -1,9 +1,16 @@
 import { sessionMiddleware } from "@/lib/session-middleware";
 import { zValidator } from "@hono/zod-validator";
 import { Hono } from "hono";
-import { createTaskSchema } from "../schemas";
+import { createTaskSchema, updateTaskSchema } from "../schemas";
 import { getMember } from "@/features/members/utils";
-import { DATABASE_ID, MEMBERS_ID, PROJECTS_ID, TASKS_ID } from "@/config";
+import {
+  DATABASE_ID,
+  MEMBERS_ID,
+  PROJECTS_ID,
+  TASKS_ID,
+  IMAGES_BUCKET_ID,
+  FILES_BUCKET_ID,
+} from "@/config";
 import { ID, Query } from "node-appwrite";
 import { z } from "zod";
 import { Task, TaskStatus } from "../types";
@@ -184,14 +191,23 @@ const app = new Hono()
   .patch(
     "/:taskId",
     sessionMiddleware,
-    zValidator("json", createTaskSchema.partial()),
+    zValidator("form", updateTaskSchema),
     async (c) => {
-      const user = c.get("user");
       const databases = c.get("databases");
-      const { name, status, description, projectId, dueDate, assigneeId } =
-        c.req.valid("json");
-
+      const storage = c.get("storage");
+      const user = c.get("user");
       const { taskId } = c.req.param();
+      const {
+        name,
+        status,
+        description,
+        projectId,
+        dueDate,
+        assigneeId,
+        image,
+        file,
+      } = c.req.valid("form");
+
       const existingTask = await databases.getDocument<Task>(
         DATABASE_ID,
         TASKS_ID,
@@ -207,20 +223,164 @@ const app = new Hono()
         return c.json({ error: "Member not found" }, 401);
       }
 
+      let uploadedImageUrl: string | undefined = undefined;
+      if (image instanceof File) {
+        const fileObj = await storage.createFile(
+          IMAGES_BUCKET_ID,
+          ID.unique(),
+          image
+        );
+        const arrayBuffer = await storage.getFileView(
+          IMAGES_BUCKET_ID,
+          fileObj.$id
+        );
+        uploadedImageUrl = `data:image/png;base64,${Buffer.from(
+          arrayBuffer
+        ).toString("base64")}`;
+      } else {
+        uploadedImageUrl = image;
+      }
+
+      let uploadedFileUrl: string | undefined = undefined;
+      let fileName: string | undefined = undefined;
+      if (file instanceof File) {
+        const uploadedFile = await storage.createFile(
+          FILES_BUCKET_ID,
+          ID.unique(),
+          file
+        );
+        const arrayBuffer = await storage.getFileView(
+          FILES_BUCKET_ID,
+          uploadedFile.$id
+        );
+        uploadedFileUrl = `data:application/octet-stream;base64,${Buffer.from(
+          arrayBuffer
+        ).toString("base64")}`;
+        fileName = file.name;
+      } else {
+        uploadedFileUrl = file;
+      }
+
+      const updateData: Record<string, any> = {};
+
+      if (name !== undefined) updateData.name = name;
+      if (status !== undefined) updateData.status = status;
+      if (description !== undefined) updateData.description = description;
+      if (projectId !== undefined) updateData.projectId = projectId;
+      if (dueDate !== undefined) updateData.dueDate = dueDate;
+      if (assigneeId !== undefined) updateData.assigneeId = assigneeId;
+      if (uploadedImageUrl !== undefined)
+        updateData.imageUrl = uploadedImageUrl;
+      if (uploadedFileUrl !== undefined) updateData.fileUrl = uploadedFileUrl;
+      if (fileName !== undefined) updateData.fileName = fileName;
+
+      if (Object.keys(updateData).length === 0) {
+        return c.json({ message: "No data to update" });
+      }
+
       const task = await databases.updateDocument(
         DATABASE_ID,
         TASKS_ID,
         taskId,
-        {
+        updateData
+      );
+
+      return c.json({ data: task });
+    }
+  )
+  .patch(
+    "/:taskId/json",
+    sessionMiddleware,
+    zValidator(
+      "json",
+      updateTaskSchema.extend({
+        imageUrl: z.string().optional(),
+        fileUrl: z.string().optional(),
+        fileName: z.string().optional(),
+      })
+    ),
+    async (c) => {
+      try {
+        console.log("Received request to update task with json");
+        const databases = c.get("databases");
+        const user = c.get("user");
+        const { taskId } = c.req.param();
+
+        // Lấy dữ liệu JSON đã được xác thực từ zValidator
+        const validated = c.req.valid("json");
+        console.log("JSON data received for task:", taskId);
+
+        const {
           name,
           status,
+          description,
           projectId,
           dueDate,
           assigneeId,
-          description,
+          imageUrl,
+          fileUrl,
+          fileName,
+        } = validated;
+
+        console.log("Task update fields:", {
+          taskId,
+          hasName: !!name,
+          hasStatus: !!status,
+          hasDescription: !!description,
+          hasProjectId: !!projectId,
+          hasDueDate: !!dueDate,
+          hasAssigneeId: !!assigneeId,
+          hasImageUrl: !!imageUrl,
+          hasFileUrl: !!fileUrl,
+          hasFileName: !!fileName,
+        });
+
+        const existingTask = await databases.getDocument<Task>(
+          DATABASE_ID,
+          TASKS_ID,
+          taskId
+        );
+
+        const member = await getMember({
+          databases,
+          workspaceId: existingTask.workspaceId,
+          userId: user.$id,
+        });
+        if (!member) {
+          return c.json({ error: "Member not found" }, 401);
         }
-      );
-      return c.json({ data: task });
+
+        const updateData: Record<string, any> = {};
+
+        if (name !== undefined) updateData.name = name;
+        if (status !== undefined) updateData.status = status;
+        if (description !== undefined) updateData.description = description;
+        if (projectId !== undefined) updateData.projectId = projectId;
+        if (dueDate !== undefined) updateData.dueDate = dueDate;
+        if (assigneeId !== undefined) updateData.assigneeId = assigneeId;
+        if (imageUrl !== undefined) updateData.imageUrl = imageUrl;
+        if (fileUrl !== undefined) updateData.fileUrl = fileUrl;
+        if (fileName !== undefined) updateData.fileName = fileName;
+
+        if (Object.keys(updateData).length === 0) {
+          console.log("No fields to update");
+          return c.json({ message: "No data to update" });
+        }
+
+        console.log("Updating task:", taskId);
+        const task = await databases.updateDocument(
+          DATABASE_ID,
+          TASKS_ID,
+          taskId,
+          updateData
+        );
+        console.log("Task updated successfully");
+
+        return c.json({ data: task });
+      } catch (error) {
+        console.error("Error updating task:", error);
+        return c.json({ error: "Failed to update task" }, 500);
+      }
     }
   )
   .get("/:taskId", sessionMiddleware, async (c) => {

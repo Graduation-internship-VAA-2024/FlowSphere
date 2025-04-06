@@ -28,24 +28,52 @@ type AdditionalContext = {
 
 export const sessionMiddleware = createMiddleware<AdditionalContext>(
   async (c, next) => {
-    const client = new Client()
-      .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
-      .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!);
+    try {
+      // Client for user operations (với session)
+      const userClient = new Client()
+        .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
+        .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!);
 
-    const session = getCookie(c, AUTH_COOKIE);
-    if (!session) {
-      return c.json({ error: "Unauthorized", status: 401 });
+      const session = getCookie(c, AUTH_COOKIE);
+      if (!session) {
+        return c.json({ error: "Unauthorized", status: 401 });
+      }
+      userClient.setSession(session);
+
+      // Tạo tài khoản và cơ sở dữ liệu từ session người dùng
+      const account = new Account(userClient);
+      const databases = new Databases(userClient);
+
+      try {
+        // Thử lấy thông tin user để kiểm tra session hợp lệ
+        const user = await account.get();
+        console.log("User authenticated:", user.$id);
+
+        // Tạo client riêng cho storage với API key
+        const storageClient = new Client()
+          .setEndpoint(process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT!)
+          .setProject(process.env.NEXT_PUBLIC_APPWRITE_PROJECT!)
+          .setKey(process.env.NEXT_APPWRITE_KEY!);
+
+        // Tạo storage service với API key
+        const storage = new Storage(storageClient);
+
+        // Không kiểm tra quyền buckets.read nữa vì API key có thể không có quyền này
+        // Nhưng vẫn có thể tải lên files
+
+        c.set("account", account);
+        c.set("databases", databases);
+        c.set("storage", storage);
+        c.set("user", user);
+      } catch (authError) {
+        console.error("Authentication error:", authError);
+        return c.json({ error: "Authentication failed", status: 401 });
+      }
+
+      await next();
+    } catch (error) {
+      console.error("Session middleware error:", error);
+      return c.json({ error: "Server error", status: 500 });
     }
-    client.setSession(session);
-
-    const account = new Account(client);
-    const databases = new Databases(client);
-    const storage = new Storage(client);
-    const user = await account.get();
-    c.set("account", account);
-    c.set("databases", databases);
-    c.set("storage", storage);
-    c.set("user", user);
-    await next();
   }
 );
