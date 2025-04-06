@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { UserButton } from "@/features/auth/components/user-button";
 import { MobileSidebar } from "./mobile-sidebar";
@@ -6,22 +6,26 @@ import { useState } from "react";
 import { ChatbotDialog } from "@/components/ChatBot/ChatBot";
 import { MessageCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { SparklesText } from "@/components/magicui/sparkles-text";
 
 export const Navbar = () => {
-  // Thêm state để quản lý trạng thái hiển thị của ChatBot
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   return (
     <nav className="pt-6 px-6 flex items-center justify-between">
-      <div className="flex-col hidden lg:flex">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
-        <p className="text-muted-foreground">
+      <div className="flex-col hidden lg:flex gap-1">
+        <SparklesText
+          text="Dashboard"
+          className="text-2xl font-semibold"
+          colors={{ first: "#4f46e5", second: "#818cf8" }}
+          sparklesCount={15}
+        />
+        <p className="text-muted-foreground text-sm">
           Monitor your tasks and projects
         </p>
       </div>
       <div className="flex items-center gap-4">
         <MobileSidebar />
-        {/* Thêm nút ChatBot */}
         <motion.button
           onClick={() => setIsChatOpen(true)}
           className="group flex items-center gap-2 px-4 py-2.5 
@@ -41,19 +45,17 @@ export const Navbar = () => {
             <MessageCircle className="w-5 h-5" />
           </motion.div>
           <span className="font-medium text-sm">Ask AI</span>
-          <kbd className="px-1.5 py-0.5 text-[10px] font-mono font-medium 
-            bg-white/10 rounded border border-white/20 ml-1">
+          <kbd
+            className="px-1.5 py-0.5 text-[10px] font-mono font-medium 
+            bg-white/10 rounded border border-white/20 ml-1"
+          >
             Ctrl+I
           </kbd>
         </motion.button>
         <UserButton />
       </div>
 
-      {/* Thêm ChatBot Dialog */}
-      <ChatbotDialog 
-        isOpen={isChatOpen} 
-        onClose={() => setIsChatOpen(false)} 
-      />
+      <ChatbotDialog isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} />
     </nav>
   );
 };

@@ -18,7 +18,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       <div className="flex w-full h-full ">
         <div
           className="fixed left-0 top-0 hidden lg:block lg:w-[264px] h-full overflow-y-auto
-  bg-gradient-to-b from-white to-neutral-50/95
+  bg-gradient-to-b from-white/0 to-white/100
   rounded-r-[32px]
   border-r border-white/30
   shadow-[8px_0_30px_-12px_rgba(0,0,0,0.2)]
