@@ -8,6 +8,9 @@
 
 # testing
 /coverage
+# production
+
+bun.lockb
 
 # next.js
 /.next/
