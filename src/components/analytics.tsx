@@ -21,11 +21,8 @@ export const Analytics = ({ data }: ProjectAnalyticsResponseType) => {
   };
 
   return (
-    <div className="w-full p-6 bg-white dark:bg-gray-200 rounded-lg shadow-lg">
-      <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-6">
-        Project Analytics Overview
-      </h2>
-      <ScrollArea className="border rounded-md w-full whitespace-nowrap shrink-0 bg-neutral-200 dark:bg-gray-900/50 backdrop-blur-sm">
+    <div className="w-full space-y-6">
+      <ScrollArea className="border rounded-lg w-full whitespace-nowrap shrink-0 bg-neutral-200 dark:bg-gray-900/50 backdrop-blur-sm">
         <motion.div
           className="w-full flex flex-row p-2 gap-x-2"
           variants={container}

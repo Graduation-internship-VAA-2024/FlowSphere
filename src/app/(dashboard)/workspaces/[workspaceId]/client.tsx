@@ -15,7 +15,16 @@ import { BoxReveal } from "@/components/magicui/box-reveal";
 import { useState, useEffect } from "react";
 import { Task } from "@/features/tasks/types";
 import { Button } from "@/components/ui/button";
-import { CalendarDaysIcon, PlusIcon, Settings2Icon } from "lucide-react";
+import {
+  CalendarDaysIcon,
+  PlusIcon,
+  ClipboardIcon,
+  ChevronRightIcon,
+  ArrowRightIcon,
+  FolderIcon,
+  UsersIcon,
+  UserPlusIcon,
+} from "lucide-react";
 import { DottedSeparator } from "@/components/dotted-separator";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
@@ -25,15 +34,11 @@ import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { Member } from "@/features/members/types";
 import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { motion } from "framer-motion";
-import {
-  ClipboardIcon,
-  ChevronRightIcon,
-  ArrowRightIcon,
-  FolderIcon,
-  UsersIcon,
-  UserPlusIcon,
-} from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
+import { TaskPieChart } from "@/components/charts/pie-chart";
+import { TaskBarChart } from "@/components/charts/bar-chart";
+import { TaskRadarChart } from "@/components/charts/radar-chart";
 
 export const WorkspaceIdClient = () => {
   const workspaceId = useWorkspaceId();
@@ -106,10 +111,15 @@ export const WorkspaceIdClient = () => {
         <Analytics data={analytics} />
       </div>
 
+      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <TaskPieChart data={analytics} />
+        <TaskBarChart data={analytics} />
+        <TaskRadarChart data={analytics} />
+      </div>
+
       <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
         <TaskList data={tasks.documents} total={tasks.total} />
         <ProjectList data={projects.documents} total={projects.total} />
-
         <MemberList data={members.documents} total={members.total} />
       </div>
     </div>
