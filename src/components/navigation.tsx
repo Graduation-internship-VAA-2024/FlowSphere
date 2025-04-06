@@ -1,6 +1,6 @@
 "use client";
 import { cn } from "@/lib/utils";
-import { SettingsIcon, User2Icon } from "lucide-react";
+import { SettingsIcon, User2Icon, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import {
   GoCheckCircle,
@@ -34,6 +34,12 @@ const routes = [
     href: "/members",
     icon: User2Icon,
     activeIcon: User2Icon,
+  },
+  {
+    label: "Chat",
+    href: "/chat",
+    icon: MessageCircle,
+    activeIcon: MessageCircle,
   },
 ];
 

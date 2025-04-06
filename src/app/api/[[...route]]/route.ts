@@ -6,6 +6,9 @@ import members from "@/features/members/server/route";
 import projects from "@/features/projects/server/route";
 import tasks from "@/features/tasks/server/route";
 
+import chats from "@/features/chat/server/route";
+
+
 const app = new Hono().basePath("/api");
 
 const routes = app
@@ -13,11 +16,12 @@ const routes = app
   .route("/members", members)
   .route("/workspaces", workspaces)
   .route("/projects", projects)
-  .route("/tasks", tasks);
+  .route("/tasks", tasks)
+  .route("/chats", chats);
 
 export const GET = handle(app);
 export const POST = handle(app);
-export const PATCH = handle(app);
 export const DELETE = handle(app);
+export const PATCH = handle(app);
 
 export type AppType = typeof routes;

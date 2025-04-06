@@ -1,24 +1,33 @@
-import { client } from "@/lib/rpc";
 import { useQuery } from "@tanstack/react-query";
+import { rpc } from "@/lib/rpc";
 
 interface UseGetMembersProps {
-  workspaceId: string;
+  workspaceId?: string;
+  initialData?: any;
+  enabled?: boolean;
 }
 
-export const useGetMembers = ({ workspaceId }: UseGetMembersProps) => {
-  const query = useQuery({
+// API cho thành viên
+export const membersApi = {
+  getMembers: (workspaceId: string) => 
+    rpc({
+      method: "GET",
+      path: `/api/members`,
+      query: { workspaceId },
+    }),
+};
+
+export const useGetMembers = ({ workspaceId, initialData, enabled = true }: UseGetMembersProps) => {
+  return useQuery({
     queryKey: ["members", workspaceId],
     queryFn: async () => {
-      const response = await client.api.members.$get({
-        query: { workspaceId },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch members. Please try again later.");
+      if (!workspaceId) {
+        throw new Error("Workspace ID is required");
       }
-      const { data } = await response.json();
-      return data ?? null;
+      const response = await membersApi.getMembers(workspaceId);
+      return response.data;
     },
+    initialData,
+    enabled: !!workspaceId && enabled
   });
-
-  return query;
 };

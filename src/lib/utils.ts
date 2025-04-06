@@ -22,6 +22,7 @@ export function snakeCaseToTitleCase(str: string) {
     .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
+
 /**
  * Utility function to download a file from a URL
  */
@@ -40,4 +41,11 @@ export function download(url: string, filename: string) {
 
   // Cleanup
   document.body.removeChild(a);
+}
+export function bytesToSize(bytes: number): string {
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+  if (bytes === 0) return '0 Byte';
+  const i = Math.floor(Math.log(bytes) / Math.log(1024));
+  return Math.round((bytes / Math.pow(1024, i)) * 100) / 100 + ' ' + sizes[i];
+
 }

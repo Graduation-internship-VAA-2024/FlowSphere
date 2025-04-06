@@ -37,6 +37,7 @@
     "@tiptap/starter-kit": "^2.11.7",
     "@types/natural": "^5.1.5",
     "ai": "^4.2.0",
+    "appwrite": "^17.0.1",
     "axios": "^1.8.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
