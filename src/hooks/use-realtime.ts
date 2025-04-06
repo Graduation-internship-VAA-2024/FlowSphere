@@ -154,26 +154,6 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       
       let subscriptions: Array<() => void> = [];
       
-      // Hàm xử lý lỗi InvalidStateError
-      const handleWebSocketError = (err: any) => {
-        if (err && err.message && err.message.includes('CONNECTING state')) {
-          console.error("⚠️ WebSocket chưa sẵn sàng - thử lại sau");
-          // Trì hoãn và thử lại
-          setTimeout(() => {
-            if (chatIdToConnect) {
-              console.log("🔄 Thử kết nối lại sau lỗi WebSocket...");
-              // Reset các biến trạng thái
-              isConnectingRef.current = false;
-              connectionReadyRef.current = false;
-              // Thử kết nối lại
-              connectRealtime(chatIdToConnect);
-            }
-          }, 3000); // Đợi 3 giây trước khi thử lại
-          return true;
-        }
-        return false;
-      };
-      
       // Hàm đăng ký kênh khi đã sẵn sàng
       const subscribeWhenReady = (channelId: string, callback: (response: any) => void) => {
         try {
@@ -183,10 +163,6 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
           return unsubscribe;
         } catch (error) {
           console.error(`❌ Lỗi khi đăng ký kênh ${channelId}:`, error);
-          // Xử lý lỗi InvalidStateError
-          if (error instanceof Error && handleWebSocketError(error)) {
-            return () => {}; // Trả về hàm rỗng nếu đã xử lý lỗi
-          }
           return () => {};
         }
       };
@@ -199,60 +175,42 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
         connectionTimeout = setTimeout(() => {
           console.log("⏱️ Timeout khi chờ kết nối WebSocket - tiếp tục với trạng thái hiện tại");
           resolve(); // Vẫn tiếp tục mặc dù có timeout
-        }, 5000); // Tăng thời gian timeout lên 5 giây
+        }, 3000);
         
-        // Thêm delay ban đầu trước khi kiểm tra kết nối
-        setTimeout(() => {
-          try {
-            console.log("🔍 Kiểm tra trạng thái kết nối WebSocket...");
-            // Thử tạo kết nối test một cách an toàn
-            let testSubscription: (() => void) | null = null;
-            
-            try {
-              const testChannel = 'connection-test';
-              // Gán vào biến trung gian để kiểm tra null
-              const subscription = appwriteClient.subscribe(testChannel, () => {
-                // Kết nối đã sẵn sàng
-                console.log("✅ WebSocket đã sẵn sàng");
-                clearTimeout(connectionTimeout);
-                
-                // Hủy kênh test
-                setTimeout(() => {
-                  try {
-                    if (subscription) subscription();
-                  } catch (err) {
-                    console.log("Lỗi khi hủy test subscription (có thể bỏ qua):", err);
-                  }
-                }, 100);
-                
-                resolve();
-              });
-              testSubscription = subscription;
-            } catch (err) {
-              console.log("⚠️ Không thể tạo test subscription - có thể WebSocket chưa sẵn sàng:", err);
-              // Vẫn tiếp tục sau 1 giây
-              setTimeout(resolve, 1000);
-            }
-            
-            // Thêm handler lỗi cho test subscription
-            if (testSubscription) {
-              const subscription = testSubscription; // Tạo biến trung gian để tránh lỗi null
-              setTimeout(() => {
-                try {
-                  subscription();
-                } catch (err) {
-                  console.log("Không thể hủy test subscription (có thể bỏ qua):", err);
-                }
-              }, 3000); // Hủy sau 3s nếu không nhận được callback
-            }
-            
-          } catch (err) {
-            console.error("Lỗi khi kiểm tra kết nối:", err);
+        // Tạo kênh test
+        try {
+          const testChannel = 'connection-test';
+          const testSubscription = appwriteClient.subscribe(testChannel, () => {
+            // Kết nối đã sẵn sàng
+            console.log("✅ WebSocket đã sẵn sàng");
             clearTimeout(connectionTimeout);
-            // Vẫn tiếp tục sau 1 giây
-            setTimeout(resolve, 1000);
-          }
-        }, 500); // Thêm delay 500ms trước khi kiểm tra
+            
+            // Hủy kênh test
+            setTimeout(() => {
+              try {
+                testSubscription();
+              } catch (err) {
+                console.error("Lỗi khi hủy kênh test:", err);
+              }
+            }, 100);
+            
+            resolve();
+          });
+          
+          // Thêm handler lỗi
+          setTimeout(() => {
+            try {
+              testSubscription();
+            } catch (err) {
+              console.log("Không thể hủy test subscription:", err);
+            }
+          }, 2500); // Hủy sau 2.5s nếu không nhận được callback
+          
+        } catch (err) {
+          console.error("Lỗi khi kiểm tra kết nối:", err);
+          clearTimeout(connectionTimeout);
+          resolve(); // Vẫn tiếp tục mặc dù có lỗi
+        }
       });
       
       // Chờ kết nối sẵn sàng
@@ -430,7 +388,6 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
     // Kiểm tra kết nối định kỳ
     const checkConnectionInterval = setInterval(() => {
       if (!isConnected && chatId && !isConnectingRef.current) {
-        console.log("🔄 Phát hiện mất kết nối, đang thử kết nối lại...");
         reconnect(chatId);
       }
       
@@ -440,7 +397,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       }
     }, 8000); // Giảm xuống còn 8 giây
     
-    // Clean up function - giải phóng tài nguyên khi component unmount
+    // Cleanup khi component unmount hoặc chatId thay đổi
     return () => {
       clearInterval(heartbeatInterval);
       clearInterval(checkConnectionInterval);

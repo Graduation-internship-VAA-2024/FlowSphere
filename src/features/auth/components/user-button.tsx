@@ -1,4 +1,5 @@
 "use client";
+import { useState, useEffect } from "react";
 import { Loader, LogOutIcon, UserIcon } from "lucide-react";
 import { useCurrent } from "../api/use-current";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,6 +16,19 @@ import { UserProfile } from "./user-profile";
 export const UserButton = () => {
   const { mutate: logout } = useLogout();
   const { data: user, isLoading } = useCurrent();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return (
+      <div className="size-10 rounded-full flex items-center justify-center bg-neutral-200 border border-neutral-300">
+        <Loader className="size-4 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

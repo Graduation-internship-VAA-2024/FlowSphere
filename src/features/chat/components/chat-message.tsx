@@ -80,23 +80,6 @@ export const ChatMessage = ({
     }
   }, [message.createdAt, message.CreatedAt, message.$createdAt]);
 
-  // Kiểm tra xem tin nhắn này có phải là tin nhắn cuối cùng của người dùng hiện tại
-  const isLatestMessage = useMemo(() => {
-    if (!allMessages || allMessages.length === 0) return false;
-    
-    // Lọc tất cả tin nhắn của người dùng hiện tại
-    const currentUserMessages = allMessages.filter(msg => msg.memberId === currentMemberId);
-    
-    // Nếu không có tin nhắn nào, trả về false
-    if (currentUserMessages.length === 0) return false;
-    
-    // Tin nhắn mới nhất sẽ là tin nhắn cuối cùng trong mảng đã sắp xếp
-    const latestMessage = currentUserMessages[currentUserMessages.length - 1];
-    
-    // So sánh ID để xác định đây có phải là tin nhắn mới nhất không
-    return latestMessage.$id === message.$id;
-  }, [allMessages, message.$id, currentMemberId]);
-
   useEffect(() => {
     if (!memberName && message.memberId && !isCurrentUser) {
       const fetchMemberName = async () => {
@@ -363,7 +346,6 @@ export const ChatMessage = ({
               totalMembers={totalMembers}
               createdAt={(message.CreatedAt || message.$createdAt || new Date().toISOString()).toString()}
               status={getInitialMessageStatus() as "read" | "sent" | "delivered" | undefined}
-              isLatestMessage={isLatestMessage}
             />
           )}
         </div>
