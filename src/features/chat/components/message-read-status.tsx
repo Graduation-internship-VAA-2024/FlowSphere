@@ -101,13 +101,13 @@ export const MessageReadStatus = ({
     const diffHours = Math.round(diffMins / 60);
     
     if (diffSecs < 60) {
-      return 'vừa xong';
+      return 'just now';
     } else if (diffMins < 60) {
-      return `${diffMins} phút trước`;
+      return `${diffMins} minutes ago`;
     } else if (diffHours < 24) {
-      return `${diffHours} giờ trước`;
+      return `${diffHours} hours ago`;
     } else {
-      return `${Math.round(diffHours / 24)} ngày trước`;
+      return `${Math.round(diffHours / 24)} days ago`;
     }
   };
 
@@ -115,13 +115,13 @@ export const MessageReadStatus = ({
   const getStatusText = () => {
     switch (messageStatus) {
       case 'sending':
-        return 'Đang gửi...';
+        return 'Sending...';
       case 'sent':
-        return `Đã gửi ${getTimeSinceSent()}`;
+        return `Sent ${getTimeSinceSent()}`;
       case 'delivered':
-        return `Đã nhận • ${readCount} người đã xem`;
+        return `Delivered • ${readCount} people have read`;
       case 'read':
-        return 'Đã xem bởi tất cả';
+        return 'Read by all';
       default:
         return '';
     }
@@ -130,16 +130,16 @@ export const MessageReadStatus = ({
   return (
     <span className="ml-1 text-muted-foreground inline-flex items-center">
       {messageStatus === 'sending' && (
-        <span className="text-[10px] italic">Đang gửi...</span>
+        <span className="text-[10px] italic">Sending...</span>
       )}
       {messageStatus === 'sent' && (
-        <span className="text-[10px] italic">Đã gửi {getTimeSinceSent()}</span>
+        <span className="text-[10px] italic">Sent {getTimeSinceSent()}</span>
       )}
       {messageStatus === 'delivered' && (
-        <span className="text-[10px] italic">Đã nhận</span>
+        <span className="text-[10px] italic">Delivered</span>
       )}
       {messageStatus === 'read' && (
-        <span className="text-[10px] italic text-blue-500">Đã xem</span>
+        <span className="text-[10px] italic text-blue-500">Read</span>
       )}
     </span>
   );

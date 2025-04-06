@@ -28,7 +28,7 @@ const app = new Hono()
       });
 
       if (!member) {
-        return c.json({ error: "Bạn không phải thành viên của workspace này" }, 401);
+        return c.json({ error: "You are not a member of this workspace" }, 401);
       }
 
       const chats = await databases.listDocuments(DATABASE_ID, CHATS_ID, [
@@ -38,7 +38,7 @@ const app = new Hono()
       return c.json({ data: chats });
     } catch (error) {
       console.error("Error getting workspace chats:", error);
-      return c.json({ error: "Không thể lấy danh sách chat" }, 500);
+      return c.json({ error: "Cannot get workspace chats" }, 500);
     }
   })
 
@@ -53,11 +53,11 @@ const app = new Hono()
     try {
       // Kiểm tra quyền
       const userMember = await getMember({ databases, workspaceId, userId: user.$id });
-      if (!userMember) return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      if (!userMember) return c.json({ error: "You don't have access" }, 401);
 
       // Lấy chat và kiểm tra
       const chat = await databases.getDocument(DATABASE_ID, CHATS_ID, chatId);
-      if (chat.workspaceId !== workspaceId) return c.json({ error: "Chat không thuộc workspace này" }, 400);
+      if (chat.workspaceId !== workspaceId) return c.json({ error: "Chat is not in this workspace" }, 400);
 
       // Lấy dữ liệu thành viên workspace và chat
       const [workspaceMembers, chatMembers] = await Promise.all([
@@ -97,14 +97,14 @@ const app = new Hono()
 
       // 3. Gửi tin nhắn hệ thống thông báo về việc đồng bộ thành viên
       if (added > 0 || removed > 0) {
-        let systemMessage = `Đã đồng bộ thành viên: `;
+        let systemMessage = `Synced members: `;
         if (added > 0) {
           const newMemberNames = addedMembers.slice(0, 3)
-            .map(member => member.name || "Người dùng mới")
+            .map(member => member.name || "New user")
             .join(", ");
-          systemMessage += `Thêm ${added} thành viên mới${added <= 3 ? ` (${newMemberNames})` : ''}.`;
+          systemMessage += `Added ${added} new members${added <= 3 ? ` (${newMemberNames})` : ''}.`;
         }
-        if (removed > 0) systemMessage += ` Xóa ${removed} thành viên không hợp lệ.`;
+        if (removed > 0) systemMessage += ` Removed ${removed} invalid members.`;
         
         await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
           chatsId: chatId,
@@ -117,11 +117,11 @@ const app = new Hono()
 
       return c.json({ 
         data: { added, removed, kept, total: workspaceMembers.total },
-        message: `Đã đồng bộ thành viên từ workspace vào nhóm chat`
+        message: `Synced members from workspace to chat`
       });
     } catch (error) {
       console.error("Error syncing chat members:", error);
-      return c.json({ error: "Không thể đồng bộ thành viên" }, 500);
+      return c.json({ error: "Cannot sync chat members" }, 500);
     }
   })
 
@@ -133,7 +133,7 @@ const app = new Hono()
 
     try {
       const member = await getMember({ databases, workspaceId, userId: user.$id });
-      if (!member) return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      if (!member) return c.json({ error: "You don't have access" }, 401);
 
       // Luôn tạo nhóm chat, bất kể giá trị isGroup từ client
       const chat = await databases.createDocument(DATABASE_ID, CHATS_ID, ID.unique(), {
@@ -148,7 +148,7 @@ const app = new Hono()
         databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
           chatsId: chat.$id,
           memberId: member.$id,
-          content: `${member.name || "Người dùng"} đã tạo nhóm chat`,
+          content: `${member.name || "User"} created the chat`,
           CreatedAt: new Date(),
         }),
         
@@ -156,7 +156,7 @@ const app = new Hono()
         databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
           chatsId: chat.$id,
           memberId: member.$id,
-          content: `${member.name || "Người dùng"} đã tạo nhóm chat`,
+          content: `${member.name || "User"} created the chat`,
           isSystemMessage: true,
           CreatedAt: new Date(),
         })
@@ -169,7 +169,7 @@ const app = new Hono()
       // Trả về lỗi chi tiết hơn cho client
       const errorMessage = error instanceof Error 
         ? error.message 
-        : "Không thể tạo nhóm chat";
+        : "Cannot create chat";
       
       return c.json({ error: errorMessage }, 500);
     }
@@ -183,7 +183,7 @@ const app = new Hono()
     try {
       // Kiểm tra quyền
       const member = await getMember({ databases, workspaceId, userId: user.$id });
-      if (!member) return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      if (!member) return c.json({ error: "You don't have access" }, 401);
 
       // Lấy tất cả chat và thành viên workspace
       const filters = [Query.equal("workspaceId", workspaceId)];
@@ -214,7 +214,7 @@ const app = new Hono()
       });
     } catch (error) {
       console.error("Error listing chats:", error);
-      return c.json({ error: "Không thể lấy danh sách chat" }, 500);
+      return c.json({ error: "Cannot get chat list" }, 500);
     }
   })
   
@@ -229,7 +229,7 @@ const app = new Hono()
       
       // Kiểm tra quyền truy cập workspace
       const member = await getMember({ databases, workspaceId: chat.workspaceId, userId: user.$id });
-      if (!member) return c.json({ error: "Bạn không có quyền truy cập workspace này" }, 401);
+      if (!member) return c.json({ error: "You don't have access to this workspace" }, 401);
 
       // Kiểm tra người dùng đã là thành viên của chat chưa
       const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
@@ -243,11 +243,11 @@ const app = new Hono()
           await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
             chatsId: chatsId,
             memberId: member.$id,
-            content: `${member.name || "Người dùng"} đã tham gia cuộc trò chuyện`,
+            content: `${member.name || "User"} joined the chat`,
             CreatedAt: new Date(),
           });
         } catch (addError) {
-          console.error("Không thể tự động thêm thành viên vào chat:", addError);
+          console.error("Cannot automatically add member to chat:", addError);
         }
       }
       
@@ -266,7 +266,7 @@ const app = new Hono()
       });
     } catch (error) {
       console.error("Error getting chat:", error);
-      return c.json({ error: "Không thể lấy thông tin chat" }, 500);
+      return c.json({ error: "Cannot get chat info" }, 500);
     }
   })
   
@@ -288,7 +288,7 @@ const app = new Hono()
       });
 
       if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+        return c.json({ error: "You don't have access" }, 401);
       }
 
       // Kiểm tra người dùng là admin của chat
@@ -298,7 +298,7 @@ const app = new Hono()
       ]);
 
       if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không có quyền chỉnh sửa chat này" }, 401);
+        return c.json({ error: "You don't have permission to edit this chat" }, 401);
       }
 
       // Cập nhật chat
@@ -307,7 +307,7 @@ const app = new Hono()
       return c.json({ data: updatedChat });
     } catch (error) {
       console.error("Error updating chat:", error);
-      return c.json({ error: "Không thể cập nhật chat" }, 500);
+      return c.json({ error: "Cannot update chat" }, 500);
     }
   })
   
@@ -322,7 +322,7 @@ const app = new Hono()
       
       // Kiểm tra quyền xóa
       const member = await getMember({ databases, workspaceId: chat.workspaceId, userId: user.$id });
-      if (!member) return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+      if (!member) return c.json({ error: "You don't have access" }, 401);
 
       // Kiểm tra người dùng là thành viên của chat
       const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
@@ -331,7 +331,7 @@ const app = new Hono()
       ]);
 
       if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không có quyền xóa chat này" }, 401);
+        return c.json({ error: "You don't have permission to delete this chat" }, 401);
       }
 
       // Lấy tất cả thành phần liên quan để xóa
@@ -358,7 +358,7 @@ const app = new Hono()
       return c.json({ data: { $id: chatsId } });
     } catch (error) {
       console.error("Error deleting chat:", error);
-      return c.json({ error: "Không thể xóa chat" }, 500);
+      return c.json({ error: "Cannot delete chat" }, 500);
     }
   })
   
@@ -381,7 +381,7 @@ const app = new Hono()
       });
 
       if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+        return c.json({ error: "You don't have access" }, 401);
       }
 
       // Kiểm tra người dùng là thành viên của chat
@@ -395,17 +395,17 @@ const app = new Hono()
       if (!chatMember.documents.length) {
         try {
           // Tự động thêm người dùng vào chat vì họ là thành viên hợp lệ của workspace
-          console.log(`Tự động thêm thành viên workspace ${member.$id} vào chat ${chatsId}`);
+          console.log(`Automatically adding workspace member ${member.$id} to chat ${chatsId}`);
           await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
             chatsId: chatsId,
             memberId: member.$id,
-            content: `${member.name || "Người dùng"} đã tham gia cuộc trò chuyện`,
+            content: `${member.name || "User"} joined the chat`,
             CreatedAt: new Date(),
           });
-          console.log(`Đã tự động thêm thành viên ${member.$id} vào chat ${chatsId}`);
+          console.log(`Automatically added member ${member.$id} to chat ${chatsId}`);
         } catch (addError) {
-          console.error("Không thể tự động thêm thành viên vào chat:", addError);
-          return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+          console.error("Cannot automatically add member to chat:", addError);
+          return c.json({ error: "You are not a member of this chat" }, 401);
         }
       }
 
@@ -419,7 +419,7 @@ const app = new Hono()
       return c.json({ data: message });
     } catch (error) {
       console.error("Error sending message:", error);
-      return c.json({ error: "Không thể gửi tin nhắn" }, 500);
+      return c.json({ error: "Cannot send message" }, 500);
     }
   })
   
@@ -440,7 +440,7 @@ const app = new Hono()
       });
 
       if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+        return c.json({ error: "You don't have access" }, 401);
       }
 
       // Kiểm tra người dùng là thành viên của chat
@@ -454,17 +454,17 @@ const app = new Hono()
       if (!chatMember.documents.length) {
         try {
           // Tự động thêm người dùng vào chat vì họ là thành viên hợp lệ của workspace
-          console.log(`Tự động thêm thành viên workspace ${member.$id} vào chat ${chatsId}`);
+          console.log(`Automatically adding workspace member ${member.$id} to chat ${chatsId}`);
           await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
             chatsId: chatsId,
             memberId: member.$id,
-            content: `${member.name || "Người dùng"} đã tham gia cuộc trò chuyện`,
+            content: `${member.name || "User"} joined the chat`,
             CreatedAt: new Date(),
           });
-          console.log(`Đã tự động thêm thành viên ${member.$id} vào chat ${chatsId}`);
+          console.log(`Automatically added member ${member.$id} to chat ${chatsId}`);
         } catch (addError) {
-          console.error("Không thể tự động thêm thành viên vào chat:", addError);
-          return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+          console.error("Cannot automatically add member to chat:", addError);
+          return c.json({ error: "You are not a member of this chat" }, 401);
         }
       }
 
@@ -482,7 +482,7 @@ const app = new Hono()
       });
     } catch (error) {
       console.error("Error getting messages:", error);
-      return c.json({ error: "Không thể lấy tin nhắn" }, 500);
+      return c.json({ error: "Cannot get messages" }, 500);
     }
   })
   
@@ -505,7 +505,7 @@ const app = new Hono()
       });
 
       if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+        return c.json({ error: "You don't have access" }, 401);
       }
 
       // Kiểm tra người dùng là thành viên của chat
@@ -515,7 +515,7 @@ const app = new Hono()
       ]);
 
       if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+        return c.json({ error: "You are not a member of this chat" }, 401);
       }
 
       // Tìm kiếm tin nhắn theo nội dung
@@ -534,7 +534,7 @@ const app = new Hono()
       });
     } catch (error) {
       console.error("Error searching messages:", error);
-      return c.json({ error: "Không thể tìm kiếm tin nhắn" }, 500);
+      return c.json({ error: "Cannot search messages" }, 500);
     }
   })
   
@@ -556,7 +556,7 @@ const app = new Hono()
       });
 
       if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+        return c.json({ error: "You don't have access" }, 401);
       }
 
       // Kiểm tra người dùng là thành viên của chat
@@ -566,7 +566,7 @@ const app = new Hono()
       ]);
 
       if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+        return c.json({ error: "You are not a member of this chat" }, 401);
       }
 
       // Kiểm tra xem đã đọc tin nhắn này chưa
@@ -591,7 +591,7 @@ const app = new Hono()
       return c.json({ data: readRecord });
     } catch (error) {
       console.error("Error marking message as read:", error);
-      return c.json({ error: "Không thể đánh dấu tin nhắn đã đọc" }, 500);
+      return c.json({ error: "Cannot mark message as read" }, 500);
     }
   })
   
@@ -613,7 +613,7 @@ const app = new Hono()
       });
 
       if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+        return c.json({ error: "You don't have access" }, 401);
       }
 
       // Kiểm tra người dùng là thành viên của chat
@@ -623,7 +623,7 @@ const app = new Hono()
       ]);
 
       if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không phải thành viên của chat này" }, 401);
+        return c.json({ error: "You are not a member of this chat" }, 401);
       }
 
       // Lấy danh sách người đã đọc
@@ -640,7 +640,7 @@ const app = new Hono()
       });
     } catch (error) {
       console.error("Error getting message reads:", error);
-      return c.json({ error: "Không thể lấy thông tin đã đọc" }, 500);
+      return c.json({ error: "Cannot get message reads" }, 500);
     }
   })
   
@@ -657,7 +657,7 @@ const app = new Hono()
       const memberId = formData.memberId as string;
       
       if (!file) {
-        return c.json({ error: "Không tìm thấy file" }, 400);
+        return c.json({ error: "File not found" }, 400);
       }
       
       // Lấy thông tin chat
@@ -671,11 +671,11 @@ const app = new Hono()
       });
       
       if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+        return c.json({ error: "You don't have access" }, 401);
       }
       
       if (member.$id !== memberId) {
-        return c.json({ error: "ID thành viên không hợp lệ" }, 400);
+        return c.json({ error: "Invalid member ID" }, 400);
       }
 
       // Xác định loại file
@@ -723,7 +723,7 @@ const app = new Hono()
         const maxSize = 15 * 1024 * 1024; // 15MB
         if (fileToUpload.size > maxSize) {
           return c.json({ 
-            error: "Kích thước file quá lớn (tối đa 15MB)",
+            error: "File size is too large (max 15MB)",
           }, 400);
         }
         
@@ -743,20 +743,20 @@ const app = new Hono()
           
           if (uploadError.type === 'storage_file_type_unsupported') {
             return c.json({ 
-              error: "Định dạng file không được hỗ trợ trên máy chủ. Vui lòng chọn một định dạng file khác.",
+              error: "File type is not supported on the server. Please choose a different file type.",
               details: uploadError.message
             }, 400);
           }
           
           if (uploadError.type === 'storage_file_size_exceeded') {
             return c.json({ 
-              error: "Kích thước file vượt quá giới hạn cho phép trên máy chủ.",
+              error: "File size exceeds the maximum allowed limit on the server.",
               details: uploadError.message
             }, 400);
           }
           
           return c.json({ 
-            error: "Không thể upload file lên storage",
+            error: "Cannot upload file to storage",
             details: uploadError.message
           }, 400);
         }
@@ -793,21 +793,21 @@ const app = new Hono()
         } catch (messageError: any) {
           console.error("Lỗi khi tạo tin nhắn:", messageError);
           return c.json({ 
-            error: "Không thể tạo tin nhắn chứa file",
+            error: "Cannot create message with file",
             details: messageError.message
           }, 500);
         }
       } catch (error: any) {
         console.error("Lỗi tổng thể khi xử lý file:", error);
         return c.json({ 
-          error: "Không thể xử lý file upload",
+          error: "Cannot process file upload",
           details: error.message
         }, 500);
       }
     } catch (error: any) {
       console.error("Lỗi chung trong route upload:", error);
       return c.json({ 
-        error: "Không thể xử lý yêu cầu upload file",
+        error: "Cannot process file upload request",
         details: error.message
       }, 500);
     }
@@ -832,7 +832,7 @@ const app = new Hono()
       });
 
       if (!currentMember) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+        return c.json({ error: "You don't have access" }, 401);
       }
 
       // Kiểm tra người dùng là admin của chat
@@ -843,7 +843,7 @@ const app = new Hono()
 
       // Tất cả thành viên chat đều có quyền thao tác, không còn phân biệt role nữa
       if (!chatMember.documents.length) {
-        return c.json({ error: "Bạn không có quyền thêm thành viên" }, 401);
+        return c.json({ error: "You don't have permission to add members" }, 401);
       }
 
       // Lấy thông tin của thành viên được thêm
@@ -861,7 +861,7 @@ const app = new Hono()
       await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
         chatsId,
         memberId: currentMember.$id,
-        content: `${currentMember.name || "Người dùng"} đã thêm ${newMemberInfo?.name || "một thành viên mới"} vào cuộc trò chuyện`,
+        content: `${currentMember.name || "User"} added ${newMemberInfo?.name || "a new member"} to the chat`,
         isSystemMessage: true,
         CreatedAt: new Date(),
       });
@@ -869,7 +869,7 @@ const app = new Hono()
       return c.json({ data: newMember });
     } catch (error) {
       console.error("Error adding chat member:", error);
-      return c.json({ error: "Không thể thêm thành viên" }, 500);
+      return c.json({ error: "Cannot add member" }, 500);
     }
   })
   
@@ -891,7 +891,7 @@ const app = new Hono()
       });
 
       if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
+        return c.json({ error: "You don't have access" }, 401);
       }
 
       // Lấy thành viên của chat
@@ -914,76 +914,76 @@ const app = new Hono()
       });
     } catch (error) {
       console.error("Error listing chat members:", error);
-      return c.json({ error: "Không thể lấy danh sách thành viên" }, 500);
+      return c.json({ error: "Cannot get chat members" }, 500);
     }
   })
   
-  .delete("/:chatsId/members/:memberId", sessionMiddleware, async (c) => {
-    const databases = c.get("databases");
-    const user = c.get("user");
-    const { chatsId, memberId } = c.req.param();
+  // .delete("/:chatsId/members/:memberId", sessionMiddleware, async (c) => {
+  //   const databases = c.get("databases");
+  //   const user = c.get("user");
+  //   const { chatsId, memberId } = c.req.param();
 
-    try {
-      // Lấy thông tin chat
-      const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
+  //   try {
+  //     // Lấy thông tin chat
+  //     const chat = await databases.getDocument<Chats>(DATABASE_ID, CHATS_ID, chatsId);
       
-      // Kiểm tra quyền xóa thành viên
-      const currentMember = await getMember({
-        databases,
-        workspaceId: chat.workspaceId,
-        userId: user.$id,
-      });
+  //     // Kiểm tra quyền xóa thành viên
+  //     const currentMember = await getMember({
+  //       databases,
+  //       workspaceId: chat.workspaceId,
+  //       userId: user.$id,
+  //     });
 
-      if (!currentMember) {
-        return c.json({ error: "Bạn không có quyền truy cập" }, 401);
-      }
+  //     if (!currentMember) {
+  //       return c.json({ error: "You don't have access" }, 401);
+  //     }
 
-      // Lấy thông tin thành viên chat hiện tại
-      const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatsId),
-        Query.equal("memberId", currentMember.$id),
-      ]);
+  //     // Lấy thông tin thành viên chat hiện tại
+  //     const chatMember = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+  //       Query.equal("chatsId", chatsId),
+  //       Query.equal("memberId", currentMember.$id),
+  //     ]);
 
-      // Chỉ admin hoặc chính thành viên đó mới có thể xóa
-      if (!chatMember.documents.length || currentMember.$id !== memberId) {
-        return c.json({ error: "Bạn không có quyền xóa thành viên này" }, 401);
-      }
+  //     // Chỉ admin hoặc chính thành viên đó mới có thể xóa
+  //     if (!chatMember.documents.length || currentMember.$id !== memberId) {
+  //       return c.json({ error: "You don't have permission to delete this member" }, 401);
+  //     }
 
-      // Lấy thông tin của thành viên bị xóa
-      const removedMemberInfo = await databases.getDocument(DATABASE_ID, MEMBERS_ID, memberId);
+  //     // Lấy thông tin của thành viên bị xóa
+  //     const removedMemberInfo = await databases.getDocument(DATABASE_ID, MEMBERS_ID, memberId);
 
-      // Lấy id của chat member dựa trên memberId
-      const memberToRemove = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
-        Query.equal("chatsId", chatsId),
-        Query.equal("memberId", memberId),
-      ]);
+  //     // Lấy id của chat member dựa trên memberId
+  //     const memberToRemove = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+  //       Query.equal("chatsId", chatsId),
+  //       Query.equal("memberId", memberId),
+  //     ]);
 
-      if (!memberToRemove.documents.length) {
-        return c.json({ error: "Không tìm thấy thành viên" }, 404);
-      }
+  //     if (!memberToRemove.documents.length) {
+  //       return c.json({ error: "Member not found" }, 404);
+  //     }
 
-      // Xóa thành viên
-      await databases.deleteDocument(
-        DATABASE_ID,
-        CHAT_MEMBERS_ID,
-        memberToRemove.documents[0].$id
-      );
+  //     // Xóa thành viên
+  //     await databases.deleteDocument(
+  //       DATABASE_ID,
+  //       CHAT_MEMBERS_ID,
+  //       memberToRemove.documents[0].$id
+  //     );
 
-      // Tạo tin nhắn hệ thống thông báo có thành viên rời đi
-      await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
-        chatsId,
-        memberId: memberId, // Sử dụng ID của người rời đi để hiển thị đúng tên
-        content: `${removedMemberInfo?.name || "Một thành viên"} đã rời khỏi cuộc trò chuyện`,
-        isSystemMessage: true,
-        CreatedAt: new Date(),
-      });
+  //     // Tạo tin nhắn hệ thống thông báo có thành viên rời đi
+  //     await databases.createDocument(DATABASE_ID, MESSAGES_ID, ID.unique(), {
+  //       chatsId,
+  //       memberId: memberId, // Sử dụng ID của người rời đi để hiển thị đúng tên
+  //       content: `${removedMemberInfo?.name || "Một thành viên"} đã rời khỏi cuộc trò chuyện`,
+  //       isSystemMessage: true,
+  //       CreatedAt: new Date(),
+  //     });
 
-      return c.json({ data: { $id: memberToRemove.documents[0].$id } });
-    } catch (error) {
-      console.error("Error removing chat member:", error);
-      return c.json({ error: "Không thể xóa thành viên" }, 500);
-    }
-  })
+  //     return c.json({ data: { $id: memberToRemove.documents[0].$id } });
+  //   } catch (error) {
+  //     console.error("Error removing chat member:", error);
+  //     return c.json({ error: "Cannot remove member" }, 500);
+  //   }
+  // })
   
   // Route để tạo chat mặc định cho workspace đã tồn tại
   .post("/initialize-default", sessionMiddleware, zValidator("json", z.object({
@@ -1003,7 +1003,7 @@ const app = new Hono()
       });
 
       if (!member) {
-        return c.json({ error: "Bạn không có quyền truy cập workspace này" }, 401);
+        return c.json({ error: "You don't have access to this workspace" }, 401);
       }
 
       // Kiểm tra xem đã có nhóm chat nào thuộc workspace này chưa
@@ -1014,7 +1014,7 @@ const app = new Hono()
 
       // Nếu đã có nhóm chat, trả về nhóm chat đầu tiên
       if (existingChats.total > 0) {
-        return c.json({ data: existingChats.documents[0], message: "Đã tồn tại nhóm chat" });
+        return c.json({ data: existingChats.documents[0], message: "Default chat already exists" });
       }
 
       // Tạo nhóm chat mặc định
@@ -1034,7 +1034,7 @@ const app = new Hono()
         await databases.createDocument(DATABASE_ID, CHAT_MEMBERS_ID, ID.unique(), {
           chatsId: defaultChat.$id,
           memberId: wsm.$id,
-          content: `${wsm.name || "Một thành viên"} đã tham gia nhóm chat`,
+          content: `${wsm.name || "A member"} joined the chat`,
           CreatedAt: new Date(),
         });
       }
@@ -1042,7 +1042,7 @@ const app = new Hono()
       return c.json({ data: defaultChat });
     } catch (error) {
       console.error("Error initializing default chat:", error);
-      return c.json({ error: "Không thể tạo nhóm chat mặc định" }, 500);
+      return c.json({ error: "Cannot create default chat" }, 500);
     }
   });
 

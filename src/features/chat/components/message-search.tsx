@@ -91,7 +91,7 @@ export const MessageSearch = ({
       return false;
     }).map(message => ({
       ...message,
-      senderName: message.memberId ? memberNames[message.memberId] || "Người dùng" : "Hệ thống"
+      senderName: message.memberId ? memberNames[message.memberId] || "User" : "System"
     }));
 
     // Sắp xếp kết quả theo thời gian để tin nhắn mới nhất lên đầu
@@ -181,7 +181,7 @@ export const MessageSearch = ({
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Tìm kiếm tin nhắn..."
+            placeholder="Search messages..."
             className="pl-8 pr-8"
           />
           {searchTerm && (
@@ -203,7 +203,7 @@ export const MessageSearch = ({
             className="h-8 w-8"
             onClick={goToPrevious}
             disabled={searchResults.length === 0}
-            title="Tin nhắn trước"
+            title="Previous message"
           >
             <ArrowUp className="h-4 w-4" />
           </Button>
@@ -213,7 +213,7 @@ export const MessageSearch = ({
             className="h-8 w-8"
             onClick={goToNext}
             disabled={searchResults.length === 0}
-            title="Tin nhắn sau"
+            title="Next message"
           >
             <ArrowDown className="h-4 w-4" />
           </Button>
@@ -222,7 +222,7 @@ export const MessageSearch = ({
             size="icon"
             className="h-8 w-8 ml-1"
             onClick={onClose}
-            title="Đóng tìm kiếm"
+            title="Close search"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -252,7 +252,7 @@ export const MessageSearch = ({
                         formatMessageContent(message.content, searchTerm)
                       ) : (
                         <span className="italic text-muted-foreground">
-                          {message.fileName ? `File: ${message.fileName}` : "Không có nội dung văn bản"}
+                          {message.fileName ? `File: ${message.fileName}` : "No text content"}
                         </span>
                       )}
                     </div>
@@ -275,14 +275,14 @@ export const MessageSearch = ({
             </div>
           </ScrollArea>
           <div className="p-2 text-xs text-muted-foreground border-t">
-            Tìm thấy {searchResults.length} kết quả • Sử dụng phím ↑/↓ để di chuyển và Enter để nhảy đến tin nhắn
+            Found {searchResults.length} results • Use ↑/↓ to navigate and Enter to jump to a message
           </div>
         </div>
       )}
       
       {searchTerm.length >= 2 && searchResults.length === 0 && (
         <div className="p-3 text-center text-sm text-muted-foreground">
-          Không tìm thấy tin nhắn nào phù hợp với "{searchTerm}"
+          No messages found for "{searchTerm}"
         </div>
       )}
     </div>

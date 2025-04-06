@@ -165,17 +165,17 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
       <div className="relative mb-4">
         <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Tìm kiếm thành viên trong nhóm..."
+          placeholder="Search members in group..."
           className="pl-9"
           value={searchTerm}
           onChange={handleSearchChange}
-          title="Nhập tên hoặc email để tìm kiếm thành viên"
+          title="Enter name or email to search members"
         />
         {searchTerm && (
           <button
             onClick={() => setSearchTerm("")}
             className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground"
-            title="Xóa tìm kiếm"
+            title="Clear search"
           >
             <X className="h-4 w-4" />
           </button>
@@ -184,8 +184,8 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
       
       <Tabs defaultValue="chats" className="flex-1 flex flex-col" value={activeTab} onValueChange={handleTabChange}>
         <TabsList className="grid grid-cols-2 mb-2">
-          <TabsTrigger value="chats">Nhóm chat</TabsTrigger>
-          <TabsTrigger value="members">Thành viên</TabsTrigger>
+          <TabsTrigger value="chats">Group chats</TabsTrigger>
+          <TabsTrigger value="members">Members</TabsTrigger>
         </TabsList>
         
         <TabsContent value="chats" className="flex-1 overflow-hidden relative">
@@ -199,12 +199,12 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
                     </div>
                   </div>
                   <h3 className="font-medium mb-2">
-                    {searchTerm ? "Không tìm thấy nhóm chat" : "Không có nhóm chat nào"}
+                    {searchTerm ? "No group chats found" : "No group chats"}
                   </h3>
                   <p className="text-sm text-muted-foreground mb-4">
                     {searchTerm 
-                      ? "Hãy thử tìm kiếm với từ khóa khác" 
-                      : "Nhóm chat sẽ được tạo tự động khi thêm thành viên vào workspace"}
+                      ? "Try searching with a different keyword" 
+                      : "Group chats will be automatically created when members are added to the workspace"}
                   </p>
                 </div>
               ) : (
@@ -233,7 +233,7 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
                       <div className="flex-1 min-w-0">
                         <div className="font-medium truncate">{chat.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          Nhóm chat
+                          Group chat
                         </div>
                       </div>
                     </div>
@@ -252,7 +252,7 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
                 <div className="space-y-4">
                   {searchTerm ? (
                     <div className="p-4 text-center">
-                      <p className="text-sm text-muted-foreground">Đang tìm kiếm thành viên...</p>
+                      <p className="text-sm text-muted-foreground">Searching for members...</p>
                     </div>
                   ) : (
                     [1, 2, 3, 4].map((i) => (
@@ -272,7 +272,7 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
               {!isMembersLoading && membersData?.documents.length === 0 && (
                 <div className="p-8 text-center">
                   <p className="text-muted-foreground text-sm">
-                    Không có thành viên nào trong workspace
+                    No members in the workspace
                   </p>
                 </div>
               )}
@@ -297,9 +297,9 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
                           <User className="h-7 w-7 text-muted-foreground" />
                         </div>
                       </div>
-                      <h3 className="font-medium mb-2">Không tìm thấy thành viên</h3>
+                      <h3 className="font-medium mb-2">No members found</h3>
                       <p className="text-sm text-muted-foreground">
-                        Không tìm thấy thành viên nào khớp với "{searchTerm}"
+                        No members match "{searchTerm}"
                       </p>
                     </div>
                   );
@@ -344,7 +344,7 @@ export const ChatList: React.FC<ChatListProps> = React.memo(({
                         />
                         <div className="text-xs text-muted-foreground truncate">
                           <span dangerouslySetInnerHTML={{ __html: highlightText(member.email) }} />
-                          {member.$id === currentMemberId && " (Bạn)"}
+                          {member.$id === currentMemberId && " (You)"}
                         </div>
                       </div>
                     </div>

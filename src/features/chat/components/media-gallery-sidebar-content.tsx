@@ -55,11 +55,11 @@ export const MediaGallerySidebarContent = ({ messages, chatsId }: MediaGallerySi
           }, 100);
         })
         .catch(error => {
-          console.error("Lỗi khi tải file:", error);
+          console.error("Error downloading file:", error);
           window.open(url, '_blank');
         });
     } catch (error) {
-      console.error("Lỗi khi tải file:", error);
+      console.error("Error downloading file:", error);
       window.open(url, '_blank');
     }
   };
@@ -76,11 +76,11 @@ export const MediaGallerySidebarContent = ({ messages, chatsId }: MediaGallerySi
           <TabsList className="w-full grid grid-cols-2">
             <TabsTrigger value="images" className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4" />
-              Ảnh ({imagesMessages.length})
+              Images ({imagesMessages.length})
             </TabsTrigger>
             <TabsTrigger value="files" className="flex items-center gap-2">
               <File className="h-4 w-4" />
-              Tệp ({filesMessages.length})
+              Files ({filesMessages.length})
             </TabsTrigger>
           </TabsList>
         </div>
@@ -90,7 +90,7 @@ export const MediaGallerySidebarContent = ({ messages, chatsId }: MediaGallerySi
             {imagesMessages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
                 <ImageIcon className="h-16 w-16 opacity-20 mb-4" />
-                <p className="text-center text-sm">Chưa có ảnh nào được chia sẻ trong cuộc trò chuyện này</p>
+                <p className="text-center text-sm">No images shared in this chat</p>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2 p-3">
@@ -132,7 +132,7 @@ export const MediaGallerySidebarContent = ({ messages, chatsId }: MediaGallerySi
             {filesMessages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
                 <File className="h-16 w-16 opacity-20 mb-4" />
-                <p className="text-center text-sm">Chưa có tệp nào được chia sẻ trong cuộc trò chuyện này</p>
+                <p className="text-center text-sm">No files shared in this chat</p>
               </div>
             ) : (
               <div className="flex flex-col gap-2 p-3">
@@ -149,7 +149,7 @@ export const MediaGallerySidebarContent = ({ messages, chatsId }: MediaGallerySi
                     
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm truncate">
-                        {message.fileName || "Tệp đính kèm"}
+                        {message.fileName || "Attached file"}
                       </p>
                       {message.fileSize && (
                         <p className="text-xs text-muted-foreground">

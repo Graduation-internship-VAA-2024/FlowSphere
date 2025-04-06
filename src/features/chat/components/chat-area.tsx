@@ -199,9 +199,9 @@ export const ChatArea = React.memo(({
       const response = await chatApi.syncMembers(chats.$id, chats.workspaceId);
       const { added, removed, kept, total } = response.data;
       
-      let statusMessage = `Đã đồng bộ thành viên: ${total} thành viên tổng cộng.`;
-      if (added > 0) statusMessage += ` Thêm ${added} thành viên mới.`;
-      if (removed > 0) statusMessage += ` Xóa ${removed} thành viên không hợp lệ.`;
+      let statusMessage = `Updated members: ${total} members.`;
+      if (added > 0) statusMessage += ` Added ${added} members.`;
+      if (removed > 0) statusMessage += ` Removed ${removed} members.`;
       
       // Gọi callback để refresh dữ liệu từ parent component nếu tồn tại
       if (onSyncMembers) {
@@ -217,7 +217,7 @@ export const ChatArea = React.memo(({
       }, 5000);
     } catch (error) {
       console.error("Error syncing members:", error);
-      setAddMembersNotification("Lỗi: Không thể đồng bộ thành viên");
+      setAddMembersNotification("Error: Cannot sync members");
     } finally {
       setLocalIsSyncing(false);
     }
@@ -237,7 +237,7 @@ export const ChatArea = React.memo(({
       const currentPosition = (scrollRef.current as any).scrollTop;
       setLastScrollPosition(currentPosition);
       lastScrollPositionRef.current = currentPosition;
-      console.log("Đã lưu vị trí cuộn:", currentPosition);
+      console.log("Scrolled to:", currentPosition);
     }
     
     // Tìm và cuộn đến tin nhắn
@@ -255,7 +255,7 @@ export const ChatArea = React.memo(({
         // Hiển thị banner để quay lại vị trí ban đầu
         setShowReturnBanner(true);
       } else {
-        console.error(`Không tìm thấy tin nhắn có ID: message-${messageId}`);
+          console.error(`Không tìm thấy tin nhắn có ID: message-${messageId}`);
       }
     }, 100);
   }, []);
@@ -319,15 +319,15 @@ export const ChatArea = React.memo(({
 
   if (!chats) {
     return (
-      <Card className="flex-1 p-8 flex flex-col items-center justify-center">
+      <Card className="flex-1 h-full p-8 flex flex-col items-center justify-center">
         <div className="mb-4">
           <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center">
             <MessageCircle className="h-8 w-8 text-muted-foreground" />
           </div>
         </div>
-        <h3 className="text-xl font-medium mb-2">Chưa chọn cuộc trò chuyện</h3>
+        <h3 className="text-xl font-medium mb-2">No chat selected</h3>
         <p className="text-muted-foreground text-center max-w-sm">
-          Chọn một cuộc trò chuyện từ danh sách bên trái hoặc tạo một cuộc trò chuyện mới để bắt đầu.
+          Select a chat from the left list or create a new chat to start.
         </p>
       </Card>
     );
@@ -337,20 +337,20 @@ export const ChatArea = React.memo(({
   if (hasOnlyCurrentUser) {
     console.log("🚨 Hiển thị giao diện chỉ có một thành viên", chats);
     return (
-      <Card className="flex-1 p-8 flex flex-col items-center justify-center">
+      <Card className="flex-1 h-full p-8 flex flex-col items-center justify-center">
         <div className="mb-4">
           <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center">
             <User className="h-8 w-8 text-primary" />
           </div>
         </div>
-        <h3 className="text-xl font-medium mb-2">Chỉ có bạn trong nhóm chat này</h3>
+        <h3 className="text-xl font-medium mb-2">Only you in this chat</h3>
         <p className="text-muted-foreground text-center max-w-sm mb-6">
-          Hiện tại bạn là thành viên duy nhất trong nhóm chat này. Hãy mời thêm thành viên để bắt đầu cuộc trò chuyện.
+          You are the only member in this chat. Please invite more members to start the chat.
         </p>
         <Link href={`/workspaces/${chats.workspaceId}/settings`}>
           <Button variant="outline" size="sm" className="gap-2">
             <UserPlus className="h-4 w-4" />
-            Mời thành viên
+            Invite members
           </Button>
         </Link>
       </Card>
@@ -359,7 +359,7 @@ export const ChatArea = React.memo(({
 
   if (isLoading) {
     return (
-      <Card className="flex-1 p-8 flex items-center justify-center">
+      <Card className="flex-1 h-full p-8 flex items-center justify-center">
         <p className="text-muted-foreground">Loading messages...</p>
       </Card>
     );
@@ -367,16 +367,16 @@ export const ChatArea = React.memo(({
 
   if (error) {
     return (
-      <Card className="flex-1 p-8 flex items-center justify-center">
+      <Card className="flex-1 h-full p-8 flex items-center justify-center">
         <p className="text-destructive">Error loading messages: {error instanceof Error ? error.message : error}</p>
       </Card>
     );
   }
 
   return (
-    <Card className="flex-1 flex flex-col h-full overflow-hidden">
+    <Card className="flex-1 h-full flex flex-col overflow-hidden">
       <ChatHeader 
-        name={chats?.name || "Chọn một cuộc trò chuyện"}
+        name={chats?.name || "Select a chat"}
         isGroup={chats?.isGroup}
         membersCount={chats?.members?.length || 0}
         totalWorkspaceMembers={chats?.totalWorkspaceMembers || 0}
@@ -436,7 +436,7 @@ export const ChatArea = React.memo(({
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
                 <MessageCircle className="h-12 w-12 mb-3 opacity-20" />
-                <p>Chưa có tin nhắn nào. Hãy bắt đầu cuộc trò chuyện!</p>
+                <p>No messages yet. Start the chat!</p>
               </div>
             ) : (
               <div className="space-y-4 py-2">
@@ -485,7 +485,7 @@ export const ChatArea = React.memo(({
               variant="secondary"
               className="absolute bottom-4 right-4 rounded-full shadow-md z-10 p-2 w-8 h-8 bg-primary/80 text-white hover:bg-primary"
               onClick={handleScrollToBottom}
-              title="Cuộn xuống tin nhắn mới nhất"
+              title="Scroll to the latest message"
             >
               <ChevronDown size={16} />
             </Button>
@@ -500,12 +500,12 @@ export const ChatArea = React.memo(({
                   className="text-sm flex items-center gap-2 text-primary hover:underline flex-1"
                 >
                   <ArrowUpCircle className="h-4 w-4" />
-                  Quay lại vị trí cuộn trước đó
+                  Back to the previous scroll position
                 </button>
                 <button 
                   onClick={() => setShowReturnBanner(false)}
                   className="ml-2 h-6 w-6 rounded-full hover:bg-muted flex items-center justify-center"
-                  aria-label="Đóng"
+                  aria-label="Close"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -518,7 +518,7 @@ export const ChatArea = React.memo(({
         {mediaGallerySidebarOpen && (
           <div className="w-80 border-l flex flex-col h-full bg-white dark:bg-zinc-950 overflow-hidden">
             <div className="p-3 border-b flex items-center justify-between">
-              <h3 className="font-medium text-base">Tệp và hình ảnh</h3>
+              <h3 className="font-medium text-base">Files and images</h3>
               <Button
                 variant="ghost"
                 size="icon"

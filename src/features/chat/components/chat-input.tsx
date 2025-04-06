@@ -133,7 +133,7 @@ export const ChatInput = ({
             handleKeyDown(e);
             if (e.key === 'Enter' && !e.shiftKey) handleSend();
           }}
-          placeholder="Nhập tin nhắn..." 
+          placeholder="Enter message..." 
           className="flex-1"
           disabled={isLoading || isUploading}
         />

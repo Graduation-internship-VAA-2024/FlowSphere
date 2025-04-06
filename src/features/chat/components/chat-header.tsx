@@ -70,7 +70,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   return (
     <div className="border-b p-4 flex justify-between items-center">
       <div className="flex items-center space-x-2">
-        <h3 className="font-medium text-lg truncate">
+        <h3 className="font-medium text-lg truncate ml-8">
           {name || "Chat"}
         </h3>
         
@@ -91,7 +91,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             size="icon"
             className="h-8 w-8 rounded-full"
             onClick={onSearch}
-            title="Tìm kiếm tin nhắn"
+            title="Search messages"
           >
             <Search className="h-5 w-5" />
           </Button>
@@ -104,7 +104,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
             size="icon"
             className="h-8 w-8 rounded-full"
             onClick={onToggleMediaGallery}
-            title={isMediaGalleryOpen ? "Đóng thư viện media" : "Xem ảnh và file đã chia sẻ"}
+            title={isMediaGalleryOpen ? "Close media gallery" : "View shared images and files"}
           >
             <ImageIcon className="h-5 w-5" />
           </Button>

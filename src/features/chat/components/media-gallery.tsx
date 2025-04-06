@@ -58,11 +58,11 @@ export const MediaGallery = ({ open, onOpenChange, messages, chatsId }: MediaGal
           }, 100);
         })
         .catch(error => {
-          console.error("Lỗi khi tải file:", error);
+          console.error("Error downloading file:", error);
           window.open(url, '_blank');
         });
     } catch (error) {
-      console.error("Lỗi khi tải file:", error);
+      console.error("Error downloading file:", error);
       window.open(url, '_blank');
     }
   };
@@ -77,7 +77,7 @@ export const MediaGallery = ({ open, onOpenChange, messages, chatsId }: MediaGal
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-3xl w-full p-0">
           <DialogHeader className="p-4 border-b">
-            <DialogTitle>Thư viện tệp và ảnh chia sẻ</DialogTitle>
+            <DialogTitle>Shared files and images</DialogTitle>
           </DialogHeader>
           
           <Tabs defaultValue="images" value={selectedTab} onValueChange={(value) => setSelectedTab(value as "images" | "files")}>
@@ -85,11 +85,11 @@ export const MediaGallery = ({ open, onOpenChange, messages, chatsId }: MediaGal
               <TabsList>
                 <TabsTrigger value="images" className="flex items-center gap-2">
                   <ImageIcon className="h-4 w-4" />
-                  Ảnh ({imagesMessages.length})
+                  Images ({imagesMessages.length})
                 </TabsTrigger>
                 <TabsTrigger value="files" className="flex items-center gap-2">
                   <File className="h-4 w-4" />
-                  Tệp ({filesMessages.length})
+                  Files ({filesMessages.length})
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -99,7 +99,7 @@ export const MediaGallery = ({ open, onOpenChange, messages, chatsId }: MediaGal
                 {imagesMessages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
                     <ImageIcon className="h-16 w-16 opacity-20 mb-4" />
-                    <p>Chưa có ảnh nào được chia sẻ trong cuộc trò chuyện này</p>
+                    <p>No images shared in this chat</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
@@ -141,7 +141,7 @@ export const MediaGallery = ({ open, onOpenChange, messages, chatsId }: MediaGal
                 {filesMessages.length === 0 ? (
                   <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8">
                     <File className="h-16 w-16 opacity-20 mb-4" />
-                    <p>Chưa có tệp nào được chia sẻ trong cuộc trò chuyện này</p>
+                    <p>No files shared in this chat</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-3">
@@ -158,7 +158,7 @@ export const MediaGallery = ({ open, onOpenChange, messages, chatsId }: MediaGal
                         
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm truncate">
-                            {message.fileName || "Tệp đính kèm"}
+                            {message.fileName || "Attached file"}
                           </p>
                           {message.fileSize && (
                             <p className="text-xs text-muted-foreground">

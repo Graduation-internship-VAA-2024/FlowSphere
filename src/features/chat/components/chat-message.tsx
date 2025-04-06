@@ -90,18 +90,18 @@ export const ChatMessage = ({
             if (data.data && data.data.name) {
               setSenderName(data.data.name);
             } else {
-              setSenderName("Người dùng");
+              setSenderName("User");
             }
           }
         } catch (error) {
           console.error("Error fetching member details:", error);
-          setSenderName("Người dùng");
+          setSenderName("User");
         }
       };
 
       fetchMemberName();
     } else if (isCurrentUser) {
-      setSenderName("Bạn");
+      setSenderName("You");
     } else if (memberName) {
       setSenderName(memberName);
     }
@@ -219,7 +219,7 @@ export const ChatMessage = ({
               >
                 <img 
                   src={message.imageUrl} 
-                  alt="Hình ảnh đính kèm" 
+                  alt="Attached image" 
                   className={cn(
                     "object-cover",
                     !message.content ? "w-full rounded-lg max-w-[240px]" : "w-full rounded-md max-w-[240px]"
@@ -244,14 +244,14 @@ export const ChatMessage = ({
                         e.stopPropagation();
                         openImageViewer();
                       }}
-                      title="Xem ảnh"
+                      title="View image"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white">
                         <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
                         <circle cx="12" cy="12" r="3" />
                       </svg>
                     </Button>
-                    <span className="text-white text-xs mt-1 font-medium bg-black/40 px-2 py-0.5 rounded-md">Xem</span>
+                    <span className="text-white text-xs mt-1 font-medium bg-black/40 px-2 py-0.5 rounded-md">View</span>
                   </div>
                   
                   {/* Nút tải xuống */}
@@ -266,11 +266,11 @@ export const ChatMessage = ({
                           handleDownload(message.imageUrl, message.fileName || "image.jpg");
                         }
                       }}
-                      title="Tải xuống ảnh"
+                      title="Download image"
                     >
                       <Download className="h-4 w-4 text-white" />
                     </Button>
-                    <span className="text-white text-xs mt-1 font-medium bg-black/40 px-2 py-0.5 rounded-md">Tải xuống</span>
+                    <span className="text-white text-xs mt-1 font-medium bg-black/40 px-2 py-0.5 rounded-md">Download</span>
                   </div>
                 </div>
               </div>
@@ -279,41 +279,53 @@ export const ChatMessage = ({
           
           {/* Hiển thị file đính kèm */}
           {message.fileUrl && !message.imageUrl && (
-            <div className="flex flex-col">
+            <div className={cn(
+              "max-w-[240px] overflow-hidden",
+              isCurrentUser ? "ml-auto" : "mr-auto"
+            )}>
               <div 
-                className="bg-background rounded-md p-3 border relative group cursor-pointer"
+                className={cn(
+                  "w-full rounded-lg overflow-hidden flex flex-col cursor-pointer shadow-sm",
+                  isCurrentUser 
+                    ? "bg-gradient-to-br from-gray-800 to-gray-900 text-white" 
+                    : "bg-background border"
+                )}
                 onClick={() => handleDownload(message.fileUrl!, message.fileName || 'file')}
               >
-                <div className="flex items-center gap-2 max-w-[200px]">
-                  <div className="w-10 h-10 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
-                    {getFileIcon(message.fileType)}
-                  </div>
-                  <div className="truncate">
-                    <div className="text-sm font-medium truncate">
-                      {message.fileName || "File đính kèm"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {message.fileSize ? bytesToSize(message.fileSize) : ""}
-                    </div>
-                  </div>
-                </div>
-                
-                {/* Overlay khi hover vào file */}
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3 bg-black/40 rounded-md">
-                  <div className="flex flex-col items-center">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-10 w-10 rounded-full bg-black/50 hover:bg-black/70 border border-white/20"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDownload(message.fileUrl!, message.fileName || 'file');
+                <div className="px-4 py-3 relative">
+                  {/* Optional subtle pattern for texture */}
+                  {isCurrentUser && (
+                    <div className="absolute inset-0 opacity-10 mix-blend-overlay pointer-events-none" 
+                      style={{
+                        backgroundImage: 'radial-gradient(circle at 1px 1px, white 1px, transparent 0)',
+                        backgroundSize: '16px 16px'
                       }}
-                      title="Tải xuống"
+                    />
+                  )}
+                  
+                  {/* Filename and size */}
+                  <p className="text-sm font-medium mb-1 truncate">
+                    {message.fileName || "Attached file"}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs opacity-70">
+                      {message.fileSize ? bytesToSize(message.fileSize) : "Attached file"}
+                    </p>
+                    
+                    {/* Download button */}
+                    <Button 
+                      size="sm" 
+                      variant={isCurrentUser ? "outline" : "ghost"}
+                      className={cn(
+                        "h-7 rounded-full px-4 text-xs font-medium",
+                        isCurrentUser 
+                          ? "bg-white/5 border-white/20 text-white hover:bg-white/10 backdrop-blur-sm" 
+                          : "bg-muted"
+                      )}
                     >
-                      <Download className="h-4 w-4 text-white" />
+                      <Download className="h-3 w-3 mr-1.5" />
+                      Download
                     </Button>
-                    <span className="text-white text-xs mt-1 font-medium bg-black/40 px-2 py-0.5 rounded-md">Tải xuống</span>
                   </div>
                 </div>
               </div>
