@@ -1,5 +1,7 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+
 import PageError from "@/components/page-error";
 import PageLoader from "@/components/page-loader";
 import { useGetMembers } from "@/features/members/api/use-get-members";
@@ -12,7 +14,6 @@ import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { useCurrent } from "@/features/auth/api/use-current";
 import { Analytics } from "@/components/analytics";
 import { BoxReveal } from "@/components/magicui/box-reveal";
-import { useState, useEffect } from "react";
 import { Task } from "@/features/tasks/types";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,7 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { TaskPieChart } from "@/components/charts/pie-chart";
 import { TaskBarChart } from "@/components/charts/bar-chart";
 import { TaskRadarChart } from "@/components/charts/radar-chart";
-import React from "react";
+import { InviteMemberModal } from "@/features/members/components/invite-member-modal";
 
 export const WorkspaceIdClient = () => {
   const workspaceId = useWorkspaceId();
@@ -150,9 +151,9 @@ export const TaskList = ({ data, total }: TaskListProps) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="col-span-1 h-[500px] flex flex-col"
+      className="h-[500px] flex flex-col"
     >
-      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg p-6 flex-1 border border-gray-100 dark:border-gray-700">
+      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg p-6 flex-1 border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="bg-blue-500/10 dark:bg-blue-500/20 p-2 rounded-lg">
@@ -189,45 +190,47 @@ export const TaskList = ({ data, total }: TaskListProps) => {
             }
           />
         ) : (
-          <div className="space-y-4">
-            {data.map((task) => (
-              <motion.div
-                key={task.$id}
-                whileHover={{ scale: 1.01 }}
-                className="transform transition-all duration-200"
-              >
-                <Link href={`/workspaces/${workspaceId}/tasks/${task.$id}`}>
-                  <Card className="bg-white dark:bg-gray-800 hover:shadow-md transition-all duration-200">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="space-y-2">
-                          <p className="text-base font-medium line-clamp-1">
-                            {task.name}
-                          </p>
-                          <div className="flex items-center gap-x-3 text-sm">
-                            {task.project?.name && (
-                              <Badge
-                                variant="outline"
-                                className="bg-blue-50 dark:bg-blue-900/20 text-blue-600"
-                              >
-                                {task.project.name}
-                              </Badge>
-                            )}
-                            <div className="flex items-center text-muted-foreground">
-                              <CalendarDaysIcon className="h-4 w-4 mr-1" />
-                              <span>
-                                {formatDistanceToNow(new Date(task.dueDate))}
-                              </span>
+          <div className="flex-1 overflow-y-auto pr-2">
+            <div className="space-y-4">
+              {data.map((task) => (
+                <motion.div
+                  key={task.$id}
+                  whileHover={{ scale: 1.01 }}
+                  className="transform transition-all duration-200"
+                >
+                  <Link href={`/workspaces/${workspaceId}/tasks/${task.$id}`}>
+                    <Card className="bg-white dark:bg-gray-800 hover:shadow-md transition-all duration-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-start justify-between">
+                          <div className="space-y-2">
+                            <p className="text-base font-medium line-clamp-1">
+                              {task.name}
+                            </p>
+                            <div className="flex items-center gap-x-3 text-sm">
+                              {task.project?.name && (
+                                <Badge
+                                  variant="outline"
+                                  className="bg-blue-50 dark:bg-blue-900/20 text-blue-600"
+                                >
+                                  {task.project.name}
+                                </Badge>
+                              )}
+                              <div className="flex items-center text-muted-foreground">
+                                <CalendarDaysIcon className="h-4 w-4 mr-1" />
+                                <span>
+                                  {formatDistanceToNow(new Date(task.dueDate))}
+                                </span>
+                              </div>
                             </div>
                           </div>
+                          <ChevronRightIcon className="h-5 w-5 text-muted-foreground" />
                         </div>
-                        <ChevronRightIcon className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </motion.div>
-            ))}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -261,9 +264,9 @@ export const ProjectList = ({ data, total }: ProjectListProps) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="col-span-1 h-[500px] flex flex-col"
+      className="h-[500px] flex flex-col"
     >
-      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg p-6 flex-1 border border-gray-100 dark:border-gray-700">
+      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg p-6 flex-1 border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="bg-purple-500/10 dark:bg-purple-500/20 p-2 rounded-lg">
@@ -300,40 +303,42 @@ export const ProjectList = ({ data, total }: ProjectListProps) => {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto max-h-[300px] pr-2">
-            {data.map((project) => (
-              <motion.div
-                key={project.$id}
-                whileHover={{ scale: 1.02 }}
-                className="transform transition-all duration-200"
-              >
-                <Link
-                  href={`/workspaces/${workspaceId}/projects/${project.$id}`}
+          <div className="flex-1 overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {data.map((project) => (
+                <motion.div
+                  key={project.$id}
+                  whileHover={{ scale: 1.02 }}
+                  className="transform transition-all duration-200"
                 >
-                  <Card className="bg-white dark:bg-gray-800 hover:shadow-md transition-all duration-200">
-                    <CardContent className="p-4">
-                      <div className="flex items-center gap-3">
-                        <ProjectAvatar
-                          name={project.name}
-                          image={project.imageUrl}
-                          className="size-10"
-                          fallbackClassName="text-base"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-base truncate">
-                            {project.name}
-                          </p>
-                          <p className="text-sm text-muted-foreground truncate">
-                            {project.tasks?.length || 0} tasks
-                          </p>
+                  <Link
+                    href={`/workspaces/${workspaceId}/projects/${project.$id}`}
+                  >
+                    <Card className="bg-white dark:bg-gray-800 hover:shadow-md transition-all duration-200">
+                      <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                          <ProjectAvatar
+                            name={project.name}
+                            image={project.imageUrl}
+                            className="size-10"
+                            fallbackClassName="text-base"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-base truncate">
+                              {project.name}
+                            </p>
+                            <p className="text-sm text-muted-foreground truncate">
+                              {project.tasks?.length || 0} tasks
+                            </p>
+                          </div>
+                          <ChevronRightIcon className="h-5 w-5 text-muted-foreground" />
                         </div>
-                        <ChevronRightIcon className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </motion.div>
-            ))}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                </motion.div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -361,14 +366,15 @@ interface MemberListProps {
 
 export const MemberList = ({ data, total }: MemberListProps) => {
   const workspaceId = useWorkspaceId();
+  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="col-span-1 h-[500px] flex flex-col"
+      className="h-[500px] flex flex-col"
     >
-      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg p-6 flex-1 border border-gray-100 dark:border-gray-700">
+      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg p-6 flex-1 border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="bg-green-500/10 dark:bg-green-500/20 p-2 rounded-lg">
@@ -379,17 +385,17 @@ export const MemberList = ({ data, total }: MemberListProps) => {
               <p className="text-sm text-muted-foreground">({total} total)</p>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-200"
-            asChild
-          >
-            <Link href={`/workspaces/${workspaceId}/members`}>
-              <UsersIcon className="h-4 w-4 mr-2" />
-              Manage
-            </Link>
-          </Button>
+          <div className="flex space-x-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hover:bg-green-50 dark:hover:bg-green-900/20 transition-all duration-200"
+              onClick={() => setIsInviteModalOpen(true)}
+            >
+              <UserPlusIcon className="h-4 w-4 mr-2" />
+              Invite
+            </Button>
+          </div>
         </div>
 
         <DottedSeparator className="mb-6" />
@@ -400,39 +406,42 @@ export const MemberList = ({ data, total }: MemberListProps) => {
             title="No members yet"
             description="Invite team members to collaborate"
             action={
-              <Button asChild className="mt-4">
-                <Link href={`/workspaces/${workspaceId}/members`}>
-                  <UserPlusIcon className="h-4 w-4 mr-2" />
-                  Invite Members
-                </Link>
+              <Button
+                onClick={() => setIsInviteModalOpen(true)}
+                className="mt-4"
+              >
+                <UserPlusIcon className="h-4 w-4 mr-2" />
+                Invite Members
               </Button>
             }
           />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 gap-4 overflow-y-auto max-h-[300px] pr-2">
-            {data.map((member) => (
-              <motion.div
-                key={member.$id}
-                whileHover={{ scale: 1.02 }}
-                className="transform transition-all duration-200"
-              >
-                <Card className="bg-white dark:bg-gray-800 hover:shadow-md transition-all duration-200">
-                  <CardContent className="p-4">
-                    <div className="flex items-center gap-3">
-                      <MemberAvatar name={member.name} className="size-10" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-base truncate">
-                          {member.name}
-                        </p>
-                        <p className="text-sm text-muted-foreground truncate">
-                          {member.email}
-                        </p>
+          <div className="flex-1 overflow-y-auto pr-2">
+            <div className="grid grid-cols-1 gap-4">
+              {data.map((member) => (
+                <motion.div
+                  key={member.$id}
+                  whileHover={{ scale: 1.02 }}
+                  className="transform transition-all duration-200"
+                >
+                  <Card className="bg-white dark:bg-gray-800 hover:shadow-md transition-all duration-200">
+                    <CardContent className="p-4">
+                      <div className="flex items-center gap-3">
+                        <MemberAvatar name={member.name} className="size-10" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-base truncate">
+                            {member.name}
+                          </p>
+                          <p className="text-sm text-muted-foreground truncate">
+                            {member.email}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -449,6 +458,12 @@ export const MemberList = ({ data, total }: MemberListProps) => {
           </Button>
         </div>
       </div>
+
+      <InviteMemberModal
+        workspaceId={workspaceId}
+        isOpen={isInviteModalOpen}
+        onClose={() => setIsInviteModalOpen(false)}
+      />
     </motion.div>
   );
 };
@@ -480,9 +495,9 @@ export function TaskCalendar() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="col-span-1 h-[500px] flex flex-col"
+      className="h-[500px] flex flex-col"
     >
-      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg p-6 flex-1 border border-gray-100 dark:border-gray-700">
+      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg p-6 flex-1 border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <div className="bg-orange-500/10 dark:bg-orange-500/20 p-2 rounded-lg">
@@ -536,19 +551,6 @@ export function TaskCalendar() {
               day_hidden: "invisible",
             }}
           />
-        </div>
-
-        <div className="mt-6">
-          <Button
-            variant="outline"
-            className="w-full hover:bg-gray-50 dark:hover:bg-gray-800"
-            asChild
-          >
-            <Link href={`/workspaces/${workspaceId}/tasks`}>
-              View Schedule
-              <ArrowRightIcon className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
         </div>
       </div>
     </motion.div>
