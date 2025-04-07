@@ -45,12 +45,79 @@ export function useRealtimeDM({
         const socket = (client as any).socketConnection?.socket;
         
         if (!socket || socket.readyState !== WebSocket.OPEN) {
-          // WebSocket not ready yet, retry after a short delay
-          console.log('WebSocket not ready yet, waiting...');
-          setTimeout(subscribeWhenReady, 300);
+          // WebSocket not ready yet, retry with exponential backoff
+          console.log('WebSocket not ready yet, using exponential backoff...');
+          
+          // Implement exponential backoff for retries
+          const retryWithBackoff = (attempt = 1, maxAttempts = 8) => {
+            if (attempt > maxAttempts) {
+              console.error('Max retry attempts reached for DM realtime connection');
+              // Fall back to polling
+              setIsConnected(false);
+              return;
+            }
+            
+            // Calculate delay with exponential backoff
+            const delay = Math.min(300 * Math.pow(1.5, attempt - 1), 8000);
+            
+            console.log(`Retry attempt ${attempt}/${maxAttempts} after ${delay}ms for DM realtime`);
+            
+            setTimeout(() => {
+              // Check socket status again before retry
+              const currentSocket = (client as any).socketConnection?.socket;
+              
+              if (!currentSocket) {
+                console.log(`No socket found, retrying... (attempt ${attempt})`);
+                retryWithBackoff(attempt + 1, maxAttempts);
+                return;
+              }
+              
+              if (currentSocket.readyState === WebSocket.OPEN) {
+                // Socket is now open, try to subscribe
+                try {
+                  setupSubscription();
+                } catch (err) {
+                  console.error(`Error subscribing on attempt ${attempt}:`, err);
+                  retryWithBackoff(attempt + 1, maxAttempts);
+                }
+              } else if (currentSocket.readyState === WebSocket.CONNECTING) {
+                // Still connecting, retry
+                console.log(`Socket still connecting, retry later (attempt ${attempt})`);
+                retryWithBackoff(attempt + 1, maxAttempts);
+              } else if (currentSocket.readyState === WebSocket.CLOSED || currentSocket.readyState === WebSocket.CLOSING) {
+                // Socket closed or closing, try to reconnect
+                console.log(`Socket closed/closing, attempt to reconnect (attempt ${attempt})`);
+                
+                // Force reconnect by recreating the client connection if needed
+                try {
+                  // Try to ping to force socket creation
+                  client.subscribe('ping-event', () => {});
+                  retryWithBackoff(attempt + 1, maxAttempts);
+                } catch (error) {
+                  console.error('Error forcing reconnect:', error);
+                  retryWithBackoff(attempt + 1, maxAttempts);
+                }
+              }
+            }, delay);
+          };
+          
+          // Start retry process
+          retryWithBackoff();
           return;
         }
         
+        // WebSocket is ready, proceed with subscription
+        setupSubscription();
+      } catch (error) {
+        console.error('Error in subscribeWhenReady:', error);
+        // Fall back to polling if subscription process fails
+        setIsConnected(false);
+      }
+    };
+    
+    // Extract subscription logic to a separate function
+    const setupSubscription = () => {
+      try {
         // WebSocket is now ready, subscribe
         unsubscribe = client.subscribe<RealtimeResponseEvent<any>>(
           `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents`,
@@ -72,9 +139,9 @@ export function useRealtimeDM({
         setIsConnected(true);
         console.log(`Connected to realtime for Direct Message chat: ${chatsId}`);
       } catch (error) {
-        console.error('Error subscribing to realtime:', error);
-        // Fall back to polling if subscription fails
+        console.error('Error in setupSubscription:', error);
         setIsConnected(false);
+        throw error; // Rethrow to allow retry logic to catch it
       }
     };
     
