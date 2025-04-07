@@ -6,7 +6,6 @@ export const IMAGES_BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_IMAGES_BUCKET!;
 export const TASKS_ID = process.env.NEXT_PUBLIC_APPWRITE_TASKS_ID!;
 export const CHATS_ID = process.env.NEXT_PUBLIC_APPWRITE_CHATS_ID!;
 export const MESSAGES_ID = process.env.NEXT_PUBLIC_APPWRITE_MESSAGES_ID!;
-export const FILES_BUCKET_ID = process.env.NEXT_PUBLIC_APPWRITE_FILES_BUCKET!;
 export const CHAT_MEMBERS_ID =
   process.env.NEXT_PUBLIC_APPWRITE_CHAT_MEMBERS_ID!;
 export const MESSAGE_READS_ID =

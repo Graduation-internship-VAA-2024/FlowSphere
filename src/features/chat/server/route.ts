@@ -1044,6 +1044,75 @@ const app = new Hono()
       console.error("Error initializing default chat:", error);
       return c.json({ error: "Cannot create default chat" }, 500);
     }
+  })
+
+  // Add this endpoint after other endpoints
+  .post("/unread", sessionMiddleware, zValidator("json", z.object({
+    workspaceId: z.string()
+  })), async (c) => {
+    const databases = c.get("databases");
+    const user = c.get("user");
+    const { workspaceId } = c.req.valid("json");
+
+    try {
+      // Verify workspace membership
+      const member = await getMember({
+        databases,
+        workspaceId,
+        userId: user.$id,
+      });
+
+      if (!member) {
+        return c.json({ error: "You are not a member of this workspace" }, 401);
+      }
+
+      // Get all chats for the workspace that the user is a member of
+      const chatMembers = await databases.listDocuments(DATABASE_ID, CHAT_MEMBERS_ID, [
+        Query.equal("memberId", member.$id)
+      ]);
+
+      const chatIds = chatMembers.documents.map(cm => cm.chatsId);
+      
+      if (chatIds.length === 0) {
+        return c.json({ count: 0 });
+      }
+
+      // Get all messages that the user hasn't read yet
+      let totalUnread = 0;
+      
+      for (const chatId of chatIds) {
+        // Get the latest message read by the user
+        const userReads = await databases.listDocuments(DATABASE_ID, MESSAGE_READS_ID, [
+          Query.equal("memberId", member.$id),
+          Query.orderDesc("readAt"),
+          Query.limit(1)
+        ]);
+        
+        let lastReadAt = null;
+        if (userReads.documents.length > 0) {
+          const lastRead = userReads.documents[0];
+          lastReadAt = new Date(lastRead.readAt);
+        }
+        
+        // Count unread messages
+        const unreadFilter = [
+          Query.equal("chatsId", chatId),
+          Query.notEqual("memberId", member.$id) // Exclude user's own messages
+        ];
+        
+        if (lastReadAt) {
+          unreadFilter.push(Query.greaterThan("CreatedAt", lastReadAt.toISOString()));
+        }
+        
+        const unreadMessages = await databases.listDocuments(DATABASE_ID, MESSAGES_ID, unreadFilter);
+        totalUnread += unreadMessages.total;
+      }
+      
+      return c.json({ count: totalUnread });
+    } catch (error) {
+      console.error("Error counting unread messages:", error);
+      return c.json({ error: "Cannot count unread messages" }, 500);
+    }
   });
 
 export default app; 

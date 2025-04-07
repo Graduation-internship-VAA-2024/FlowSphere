@@ -158,6 +158,19 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       const subscribeWhenReady = (channelId: string, callback: (response: any) => void) => {
         try {
           console.log(`📡 Đăng ký kênh: ${channelId}`);
+          
+          // Access the internal WebSocket from appwriteClient
+          const socket = (appwriteClient as any).socketConnection?.socket;
+          
+          // Check if WebSocket is open before subscribing
+          if (socket && socket.readyState !== WebSocket.OPEN) {
+            console.log(`⚠️ WebSocket not ready for channel ${channelId}, delaying subscription`);
+            
+            // Delay subscription until socket is open
+            setTimeout(() => subscribeWhenReady(channelId, callback), 500);
+            return () => {};
+          }
+          
           const unsubscribe = appwriteClient.subscribe(channelId, callback);
           subscriptions.push(unsubscribe);
           return unsubscribe;
@@ -180,30 +193,44 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
         // Tạo kênh test
         try {
           const testChannel = 'connection-test';
-          const testSubscription = appwriteClient.subscribe(testChannel, () => {
-            // Kết nối đã sẵn sàng
-            console.log("✅ WebSocket đã sẵn sàng");
-            clearTimeout(connectionTimeout);
+          
+          // Check WebSocket readyState before subscribing
+          const checkAndSubscribe = () => {
+            // Access the internal WebSocket from appwriteClient
+            const socket = (appwriteClient as any).socketConnection?.socket;
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+              // WebSocket not ready yet, wait a bit and try again
+              console.log("🔄 WebSocket not ready yet, waiting...");
+              setTimeout(checkAndSubscribe, 300);
+              return;
+            }
             
-            // Hủy kênh test
-            setTimeout(() => {
-              try {
-                testSubscription();
-              } catch (err) {
-                console.error("Lỗi khi hủy kênh test:", err);
-              }
-            }, 100);
-            
-            resolve();
-          });
+            // WebSocket is ready, subscribe
+            const testSubscription = appwriteClient.subscribe(testChannel, () => {
+              // Kết nối đã sẵn sàng
+              console.log("✅ WebSocket đã sẵn sàng");
+              clearTimeout(connectionTimeout);
+              
+              // Hủy kênh test
+              setTimeout(() => {
+                try {
+                  testSubscription();
+                } catch (err) {
+                  console.error("Lỗi khi hủy kênh test:", err);
+                }
+              }, 100);
+              
+              resolve();
+            });
+          };
+          
+          // Start checking WebSocket state
+          checkAndSubscribe();
           
           // Thêm handler lỗi
           setTimeout(() => {
-            try {
-              testSubscription();
-            } catch (err) {
-              console.log("Không thể hủy test subscription:", err);
-            }
+            clearTimeout(connectionTimeout);
+            resolve(); // Resolve after timeout
           }, 2500); // Hủy sau 2.5s nếu không nhận được callback
           
         } catch (err) {
@@ -383,7 +410,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
           }
         }
       }
-    }, 20000); // Giảm xuống còn 20 giây
+    }, 45000); // Tăng từ 20 giây lên 45 giây
     
     // Kiểm tra kết nối định kỳ
     const checkConnectionInterval = setInterval(() => {
@@ -395,7 +422,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       if (isConnected && connectionReadyRef.current && messageQueueRef.current.length > 0) {
         processQueuedMessages();
       }
-    }, 8000); // Giảm xuống còn 8 giây
+    }, 20000); // Tăng từ 8 giây lên 20 giây
     
     // Cleanup khi component unmount hoặc chatId thay đổi
     return () => {

@@ -1,8 +1,9 @@
 import { X, ZoomIn, ZoomOut, RotateCw, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { VisuallyHidden } from '@/components/ui/visually-hidden';
 
 interface ImageViewerProps {
   isOpen: boolean;
@@ -95,6 +96,10 @@ export function ImageViewer({
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-screen-lg w-[95vw] h-[90vh] p-0 overflow-hidden bg-black/95 border-none sm:rounded-xl">
+        <VisuallyHidden>
+          <DialogTitle>Image Viewer</DialogTitle>
+          <DialogDescription>View and interact with the full-size image</DialogDescription>
+        </VisuallyHidden>
         {/* Thanh công cụ phía trên */}
         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/70 to-transparent">
           <div className="flex items-center gap-2">

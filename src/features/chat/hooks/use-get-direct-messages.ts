@@ -8,7 +8,7 @@ export function useGetDirectMessages(options: {
   enabled?: boolean;
   interval?: number;
 }) {
-  const { workspaceId, currentMemberId, enabled = true, interval = 5000 } = options;
+  const { workspaceId, currentMemberId, enabled = true, interval = 12000 } = options;
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [directChats, setDirectChats] = useState<(Chats & {

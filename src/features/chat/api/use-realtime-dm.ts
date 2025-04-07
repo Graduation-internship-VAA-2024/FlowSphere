@@ -7,7 +7,7 @@ import { DATABASE_ID, MESSAGES_ID } from '@/config';
 export function useRealtimeDM({
   chatsId,
   onNewMessage,
-  interval = 3000,
+  interval = 8000,
   enabled = true,
 }: {
   chatsId: string | null;
@@ -36,30 +36,61 @@ export function useRealtimeDM({
     setClient(client);
 
     // Đăng ký lắng nghe sự kiện realtime cho chat
-    const unsubscribe = client.subscribe<RealtimeResponseEvent<any>>(
-      `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents`,
-      (response) => {
-        // Chỉ xử lý tin nhắn mới được tạo
-        if (response.events.includes('databases.*.collections.*.documents.*.create')) {
-          const message = response.payload as any;
-          
-          // Chỉ xử lý tin nhắn thuộc chat hiện tại
-          if (message && message.chatsId === chatsId) {
-            console.log('DM hook received new message:', message);
-            setLastMessageId(message.$id);
-            onNewMessage(message);
-          }
+    let unsubscribe: () => void;
+    
+    // Check if WebSocket is ready before subscribing
+    const subscribeWhenReady = () => {
+      try {
+        // Access the internal WebSocket from client
+        const socket = (client as any).socketConnection?.socket;
+        
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+          // WebSocket not ready yet, retry after a short delay
+          console.log('WebSocket not ready yet, waiting...');
+          setTimeout(subscribeWhenReady, 300);
+          return;
         }
+        
+        // WebSocket is now ready, subscribe
+        unsubscribe = client.subscribe<RealtimeResponseEvent<any>>(
+          `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents`,
+          (response) => {
+            // Chỉ xử lý tin nhắn mới được tạo
+            if (response.events.includes('databases.*.collections.*.documents.*.create')) {
+              const message = response.payload as any;
+              
+              // Chỉ xử lý tin nhắn thuộc chat hiện tại
+              if (message && message.chatsId === chatsId) {
+                console.log('DM hook received new message:', message);
+                setLastMessageId(message.$id);
+                onNewMessage(message);
+              }
+            }
+          }
+        );
+        
+        setIsConnected(true);
+        console.log(`Connected to realtime for Direct Message chat: ${chatsId}`);
+      } catch (error) {
+        console.error('Error subscribing to realtime:', error);
+        // Fall back to polling if subscription fails
+        setIsConnected(false);
       }
-    );
-
-    setIsConnected(true);
-    console.log(`Connected to realtime for Direct Message chat: ${chatsId}`);
+    };
+    
+    // Start subscription process
+    subscribeWhenReady();
 
     // Cleanup function
     return () => {
       console.log(`Disconnecting from realtime for chat: ${chatsId}`);
-      unsubscribe();
+      if (unsubscribe) {
+        try {
+          unsubscribe();
+        } catch (error) {
+          console.error('Error unsubscribing:', error);
+        }
+      }
       setIsConnected(false);
     };
   }, [chatsId, onNewMessage, enabled]);

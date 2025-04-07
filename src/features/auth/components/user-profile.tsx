@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -90,6 +91,10 @@ export const UserProfile = ({ user, trigger }: UserProfileProps) => {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden bg-white rounded-xl">
+        <DialogHeader className="sr-only">
+          <DialogTitle>User Profile</DialogTitle>
+          <DialogDescription>View and edit your user profile information</DialogDescription>
+        </DialogHeader>
         <div className="bg-gradient-to-r from-blue-500 to-indigo-600 py-8 px-6 text-white">
           <div className="flex items-center gap-4">
             <Avatar className="size-20 border-4 border-white/20">

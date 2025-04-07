@@ -4,6 +4,35 @@
 
 body {
   font-family: Arial, Helvetica, sans-serif;
+  transition: padding-right 0.3s ease;
+}
+
+/* Chatbot Styles */
+body.chatbot-open {
+  padding-right: 400px;
+}
+
+.chatbot-open main,
+.chatbot-open nav,
+.chatbot-open header,
+.chatbot-open footer,
+.chatbot-open div[class*="container"] {
+  max-width: calc(100% - 1px);
+  transition: max-width 0.3s ease;
+}
+
+@media (max-width: 768px) {
+  body.chatbot-open {
+    padding-right: 0;
+  }
+
+  .chatbot-open main,
+  .chatbot-open nav,
+  .chatbot-open header,
+  .chatbot-open footer,
+  .chatbot-open div[class*="container"] {
+    max-width: 100%;
+  }
 }
 
 @layer utilities {
