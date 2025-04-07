@@ -27,7 +27,6 @@ export default function ChatPage() {
   const [syncNotification, setSyncNotification] = useState<string | null>(null);
   const [realtimeStatus, setRealtimeStatus] = useState<string | null>(null);
   const [newMessageNotification, setNewMessageNotification] = useState<string | null>(null);
-  const notificationAudioRef = useRef<HTMLAudioElement | null>(null);
   const documentTitle = useRef<string>("");
   const isFocused = useRef<boolean>(true);
   const messageProcessorRef = useRef<((newMessage: any) => void) | null>(null);
@@ -60,8 +59,8 @@ export default function ChatPage() {
       documentTitle.current = document.title;
       
       // Tạo element audio để phát âm thanh thông báo
-      const audio = new Audio("/notification.mp3");
-      notificationAudioRef.current = audio;
+      // const audio = new Audio("/sounds/notification.mp3");
+      // notificationAudioRef.current = audio;
       
       const handleFocus = () => {
         isFocused.current = true;
@@ -156,11 +155,6 @@ export default function ChatPage() {
           // Hiển thị thông báo khi có tin nhắn mới từ người khác
           const senderName = newMessage.senderName || 'Ai đó';
           setNewMessageNotification(`Tin nhắn mới từ ${senderName}`);
-          
-          // Phát âm thanh thông báo
-          if (notificationAudioRef.current) {
-            notificationAudioRef.current.play().catch(e => console.log("Không thể phát âm thanh: ", e));
-          }
           
           // Thay đổi tiêu đề trang nếu người dùng không ở tab này
           if (!isFocused.current && typeof document !== 'undefined') {
@@ -340,11 +334,6 @@ export default function ChatPage() {
           
           if (newMessagesFromOthers) {
             console.log("🔔 Phát hiện tin nhắn mới từ người khác qua polling");
-            // Phát âm thanh thông báo nếu người dùng không ở tab hiện tại
-            if (!isFocused.current && notificationAudioRef.current) {
-              notificationAudioRef.current.play().catch(e => console.log("Không thể phát âm thanh: ", e));
-            }
-            
             // Cập nhật tiêu đề trang
             if (!isFocused.current && typeof document !== 'undefined') {
               document.title = `(1) Tin nhắn mới - ${documentTitle.current}`;
@@ -1004,13 +993,6 @@ export default function ChatPage() {
           )}
         </div>
       </div>
-      
-      {/* Audio cho thông báo tin nhắn mới */}
-      <audio
-        ref={notificationAudioRef}
-        src="/sounds/notification.mp3"
-        preload="auto"
-      />
       
       <Suspense fallback={<ChatSkeleton />}>
         {error && error.includes("not a member") ? (
