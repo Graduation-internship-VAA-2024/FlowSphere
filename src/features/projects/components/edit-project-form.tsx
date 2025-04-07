@@ -372,7 +372,7 @@ export const EditProjectForm = ({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   onClick={handleDelete}
-                  disabled={isDeletingProject}
+                  disabled={isPending || isDeletingProject}
                   className={`
                     w-full p-3.5 rounded-lg font-medium flex items-center justify-center gap-2
                     ${

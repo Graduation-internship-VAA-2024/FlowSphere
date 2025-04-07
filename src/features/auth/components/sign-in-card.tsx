@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/form";
 import { loginSchema } from "../schemas";
 import { useLogin } from "../api/use-login";
+import { signUpWithGithub, signUpWithGoogle } from "@/lib/oauth";
 export const SignInCard = () => {
   const { mutate, isPending } = useLogin();
   const form = useForm<z.infer<typeof loginSchema>>({
@@ -99,6 +100,7 @@ export const SignInCard = () => {
       <CardContent className="p-7 space-y-4">
         <div className="flex flex-col gap-y-4">
           <Button
+            onClick={() => signUpWithGoogle()}
             disabled={isPending}
             size="lg"
             className="w-full"
@@ -108,6 +110,7 @@ export const SignInCard = () => {
             Login with Google
           </Button>
           <Button
+            onClick={() => signUpWithGithub()}
             disabled={isPending}
             size="lg"
             className="w-full"

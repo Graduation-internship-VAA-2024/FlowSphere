@@ -8,7 +8,7 @@ import { Projects } from "./projects";
 
 export const Sidebar = () => {
   return (
-    <aside className="h-full  p-4 bg-neutral-50 shadow-lg">
+    <aside className="h-full p-4 bg-neutral-50 shadow-lg flex flex-col">
       <div className="hover:scale-105 transition-transform">
         <Link href="/" className="block">
           <Image
@@ -21,11 +21,13 @@ export const Sidebar = () => {
         </Link>
       </div>
       <DottedSeparator className="my-6 opacity-50" />
-      <WorkspaceSwitcher />
-      <DottedSeparator className="my-6 opacity-50" />
-      <Navigation />
-      <DottedSeparator className="my-6 opacity-50" />
-      <Projects />
+      <div className="flex-1 overflow-y-auto">
+        <WorkspaceSwitcher />
+        <DottedSeparator className="my-6 opacity-50" />
+        <Navigation />
+        <DottedSeparator className="my-6 opacity-50" />
+        <Projects />
+      </div>
     </aside>
   );
 };

@@ -29,7 +29,7 @@ export async function createAdminClient() {
     .setKey(process.env.NEXT_APPWRITE_KEY!);
 
   return {
-    get accout() {
+    get account() {
       return new Account(client);
     },
     get users() {
