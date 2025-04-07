@@ -40,6 +40,8 @@ import { Badge } from "@/components/ui/badge";
 import { TaskPieChart } from "@/components/charts/pie-chart";
 import { TaskBarChart } from "@/components/charts/bar-chart";
 import { TaskRadarChart } from "@/components/charts/radar-chart";
+import React from "react";
+
 export const WorkspaceIdClient = () => {
   const workspaceId = useWorkspaceId();
   const { data: analytics, isLoading: isLoadingAnalytics } =
@@ -456,6 +458,23 @@ export function TaskCalendar() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date()
   );
+  const { data: tasks } = useGetTasks({ workspaceId });
+
+  // Create a map of dates with tasks
+  const datesWithTasks = React.useMemo(() => {
+    if (!tasks?.documents) return [];
+
+    // Convert tasks to dates
+    return tasks.documents.map((task) => {
+      const date = new Date(task.dueDate);
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    });
+  }, [tasks]);
+
+  // DayPicker modifier to add dots under days with tasks
+  const modifiers = {
+    hasTasks: datesWithTasks,
+  };
 
   return (
     <motion.div
@@ -483,11 +502,16 @@ export function TaskCalendar() {
             mode="single"
             selected={selectedDate}
             onSelect={setSelectedDate}
-            className="w-full max-w-[400px] rounded-md border-none bg-white/50 dark:bg-gray-800/50 p-4"
+            className="w-full rounded-md border-none bg-white/50 dark:bg-gray-800/50 p-4"
+            modifiers={modifiers}
+            modifiersClassNames={{
+              hasTasks:
+                "font-semibold relative after:content-[''] after:absolute after:bottom-1 after:left-1/2 after:-translate-x-1/2 after:w-1.5 after:h-1.5 after:bg-blue-500 after:rounded-full",
+            }}
             classNames={{
               months:
-                "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-              month: "space-y-4",
+                "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 w-full",
+              month: "space-y-4 w-full",
               caption: "flex justify-center pt-1 relative items-center",
               caption_label: "text-sm font-medium",
               nav: "space-x-1 flex items-center",
@@ -496,12 +520,12 @@ export function TaskCalendar() {
               nav_button_previous: "absolute left-1",
               nav_button_next: "absolute right-1",
               table: "w-full border-collapse space-y-1",
-              head_row: "flex",
+              head_row: "flex w-full",
               head_cell:
-                "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+                "text-muted-foreground rounded-md w-full font-normal text-[0.8rem]",
               row: "flex w-full mt-2",
-              cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-              day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
+              cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20 w-full",
+              day: "h-10 w-10 p-0 font-normal aria-selected:opacity-100 mx-auto",
               day_selected:
                 "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
               day_today: "bg-accent text-accent-foreground",

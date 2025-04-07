@@ -19,6 +19,8 @@ import { z } from "zod";
 import { Workspace } from "../type";
 import { endOfMonth, startOfMonth, subMonths } from "date-fns";
 import { TaskStatus } from "@/features/tasks/types";
+import { sendInviteEmail } from "@/lib/email";
+
 const app = new Hono()
   .get("/", sessionMiddleware, async (c) => {
     const database = c.get("databases");
@@ -482,5 +484,62 @@ const app = new Hono()
         overdueTaskDifference,
       },
     });
-  });
+  })
+  .post(
+    "/:workspaceId/invite",
+    sessionMiddleware,
+    zValidator("json", z.object({ email: z.string().email() })),
+    async (c) => {
+      try {
+        const { workspaceId } = c.req.param();
+        const { email } = c.req.valid("json");
+        const databases = c.get("databases");
+        const user = c.get("user");
+
+        // Get workspace first
+        const workspace = await databases.getDocument(
+          DATABASE_ID,
+          WORKSPACES_ID,
+          workspaceId
+        );
+
+        if (!workspace) {
+          return c.json({ error: "Workspace not found" }, 404);
+        }
+
+        // Check member permissions
+        const member = await getMember({
+          databases,
+          workspaceId,
+          userId: user.$id,
+        });
+
+        if (!member || member.role !== MemberRole.ADMIN) {
+          return c.json({ error: "Unauthorized" }, 401);
+        }
+
+        // Create invite URL with existing code
+        const inviteUrl = `${process.env.NEXT_PUBLIC_APP_URL}/workspaces/${workspaceId}/join/${workspace.inviteCode}`;
+
+        // Send email
+        await sendInviteEmail(
+          email,
+          inviteUrl,
+          workspace.name,
+          "Workspace Admin"
+        );
+
+        return c.json({ success: true });
+      } catch (error) {
+        console.error("Invite error:", error);
+        return c.json(
+          {
+            error: "Failed to send invitation",
+            details: error instanceof Error ? error.message : "Unknown error",
+          },
+          500
+        );
+      }
+    }
+  );
 export default app;
