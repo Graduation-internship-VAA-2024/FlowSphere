@@ -28,6 +28,7 @@ import {
 import { DottedSeparator } from "@/components/dotted-separator";
 import Link from "next/link";
 import { Card, CardContent } from "@/components/ui/card";
+import { Calendar } from "@/components/ui/calendar";
 import { formatDistanceToNow } from "date-fns";
 import { Project } from "@/features/projects/type";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
@@ -39,7 +40,6 @@ import { Badge } from "@/components/ui/badge";
 import { TaskPieChart } from "@/components/charts/pie-chart";
 import { TaskBarChart } from "@/components/charts/bar-chart";
 import { TaskRadarChart } from "@/components/charts/radar-chart";
-
 export const WorkspaceIdClient = () => {
   const workspaceId = useWorkspaceId();
   const { data: analytics, isLoading: isLoadingAnalytics } =
@@ -117,10 +117,19 @@ export const WorkspaceIdClient = () => {
         <TaskRadarChart data={analytics} />
       </div>
 
-      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <TaskList data={tasks.documents} total={tasks.total} />
-        <ProjectList data={projects.documents} total={projects.total} />
-        <MemberList data={members.documents} total={members.total} />
+      <div className="w-full max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        <div className="md:col-span-2 xl:col-span-2">
+          <TaskCalendar />
+        </div>
+        <div className="md:col-span-2 xl:col-span-2">
+          <TaskList data={tasks.documents} total={tasks.total} />
+        </div>
+        <div className="md:col-span-1 xl:col-span-2">
+          <ProjectList data={projects.documents} total={projects.total} />
+        </div>
+        <div className="md:col-span-1 xl:col-span-2">
+          <MemberList data={members.documents} total={members.total} />
+        </div>
       </div>
     </div>
   );
@@ -441,6 +450,86 @@ export const MemberList = ({ data, total }: MemberListProps) => {
     </motion.div>
   );
 };
+
+export function TaskCalendar() {
+  const workspaceId = useWorkspaceId();
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    new Date()
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="col-span-1 h-[500px] flex flex-col"
+    >
+      <div className="bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-xl shadow-lg p-6 flex-1 border border-gray-100 dark:border-gray-700">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="bg-orange-500/10 dark:bg-orange-500/20 p-2 rounded-lg">
+              <CalendarDaysIcon className="h-5 w-5 text-orange-500" />
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold">Calendar</h3>
+              <p className="text-sm text-muted-foreground">Task schedule</p>
+            </div>
+          </div>
+        </div>
+
+        <DottedSeparator className="mb-6" />
+
+        <div className="flex-1 flex items-center justify-center">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            className="w-full max-w-[400px] rounded-md border-none bg-white/50 dark:bg-gray-800/50 p-4"
+            classNames={{
+              months:
+                "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
+              month: "space-y-4",
+              caption: "flex justify-center pt-1 relative items-center",
+              caption_label: "text-sm font-medium",
+              nav: "space-x-1 flex items-center",
+              nav_button:
+                "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+              nav_button_previous: "absolute left-1",
+              nav_button_next: "absolute right-1",
+              table: "w-full border-collapse space-y-1",
+              head_row: "flex",
+              head_cell:
+                "text-muted-foreground rounded-md w-9 font-normal text-[0.8rem]",
+              row: "flex w-full mt-2",
+              cell: "text-center text-sm p-0 relative [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+              day: "h-9 w-9 p-0 font-normal aria-selected:opacity-100",
+              day_selected:
+                "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+              day_today: "bg-accent text-accent-foreground",
+              day_outside: "text-muted-foreground opacity-50",
+              day_disabled: "text-muted-foreground opacity-50",
+              day_range_middle:
+                "aria-selected:bg-accent aria-selected:text-accent-foreground",
+              day_hidden: "invisible",
+            }}
+          />
+        </div>
+
+        <div className="mt-6">
+          <Button
+            variant="outline"
+            className="w-full hover:bg-gray-50 dark:hover:bg-gray-800"
+            asChild
+          >
+            <Link href={`/workspaces/${workspaceId}/tasks`}>
+              View Schedule
+              <ArrowRightIcon className="ml-2 h-4 w-4" />
+            </Link>
+          </Button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
 
 // EmptyState component
 interface EmptyStateProps {

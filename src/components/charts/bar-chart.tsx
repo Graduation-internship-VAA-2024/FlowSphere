@@ -133,7 +133,7 @@ export function TaskBarChart({
             <Bar dataKey="tasks" radius={[4, 4, 4, 4]} fill="currentColor">
               {chartData.map((entry, index) => (
                 <Cell
-                  key={`cell-${index}`}
+                  key={entry.status}
                   fill={entry.fill}
                   className="transition-colors duration-200 hover:opacity-80"
                 />
