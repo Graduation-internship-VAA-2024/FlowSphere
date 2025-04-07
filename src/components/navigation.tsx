@@ -10,6 +10,8 @@ import {
 } from "react-icons/go";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { usePathname } from "next/navigation";
+import { useUnreadMessages } from "@/features/chat/hooks/use-unread-messages";
+
 const routes = [
   {
     label: "Home",
@@ -46,6 +48,8 @@ const routes = [
 export const Navigation = () => {
   const workspaceId = useWorkspaceId();
   const pathname = usePathname();
+  const { unreadCount } = useUnreadMessages();
+  
   return (
     <ul className="flex flex-col gap-y-2">
       {routes.map((item) => {
@@ -83,7 +87,7 @@ export const Navigation = () => {
               >
                 <div
                   className={cn(
-                    "p-2 rounded-xl bg-white/80 shadow-lg",
+                    "p-2 rounded-xl bg-white/80 shadow-lg relative",
                     "transform transition-all duration-500",
                     "group-hover:scale-110 group-hover:rotate-6",
                     "group-hover:shadow-[0_0_20px_rgba(0,0,0,0.1)]"
@@ -96,6 +100,13 @@ export const Navigation = () => {
                       "group-hover:text-primary transition-colors duration-500"
                     )}
                   />
+                  
+                  {/* Notification Badge for Chat */}
+                  {item.label === "Chat" && unreadCount > 0 && (
+                    <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full flex items-center justify-center w-5 h-5 animate-pulse">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </div>
+                  )}
                 </div>
 
                 <span
