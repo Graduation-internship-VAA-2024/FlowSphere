@@ -10,12 +10,17 @@ import {
   TASKS_ID,
   IMAGES_BUCKET_ID,
   FILES_BUCKET_ID,
+  WORKSPACES_ID,
 } from "@/config";
 import { ID, Query } from "node-appwrite";
 import { z } from "zod";
 import { Task, TaskStatus } from "../types";
 import { createAdminClient } from "@/lib/appwrite";
 import { Project } from "@/features/projects/type";
+import {
+  sendTaskAssignmentEmail,
+  sendTaskUnassignmentEmail,
+} from "@/lib/email";
 
 const app = new Hono()
   .onError((err, c) => {
@@ -197,6 +202,54 @@ const app = new Hono()
           position: newPosition,
         }
       );
+
+      try {
+        // Get the assignee's information to send the email
+        const { users } = await createAdminClient();
+        const assignee = await databases.getDocument(
+          DATABASE_ID,
+          MEMBERS_ID,
+          assigneeId
+        );
+
+        const assigneeUser = await users.get(assignee.userId);
+
+        // Get the project name
+        const project = await databases.getDocument(
+          DATABASE_ID,
+          PROJECTS_ID,
+          projectId
+        );
+
+        // Get the workspace info
+        const workspaceDoc = await databases.getDocument(
+          DATABASE_ID,
+          WORKSPACES_ID,
+          workspaceId
+        );
+
+        // Get the current user's name (the creator/assigner)
+        const assigner = await users.get(user.$id);
+
+        // Prepare the task link
+        const taskLink = `${process.env.NEXT_PUBLIC_APP_URL}/workspaces/${workspaceId}/tasks/${task.$id}`;
+
+        // Send the email notification to the assignee
+        await sendTaskAssignmentEmail(
+          assigneeUser.email, // to
+          name, // taskName
+          taskLink, // taskLink
+          dueDate.toString(), // dueDate (converted to string)
+          project.name, // projectName
+          workspaceDoc.name, // workspaceName
+          status, // status
+          assigner.name || assigner.email // senderName
+        );
+      } catch (error) {
+        console.error("Failed to send task assignment email:", error);
+        // Don't fail the task creation if email sending fails
+      }
+
       return c.json({ data: task });
     }
   )
@@ -314,6 +367,85 @@ const app = new Hono()
         );
         console.log("Task updated successfully");
 
+        // Check if the assignee was changed
+        if (assigneeId && assigneeId !== existingTask.assigneeId) {
+          try {
+            const { users } = await createAdminClient();
+
+            // Get the new assignee's information
+            const newAssignee = await databases.getDocument(
+              DATABASE_ID,
+              MEMBERS_ID,
+              assigneeId
+            );
+            const newAssigneeUser = await users.get(newAssignee.userId);
+
+            // Get the previous assignee's information
+            const prevAssignee = await databases.getDocument(
+              DATABASE_ID,
+              MEMBERS_ID,
+              existingTask.assigneeId
+            );
+            const prevAssigneeUser = await users.get(prevAssignee.userId);
+
+            // Get the project name
+            const projectId = updateData.projectId || existingTask.projectId;
+            const project = await databases.getDocument(
+              DATABASE_ID,
+              PROJECTS_ID,
+              projectId
+            );
+
+            // Get the workspace info
+            const workspaceDoc = await databases.getDocument(
+              DATABASE_ID,
+              WORKSPACES_ID,
+              existingTask.workspaceId
+            );
+
+            // Get the current user's name (the updater)
+            const assigner = await users.get(user.$id);
+
+            // Prepare the task link
+            const taskLink = `${process.env.NEXT_PUBLIC_APP_URL}/workspaces/${existingTask.workspaceId}/tasks/${task.$id}`;
+
+            // Use the updated task name or the existing one
+            const taskName = updateData.name || existingTask.name;
+
+            // Use the updated status or the existing one
+            const taskStatus = updateData.status || existingTask.status;
+
+            // Use the updated due date or the existing one
+            const taskDueDate = updateData.dueDate || existingTask.dueDate;
+
+            // 1. Send notification to the new assignee
+            await sendTaskAssignmentEmail(
+              newAssigneeUser.email, // to
+              taskName, // taskName
+              taskLink, // taskLink
+              taskDueDate.toString(), // dueDate
+              project.name, // projectName
+              workspaceDoc.name, // workspaceName
+              taskStatus, // status
+              assigner.name || assigner.email // senderName
+            );
+
+            // 2. Send notification to the previous assignee
+            await sendTaskUnassignmentEmail(
+              prevAssigneeUser.email, // to
+              taskName, // taskName
+              taskLink, // taskLink
+              newAssigneeUser.name || newAssigneeUser.email, // newAssigneeName
+              project.name, // projectName
+              workspaceDoc.name, // workspaceName
+              assigner.name || assigner.email // senderName
+            );
+          } catch (error) {
+            console.error("Failed to send task reassignment emails:", error);
+            // Don't fail the task update if email sending fails
+          }
+        }
+
         return c.json({ data: task });
       } catch (error) {
         console.error("Error in update task:", error);
@@ -411,6 +543,85 @@ const app = new Hono()
           updateData
         );
         console.log("Task updated successfully");
+
+        // Check if the assignee was changed
+        if (assigneeId && assigneeId !== existingTask.assigneeId) {
+          try {
+            const { users } = await createAdminClient();
+
+            // Get the new assignee's information
+            const newAssignee = await databases.getDocument(
+              DATABASE_ID,
+              MEMBERS_ID,
+              assigneeId
+            );
+            const newAssigneeUser = await users.get(newAssignee.userId);
+
+            // Get the previous assignee's information
+            const prevAssignee = await databases.getDocument(
+              DATABASE_ID,
+              MEMBERS_ID,
+              existingTask.assigneeId
+            );
+            const prevAssigneeUser = await users.get(prevAssignee.userId);
+
+            // Get the project name
+            const projectId = updateData.projectId || existingTask.projectId;
+            const project = await databases.getDocument(
+              DATABASE_ID,
+              PROJECTS_ID,
+              projectId
+            );
+
+            // Get the workspace info
+            const workspaceDoc = await databases.getDocument(
+              DATABASE_ID,
+              WORKSPACES_ID,
+              existingTask.workspaceId
+            );
+
+            // Get the current user's name (the updater)
+            const assigner = await users.get(user.$id);
+
+            // Prepare the task link
+            const taskLink = `${process.env.NEXT_PUBLIC_APP_URL}/workspaces/${existingTask.workspaceId}/tasks/${task.$id}`;
+
+            // Use the updated task name or the existing one
+            const taskName = updateData.name || existingTask.name;
+
+            // Use the updated status or the existing one
+            const taskStatus = updateData.status || existingTask.status;
+
+            // Use the updated due date or the existing one
+            const taskDueDate = updateData.dueDate || existingTask.dueDate;
+
+            // 1. Send notification to the new assignee
+            await sendTaskAssignmentEmail(
+              newAssigneeUser.email, // to
+              taskName, // taskName
+              taskLink, // taskLink
+              taskDueDate.toString(), // dueDate
+              project.name, // projectName
+              workspaceDoc.name, // workspaceName
+              taskStatus, // status
+              assigner.name || assigner.email // senderName
+            );
+
+            // 2. Send notification to the previous assignee
+            await sendTaskUnassignmentEmail(
+              prevAssigneeUser.email, // to
+              taskName, // taskName
+              taskLink, // taskLink
+              newAssigneeUser.name || newAssigneeUser.email, // newAssigneeName
+              project.name, // projectName
+              workspaceDoc.name, // workspaceName
+              assigner.name || assigner.email // senderName
+            );
+          } catch (error) {
+            console.error("Failed to send task reassignment emails:", error);
+            // Don't fail the task update if email sending fails
+          }
+        }
 
         return c.json({ data: task });
       } catch (error) {
