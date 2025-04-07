@@ -430,25 +430,25 @@ export const ChatArea = React.memo(({
         {/* Chat message area */}
         <div className={cn(
           "relative flex-1 flex flex-col overflow-hidden min-w-0",
-          mediaGallerySidebarOpen ? "w-[calc(100%-320px)]" : "w-full"
+          mediaGallerySidebarOpen ? "w-full md:w-[calc(100%-320px)]" : "w-full"
         )}>
-          <ScrollArea ref={scrollRef} className="flex-1 p-4 h-full overflow-y-auto">
+          <ScrollArea ref={scrollRef} className="flex-1 p-2 sm:p-4 h-full overflow-y-auto">
             {messages.length === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-muted-foreground">
                 <MessageCircle className="h-12 w-12 mb-3 opacity-20" />
-                <p>No messages yet. Start the chat!</p>
+                <p className="text-sm sm:text-base">No messages yet. Start the chat!</p>
               </div>
             ) : (
-              <div className="space-y-4 py-2">
+              <div className="space-y-2 sm:space-y-4 py-2">
                 {messages.map((msg) => (
                   msg.isSystemMessage ? (
                     <div 
                       key={msg.$id}
                       id={`message-${msg.$id}`}
-                      className="mx-auto bg-muted/50 text-center max-w-[90%] italic rounded-lg p-3"
+                      className="mx-auto bg-muted/50 text-center max-w-[95%] sm:max-w-[90%] italic rounded-lg p-2 sm:p-3"
                     >
-                      <p className="text-sm text-muted-foreground">{msg.content}</p>
-                      <p className="text-xs mt-1 opacity-70">
+                      <p className="text-xs sm:text-sm text-muted-foreground">{msg.content}</p>
+                      <p className="text-[10px] sm:text-xs mt-1 opacity-70">
                         {new Date(msg.$createdAt || msg.CreatedAt || '').toLocaleTimeString()}
                       </p>
                     </div>
@@ -493,21 +493,21 @@ export const ChatArea = React.memo(({
           
           {/* Banner để quay lại vị trí trước khi tìm kiếm */}
           {showReturnBanner && (
-            <div className="absolute bottom-12 left-0 right-0 px-4 py-2 flex justify-center z-10">
-              <div className="bg-card border shadow-md rounded-lg flex items-center px-4 py-2 max-w-xs">
+            <div className="absolute bottom-12 left-0 right-0 px-2 sm:px-4 py-2 flex justify-center z-10">
+              <div className="bg-card border shadow-md rounded-lg flex items-center px-3 sm:px-4 py-2 max-w-[90%] sm:max-w-xs">
                 <button
                   onClick={returnToLastPosition}
-                  className="text-sm flex items-center gap-2 text-primary hover:underline flex-1"
+                  className="text-xs sm:text-sm flex items-center gap-2 text-primary hover:underline flex-1"
                 >
-                  <ArrowUpCircle className="h-4 w-4" />
+                  <ArrowUpCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   Back to the previous scroll position
                 </button>
                 <button 
                   onClick={() => setShowReturnBanner(false)}
-                  className="ml-2 h-6 w-6 rounded-full hover:bg-muted flex items-center justify-center"
+                  className="ml-2 h-5 w-5 sm:h-6 sm:w-6 rounded-full hover:bg-muted flex items-center justify-center"
                   aria-label="Close"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </button>
               </div>
             </div>

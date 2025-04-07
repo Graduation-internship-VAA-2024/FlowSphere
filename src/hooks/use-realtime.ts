@@ -383,7 +383,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
           }
         }
       }
-    }, 20000); // Giảm xuống còn 20 giây
+    }, 45000); // Tăng từ 20 giây lên 45 giây
     
     // Kiểm tra kết nối định kỳ
     const checkConnectionInterval = setInterval(() => {
@@ -395,7 +395,7 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       if (isConnected && connectionReadyRef.current && messageQueueRef.current.length > 0) {
         processQueuedMessages();
       }
-    }, 8000); // Giảm xuống còn 8 giây
+    }, 20000); // Tăng từ 8 giây lên 20 giây
     
     // Cleanup khi component unmount hoặc chatId thay đổi
     return () => {

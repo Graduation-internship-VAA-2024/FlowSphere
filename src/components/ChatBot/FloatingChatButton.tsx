@@ -181,7 +181,7 @@ export const FloatingChatButton = () => {
                   <div className="w-16 h-16 mb-4 bg-violet-100 rounded-full flex items-center justify-center">
                     <MessageCircle className="w-8 h-8 text-primary" />
                   </div>
-                  <h3 className="text-lg font-medium mb-2">Trợ lý FlowSphere</h3>
+                  <h3 className="text-lg font-medium mb-2">Assistant FlowSphere</h3>
                   <p className="text-gray-500 text-center mb-6 max-w-xs">
                     Hỏi bất cứ điều gì về ứng dụng, tạo workspace hoặc project mới.
                   </p>

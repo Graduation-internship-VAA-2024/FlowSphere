@@ -359,7 +359,7 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
               >
                 <MessageCircle className="w-5 h-5 mr-0 group-hover:mr-2 transition-all duration-300" />
                 <span className="w-0 overflow-hidden group-hover:w-auto transition-all duration-300 opacity-0 group-hover:opacity-100">
-                  Trợ lý AI
+                  Ask AI
                 </span>
               </motion.button>
             )}
@@ -388,7 +388,7 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
                         className="object-contain"
                       />
                     </div>
-                    <h2 className="font-medium">Trợ lý FlowSphere</h2>
+                    <h2 className="font-medium">Assistant FlowSphere</h2>
                   </div>
                   <button
                     onClick={() => setIsChatOpen(false)}

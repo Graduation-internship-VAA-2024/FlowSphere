@@ -369,8 +369,8 @@ export default function ChatPage() {
     // Tải tin nhắn mới ngay khi chọn chat
     fetchLatestMessages();
     
-    // Thiết lập interval để tự động tải tin nhắn mới sau 3 giây
-    const pollingInterval = setInterval(fetchLatestMessages, 3000);
+    // Thiết lập interval để tự động tải tin nhắn mới sau 8 giây
+    const pollingInterval = setInterval(fetchLatestMessages, 8000);
     
     // Xóa interval khi component unmount hoặc khi chat thay đổi
     return () => clearInterval(pollingInterval);
@@ -422,8 +422,8 @@ export default function ChatPage() {
 
     let isMounted = true; // Theo dõi component còn mounted không
     
-    // Thời gian cache hợp lệ (10 giây)
-    const CACHE_VALIDITY = 10000;
+    // Thời gian cache hợp lệ (20 giây)
+    const CACHE_VALIDITY = 20000;
 
     const fetchChats = async (forceFetch = false) => {
       // Tránh tải lại khi đang khởi tạo/tạo chat

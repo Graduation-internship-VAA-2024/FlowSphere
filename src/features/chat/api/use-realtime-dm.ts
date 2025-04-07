@@ -7,7 +7,7 @@ import { DATABASE_ID, MESSAGES_ID } from '@/config';
 export function useRealtimeDM({
   chatsId,
   onNewMessage,
-  interval = 3000,
+  interval = 8000,
   enabled = true,
 }: {
   chatsId: string | null;
