@@ -166,14 +166,90 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
           if (socket && socket.readyState !== WebSocket.OPEN) {
             console.log(`⚠️ WebSocket not ready for channel ${channelId}, delaying subscription`);
             
-            // Delay subscription until socket is open
-            setTimeout(() => subscribeWhenReady(channelId, callback), 500);
+            // Implement exponential backoff for retries
+            const retryWithBackoff = (attempt = 1, maxAttempts = 10) => {
+              if (attempt > maxAttempts) {
+                console.error(`❌ Max retry attempts reached for channel ${channelId}`);
+                return () => {};
+              }
+              
+              // Calculate delay with exponential backoff (starting at 500ms)
+              const delay = Math.min(500 * Math.pow(1.5, attempt - 1), 10000);
+              
+              console.log(`⏱️ Retry attempt ${attempt}/${maxAttempts} after ${delay}ms for channel ${channelId}`);
+              
+              setTimeout(() => {
+                // Check socket status again before retry
+                const currentSocket = (appwriteClient as any).socketConnection?.socket;
+                
+                if (!currentSocket) {
+                  console.log(`⚠️ No socket found, retrying... (attempt ${attempt})`);
+                  retryWithBackoff(attempt + 1, maxAttempts);
+                  return;
+                }
+                
+                if (currentSocket.readyState === WebSocket.OPEN) {
+                  // Socket is now open, subscribe
+                  try {
+                    const unsubscribe = appwriteClient.subscribe(channelId, callback);
+                    subscriptions.push(unsubscribe);
+                    console.log(`✅ Successfully subscribed to ${channelId} on attempt ${attempt}`);
+                  } catch (err) {
+                    console.error(`❌ Error subscribing to ${channelId} on attempt ${attempt}:`, err);
+                    retryWithBackoff(attempt + 1, maxAttempts);
+                  }
+                } else if (currentSocket.readyState === WebSocket.CONNECTING) {
+                  // Still connecting, retry
+                  console.log(`🔄 Socket still connecting, retry later (attempt ${attempt})`);
+                  retryWithBackoff(attempt + 1, maxAttempts);
+                } else if (currentSocket.readyState === WebSocket.CLOSED || currentSocket.readyState === WebSocket.CLOSING) {
+                  // Socket closed or closing, retry with new connection
+                  console.log(`🔄 Socket closed/closing, attempt to reconnect (attempt ${attempt})`);
+                  
+                  // Force reconnect
+                  try {
+                    // Ping a simple event to force socket creation
+                    appwriteClient.subscribe('ping-event', () => {});
+                    retryWithBackoff(attempt + 1, maxAttempts);
+                  } catch (error) {
+                    console.error('Error forcing reconnect:', error);
+                    retryWithBackoff(attempt + 1, maxAttempts);
+                  }
+                }
+              }, delay);
+            };
+            
+            // Start retry process
+            retryWithBackoff();
             return () => {};
           }
           
-          const unsubscribe = appwriteClient.subscribe(channelId, callback);
-          subscriptions.push(unsubscribe);
-          return unsubscribe;
+          try {
+            const unsubscribe = appwriteClient.subscribe(channelId, callback);
+            subscriptions.push(unsubscribe);
+            return unsubscribe;
+          } catch (error) {
+            console.error(`❌ Error subscribing to ${channelId}, retrying with backoff:`, error);
+            
+            // Start retry process if immediate subscription fails
+            const retryWithBackoff = (attempt = 1, maxAttempts = 5) => {
+              if (attempt > maxAttempts) return;
+              
+              const delay = Math.min(500 * Math.pow(1.5, attempt - 1), 5000);
+              setTimeout(() => {
+                try {
+                  const unsubscribe = appwriteClient.subscribe(channelId, callback);
+                  subscriptions.push(unsubscribe);
+                } catch (err) {
+                  console.error(`Retry ${attempt} failed:`, err);
+                  retryWithBackoff(attempt + 1, maxAttempts);
+                }
+              }, delay);
+            };
+            
+            retryWithBackoff();
+            return () => {};
+          }
         } catch (error) {
           console.error(`❌ Lỗi khi đăng ký kênh ${channelId}:`, error);
           return () => {};
