@@ -229,18 +229,27 @@ export const CreateWorkspaceForm = ({ onCancel }: CreateWorkspaceFormProps) => {
 
               {/* Action Buttons */}
               <div className="flex items-center justify-between pt-2">
-                {onCancel && (
-                  <Button
-                    type="button"
-                    onClick={onCancel}
-                    variant="secondary"
-                    size="lg"
-                    disabled={isPending}
-                    className="hover:bg-neutral-100/80 transition duration-300"
-                  >
-                    Cancel
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  onClick={() => onCancel?.()}
+                  variant="secondary"
+                  size="lg"
+                  disabled={isPending}
+                  className={cn(
+                    "relative overflow-hidden cursor-pointer",
+                    "bg-white/80 hover:bg-neutral-100/80",
+                    "border border-neutral-200/50",
+                    "shadow-sm",
+                    "transition-all duration-300",
+                    "hover:shadow-md hover:-translate-y-0.5",
+                    "active:shadow-sm active:translate-y-0",
+                    "disabled:opacity-70 disabled:cursor-not-allowed disabled:hover:transform-none",
+                    "focus:outline-none focus:ring-2 focus:ring-neutral-400/50 focus:ring-offset-2",
+                    "touch-none select-none"
+                  )}
+                >
+                  Cancel
+                </Button>
                 <Button
                   type="submit"
                   size="lg"

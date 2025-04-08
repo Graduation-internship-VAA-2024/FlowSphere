@@ -1,74 +1,65 @@
-### 📌 **Hướng Dẫn Cơ Bản Sử Dụng Jira Cho Người Mới Bắt Đầu**  
-
-Jira là một công cụ quản lý dự án và theo dõi lỗi phổ biến, đặc biệt trong các nhóm phát triển phần mềm. Nó hỗ trợ **Agile (Scrum, Kanban)** và giúp quản lý công việc hiệu quả.
-
----
-
-## 🎯 **1. Đăng Ký & Đăng Nhập Jira**  
-🔹 Truy cập [Jira Software](https://www.atlassian.com/software/jira) → Chọn **Get it free** để tạo tài khoản.  
-🔹 Sau khi đăng nhập, chọn **Tạo Dự Án (Create a project)**.  
-
----
-
-## 🚀 **2. Giao Diện Chính Của Jira**  
-- **Projects:** Danh sách các dự án bạn đang tham gia.  
-- **Board:** Bảng quản lý công việc theo **Scrum** hoặc **Kanban**.  
-- **Issues:** Danh sách các công việc, lỗi cần xử lý.  
-- **Backlog:** Danh sách công việc chưa được thực hiện (chỉ có trong Scrum).  
-- **Sprints:** Các chu kỳ làm việc trong Scrum.  
-
----
-
-## 📝 **3. Tạo & Quản Lý Công Việc (Issue)**  
-### 👉 **Cách Tạo Issue**  
-1. **Nhấn vào "Create" (Tạo mới)** trên thanh công cụ.  
-2. Điền các thông tin quan trọng:  
-   - **Project:** Chọn dự án.  
-   - **Issue Type:** Loại công việc (**Task**, **Bug**, **Story**, **Epic**).  
-   - **Summary:** Tiêu đề công việc.  
-   - **Description:** Mô tả chi tiết.  
-   - **Assignee:** Người thực hiện.  
-   - **Priority:** Mức độ ưu tiên (**Low, Medium, High, Critical**).  
-3. Nhấn **Create** để tạo.  
-
-### 👉 **Chỉnh Sửa & Cập Nhật Issue**  
-- Nhấn vào Issue cần chỉnh sửa.  
-- Cập nhật trạng thái (**To Do → In Progress → Done**).  
-- Thêm bình luận, tệp đính kèm, hoặc tag người liên quan.  
-
----
-
-## 🏆 **4. Làm Việc Với Scrum Board & Kanban Board**  
-### **Scrum Board**  
-✔ **Phù hợp với nhóm phát triển phần mềm** có Sprint (chu kỳ làm việc ngắn).  
-✔ Công việc được sắp xếp trong **Backlog** → Chuyển vào **Sprint** để làm.  
-
-**Cách làm việc:**  
-1. Chọn **Backlog** → Kéo công việc vào Sprint mới.  
-2. Bắt đầu Sprint → Chuyển công việc từ **To Do → In Progress → Done**.  
-3. Kết thúc Sprint và đánh giá hiệu suất làm việc.  
-
-### **Kanban Board**  
-✔ **Phù hợp với nhóm có luồng công việc liên tục** (support, vận hành).  
-✔ Công việc được xử lý ngay khi có yêu cầu mà không cần Sprint.  
-✔ Chỉ cần kéo thả công việc qua các cột trạng thái.  
-
----
-
-## 📊 **5. Báo Cáo & Theo Dõi Tiến Độ**  
-- **Burndown Chart:** Hiển thị tốc độ hoàn thành công việc.  
-- **Velocity Chart:** Đánh giá năng suất của nhóm qua từng Sprint.  
-- **Cumulative Flow Diagram:** Theo dõi tình trạng công việc trên Kanban.  
-
----
-
-## 🎯 **6. Mẹo Sử Dụng Jira Hiệu Quả**  
-✅ **Sử dụng phím tắt** để thao tác nhanh hơn. (Nhấn `?` trong Jira để xem danh sách)  
-✅ **Tạo bộ lọc (Filters)** để theo dõi công việc quan trọng.  
-✅ **Gắn nhãn (Labels)** để dễ dàng phân loại Issue.  
-✅ **Tích hợp với Slack, GitHub, Confluence** để làm việc nhóm hiệu quả hơn.  
-
----
-
-## 🔥 **Kết Luận**  
-Jira giúp quản lý dự án dễ dàng hơn, đặc biệt với Agile (Scrum, Kanban). Hãy thử tạo một dự án nhỏ và làm quen với cách tạo Issue, quản lý Sprint/Kanban để tối ưu quy trình làm việc của bạn! 🚀
+📌 Hướng Dẫn Cơ Bản Sử Dụng Flowsphere Cho Người Mới Bắt Đầu
+1. Đăng Ký & Đăng Nhập
+•	🔹 Truy cập vào Flowsphere.
+•	🔹 Đăng ký hoặc đăng nhập bằng email hoặc thông qua OAuth (Google, GitHub...).
+•	🔹 Sau khi đăng nhập thành công, người dùng sẽ được chuyển đến trang chủ (Home).
+2. Quản Lý Workspace & Dự Án
+•	Tạo Workspace mới: Nhấn “+” ở khu vực Workspace.
+•	Mời thành viên: Vào mục Setting → Sao chép mã mời → Gửi cho bạn → Người nhận nhấn vào link để tham gia.
+•	Tạo Project mới: Tương tự ở khu vực Projects.
+3. Giao Diện Chính Của Flowsphere
+•	Sidebar Navigation: Điều hướng nhanh đến các trang như:
+•	- 🏠 Home: Trang tổng quan.
+•	- ✅ My Tasks: Danh sách việc cá nhân.
+•	- 🧑‍🤝‍🧑 Members: Danh sách thành viên trong workspace.
+•	- ⚙️ Setting: Cài đặt workspace.
+•	Thanh công cụ trên cùng:
+•	- Tạo Task nhanh.
+•	- Truy cập Trợ lý ảo.
+4. Quản Lý Task (Công Việc)
+•	👉 Tạo Task Mới
+•	1. Nhấn nút + Task trên thanh công cụ.
+•	2. Nhập thông tin:
+•	- 📌 Tên task
+•	- 📅 Ngày hết hạn (Due Date)
+•	- 👤 Người phụ trách (Assignee)
+•	- 📁 Project
+•	- ⚙️ Trạng thái (Status)
+•	3. Nhấn Tạo để hoàn tất.
+•	👉 Hiển Thị Task
+•	Người dùng có thể xem task theo nhiều chế độ:
+•	- 📋 Table View: Dạng bảng truyền thống.
+•	- 📦 Kanban View: Kéo thả linh hoạt giữa các trạng thái.
+•	- 📅 Calendar View: Hiển thị task theo lịch ngày.
+5. Trò Chuyện Với Trợ Lý Ảo Thông Minh
+•	Nhấn vào nút “Ask AI” ở góc phải trên cùng hoặc dùng phím tắt Ctrl + I.
+•	Gõ câu lệnh như: “Tạo project mới tên là…” hoặc “Danh sách task của tôi đâu?”
+•	Trợ lý ảo sẽ phản hồi và thực hiện thao tác giúp bạn.
+6. Tìm Kiếm & Bộ Lọc Nâng Cao
+•	Dễ dàng lọc task theo:
+•	- ✅ Trạng thái (Status)
+•	- 👤 Người phụ trách (Assignee)
+•	- 📁 Dự án (Project)
+•	- 🗓️ Ngày hết hạn (Due Date)
+•	Tìm kiếm nhanh bằng thanh tìm kiếm trên cùng.
+7. Quản Lý Thành Viên Workspace
+•	Xem danh sách thành viên tại mục Members.
+•	Chủ workspace có thể:
+•	- 👋 Mời người mới qua link.
+•	- ❌ Xoá thành viên khi cần thiết.
+8. Tính Năng Gửi Tin Nhắn & Trò Chuyện (Chat)
+•	Hỗ trợ tạo nhóm chat hoặc nhắn tin cá nhân.
+•	Có thể gửi:
+•	- 📄 File
+•	- 🖼️ Hình ảnh
+•	- 💬 Tin nhắn văn bản
+•	Theo dõi trạng thái đã đọc qua bảng message_reads.
+9. Một Số Mẹo Sử Dụng Hiệu Quả
+•	✅ Dùng tổ hợp phím Ctrl + I để mở trợ lý ảo nhanh.
+•	✅ Gắn hình đại diện cho workspace để dễ phân biệt.
+•	✅ Sử dụng nhiều chế độ xem để tùy chỉnh theo phong cách làm việc.
+•	✅ Chọn đúng project khi tạo task để dễ quản lý.
+🔥 Kết Luận
+•	Flowsphere là một nền tảng trực quan, đơn giản nhưng cực kỳ hiệu quả cho việc quản lý dự án nhóm.
+•	Từ tạo task, phân công, lên lịch, đến việc tương tác cùng trợ lý ảo — tất cả đều dễ dàng và mượt mà.
+•	Hãy thử trải nghiệm và tối ưu quy trình làm việc nhóm của bạn ngay hôm nay! 🚀
