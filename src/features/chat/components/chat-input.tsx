@@ -83,7 +83,7 @@ export const ChatInput = ({
   };
 
   return (
-    <div className="p-4 border-t">
+    <div className="p-2 border-t">
       {selectedFile && (
         <FileUploadPreview
           file={selectedFile}

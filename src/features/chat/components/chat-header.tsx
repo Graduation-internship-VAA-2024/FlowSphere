@@ -27,9 +27,9 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isRealtimeConnected = true,
 }) => {
   return (
-    <div className="border-b p-4 flex justify-between items-center">
+    <div className="border-b flex justify-between items-center py-2 px-3">
       <div className="flex items-center space-x-2">
-        <h3 className="font-medium text-lg truncate">{name || "Chat"}</h3>
+        <h3 className="font-medium text-lg truncate">{name || ""}</h3>
 
         {/* Hiển thị thông tin về nhóm */}
         {isGroup && (

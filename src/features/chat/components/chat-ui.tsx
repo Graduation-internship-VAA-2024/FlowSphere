@@ -152,7 +152,7 @@ export const ChatUI: React.FC<ChatUIProps> = ({
   }
 
   return (
-    <div className="flex h-[calc(100vh-120px)] p-4 gap-4 bg-gray-50 rounded-lg relative">
+    <div className="flex h-[calc(100vh-90px)] bg-gray-50 rounded-lg relative">
       {isLoading ? (
         <>
           <Skeleton className="hidden md:block w-[320px] h-full rounded-xl" />

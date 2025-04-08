@@ -965,10 +965,10 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold tracking-tight">
-          Chat {workspaceName && `- ${workspaceName}`}
+          {workspaceName || ""}
         </h1>
         <div className="flex items-center gap-2">
           {/* Chỉ hiển thị thông báo quan trọng */}

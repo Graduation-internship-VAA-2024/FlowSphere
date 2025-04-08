@@ -18,6 +18,10 @@ const pathnameMap = {
     title: "My Projects",
     description: "View and manage your projects",
   },
+  chat: {
+    title: "Chat Messages",
+    description: "Communicate with your team in real-time",
+  },
 };
 
 const defaultMap = {

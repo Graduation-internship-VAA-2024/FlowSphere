@@ -30,7 +30,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         <div className="lg:pl-[256px] w-full">
           <div className="mx-auto max-x-screen-2xl h-full">
             <Navbar />
-            <main className="h-full py-8 px-6 flex flex-col">{children}</main>
+            <main className="h-full px-6 flex flex-col">{children}</main>
           </div>
         </div>
       </div>
