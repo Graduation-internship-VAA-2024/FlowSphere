@@ -20,7 +20,6 @@ export const MessageReadStatus = ({
   status,
 }: MessageReadStatusProps) => {
   const [reads, setReads] = useState<MessageRead[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const [messageStatus, setMessageStatus] = useState<
     "sending" | "sent" | "delivered" | "read"
   >(status || "sending");
@@ -47,7 +46,6 @@ export const MessageReadStatus = ({
     }
 
     const fetchReadStatus = async () => {
-      setIsLoading(true);
       try {
         const response = await chatApi.getMessageReads(chatsId, messageId);
         if (response.data?.documents) {
@@ -65,8 +63,6 @@ export const MessageReadStatus = ({
         }
       } catch (error) {
         console.error("Failed to fetch read status:", error);
-      } finally {
-        setIsLoading(false);
       }
     };
 

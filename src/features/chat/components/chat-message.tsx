@@ -8,6 +8,7 @@ import { MessageReadStatus } from "./message-read-status";
 import { bytesToSize, cn } from "@/lib/utils";
 import { ImageViewer } from "./image-viewer";
 import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 interface ChatMessageProps {
   message: Messages;
@@ -211,21 +212,12 @@ export const ChatMessage = ({
                 )}
                 onClick={openImageViewer}
               >
-                <img
-                  src={message.imageUrl}
-                  alt="Attached image"
-                  className={cn(
-                    "object-cover",
-                    !message.content
-                      ? "w-full rounded-lg max-w-[240px]"
-                      : "w-full rounded-md max-w-[240px]"
-                  )}
-                  onLoad={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    if (target.naturalHeight > 300) {
-                      target.style.maxHeight = "300px";
-                    }
-                  }}
+                <Image
+                  src={message.imageUrl || ""}
+                  alt="Message image"
+                  width={300}
+                  height={200}
+                  className="rounded-lg"
                 />
 
                 {/* Overlay với các nút xem và tải xuống */}

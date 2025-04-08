@@ -1,8 +1,8 @@
 import { Models } from "node-appwrite";
 
 export enum MemberRole {
-  MEMBER = 'member',
-  ADMIN = 'admin'
+  MEMBER = "member",
+  ADMIN = "admin",
 }
 
 export type Chats = Models.Document & {
@@ -32,7 +32,7 @@ export type Messages = Models.Document & {
   replyTo?: string; // ID của tin nhắn được trả lời
 };
 
-export type MessageType = 'text' | 'file' | 'image' | 'system';
+export type MessageType = "text" | "file" | "image" | "system";
 
 // Type cho xác nhận đã đọc
 export type MessageRead = Models.Document & {
@@ -43,6 +43,11 @@ export type MessageRead = Models.Document & {
 
 // Type cho event realtime
 export type RealtimeEvent = {
-  type: 'message' | 'read';
-  payload: any;
+  type: "message" | "read";
+  payload: {
+    message?: Messages;
+    chatId?: string;
+    memberId?: string;
+    timestamp?: number;
+  };
 };

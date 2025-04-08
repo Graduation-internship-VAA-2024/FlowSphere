@@ -1,0 +1,16 @@
+node_modules
+.next
+build
+dist
+public
+**/out/**
+**/*.d.ts
+**/node_modules/**
+**/.next/**
+**/dist/**
+**/.git/**
+**/cypress/**
+**/.cache/**
+**/*.min.js
+**/*.bundle.js
+**/natural/**

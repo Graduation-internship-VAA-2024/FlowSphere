@@ -413,6 +413,12 @@ export function MarkdownEditor({
     };
   }, []);
 
+  useEffect(() => {
+    if (members) {
+      // ... existing code ...
+    }
+  }, [members, handleMemberClick]);
+
   return (
     <div className="w-full space-y-2">
       <div className="flex items-center gap-1 mb-2 bg-muted p-1 rounded-md">

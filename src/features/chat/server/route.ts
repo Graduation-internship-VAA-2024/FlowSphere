@@ -1429,7 +1429,7 @@ const app = new Hono()
             ]
           );
 
-          let lastReadAt = null;
+          let lastReadAt: Date | null = null;
           if (userReads.documents.length > 0) {
             const lastRead = userReads.documents[0];
             lastReadAt = new Date(lastRead.readAt);

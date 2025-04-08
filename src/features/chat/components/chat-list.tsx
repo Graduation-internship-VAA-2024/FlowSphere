@@ -304,7 +304,7 @@ export const ChatList: React.FC<ChatListProps> = React.memo(
                           </div>
                           <h3 className="font-medium mb-2">No members found</h3>
                           <p className="text-sm text-muted-foreground">
-                            No members match "{searchTerm}"
+                            No members match &quot;{searchTerm}&quot;
                           </p>
                         </div>
                       );
@@ -389,3 +389,6 @@ export const ChatList: React.FC<ChatListProps> = React.memo(
     );
   }
 );
+
+// Thêm displayName
+ChatList.displayName = "ChatListSidebar";

@@ -36,7 +36,6 @@ interface ChatAreaProps {
   onSyncMembers?: () => void;
   onAddAllMembers?: () => void;
   isSyncing?: boolean;
-  isAddingMembers?: boolean;
   messages?: Messages[];
   isLoading?: boolean;
   error?: any;
@@ -86,9 +85,9 @@ export const ChatArea = React.memo(
     const lastScrollPositionRef = useRef<number | null>(null);
     const [lastScrollPosition, setLastScrollPosition] = useState(0);
     const [searchTerm, setSearchTerm] = useState("");
-    const [searchResults, setSearchResults] = useState<any[]>([]);
+    const [searchResults, setSearchResults] = useState<Messages[]>([]);
     const [isSearching, setIsSearching] = useState(false);
-    const [selectedResult, setSelectedResult] = useState<any | null>(null);
+    const [selectedResult, setSelectedResult] = useState<Messages | null>(null);
 
     // Check if the workspace only has the current user as member
     const hasOnlyCurrentUser =
@@ -562,3 +561,6 @@ export const ChatArea = React.memo(
     );
   }
 );
+
+// Thêm displayName
+ChatArea.displayName = "ChatArea";

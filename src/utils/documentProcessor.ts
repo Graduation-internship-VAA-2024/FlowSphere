@@ -1,6 +1,6 @@
-import natural from 'natural';
-import path from 'path';
-import fs from 'fs';
+import natural from "natural";
+import path from "path";
+import fs from "fs";
 
 interface DocumentData {
   content: string;
@@ -16,7 +16,7 @@ export class DocumentProcessor {
   private tfidf: natural.TfIdf;
 
   constructor() {
-    this.documentsPath = path.join(process.cwd(), 'documents');
+    this.documentsPath = path.join(process.cwd(), "documents");
     this.loadDocuments();
     this.tfidf = new natural.TfIdf();
     this.buildTFIDF();
@@ -28,17 +28,17 @@ export class DocumentProcessor {
     }
 
     const files = fs.readdirSync(this.documentsPath);
-    
+
     this.documentsData = files
-      .filter(file => file.endsWith('.txt'))
-      .map(file => {
+      .filter((file) => file.endsWith(".txt"))
+      .map((file) => {
         const filePath = path.join(this.documentsPath, file);
         return {
-          content: fs.readFileSync(filePath, 'utf-8'),
+          content: fs.readFileSync(filePath, "utf-8"),
           metadata: {
             fileName: file,
-            lastModified: fs.statSync(filePath).mtime
-          }
+            lastModified: fs.statSync(filePath).mtime,
+          },
         };
       });
   }
@@ -50,22 +50,20 @@ export class DocumentProcessor {
       this.tfidf.addDocument(doc.content);
     });
   }
-  
+
   public getRelevantContent(query: string): string {
     let results: { content: string; score: number }[] = [];
-  
+
     this.tfidf.tfidfs(query, (index, score) => {
       if (score > 0) {
         results.push({ content: this.documentsData[index].content, score });
       }
     });
-  
+
     // Sắp xếp theo điểm số giảm dần và lấy tối đa 3 đoạn có liên quan
     results.sort((a, b) => b.score - a.score);
-    const topResults = results.slice(0, 3).map(r => r.content);
-  
+    const topResults = results.slice(0, 3).map((r) => r.content);
+
     return topResults.join("\n\n") || "Không tìm thấy thông tin liên quan.";
   }
-  
-  
 }
