@@ -75,12 +75,46 @@ const app = new Hono()
 
       const populatedMembers = await Promise.all(
         members.documents.map(async (member) => {
-          const user = await users.get(member.userId);
-          return {
-            ...member,
-            name: user.name || user.email,
-            email: user.email,
-          };
+          try {
+            const user = await users.get(member.userId);
+            return {
+              ...member,
+              name: user.name || user.email,
+              email: user.email,
+            };
+          } catch (error) {
+            console.error(`Failed to get user ${member.userId}:`, error);
+
+            // Nếu không tìm thấy user, tạo user mới
+            try {
+              // Lấy thông tin từ account
+              const { account } = await createAdminClient();
+              const accountInfo = await account.get(member.userId);
+
+              // Tạo user mới với thông tin từ account
+              await users.create(
+                member.userId,
+                accountInfo.email,
+                accountInfo.name
+              );
+
+              return {
+                ...member,
+                name: accountInfo.name || accountInfo.email,
+                email: accountInfo.email,
+              };
+            } catch (createError) {
+              console.error(
+                `Failed to create user ${member.userId}:`,
+                createError
+              );
+              return {
+                ...member,
+                name: "Unknown User",
+                email: "unknown@example.com",
+              };
+            }
+          }
         })
       );
       return c.json({

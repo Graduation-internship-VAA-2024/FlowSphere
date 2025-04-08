@@ -35,20 +35,29 @@ const app = new Hono()
 
     const { account, users } = await createAdminClient();
 
-    // Tạo account và user
-    const userId = ID.unique();
-    await account.create(userId, email, password, name);
-    await users.create(userId, email, name);
+    try {
+      // Tạo account trước
+      const userId = ID.unique();
+      await account.create(userId, email, password, name);
 
-    const session = await account.createEmailPasswordSession(email, password);
-    setCookie(c, AUTH_COOKIE, session.secret, {
-      path: "/",
-      httpOnly: true,
-      sameSite: "strict",
-      secure: true,
-      maxAge: 60 * 60 * 24 * 30,
-    });
-    return c.json({ success: true });
+      // Tạo user với cùng ID
+      await users.create(userId, email, name);
+
+      // Tạo session
+      const session = await account.createEmailPasswordSession(email, password);
+      setCookie(c, AUTH_COOKIE, session.secret, {
+        path: "/",
+        httpOnly: true,
+        sameSite: "strict",
+        secure: true,
+        maxAge: 60 * 60 * 24 * 30,
+      });
+
+      return c.json({ success: true });
+    } catch (error) {
+      console.error("Registration error:", error);
+      return c.json({ error: "Registration failed" }, 500);
+    }
   })
   .post("/logout", sessionMiddleware, async (c) => {
     const account = c.get("account");
