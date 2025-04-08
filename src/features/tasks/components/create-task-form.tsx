@@ -523,7 +523,7 @@ export const CreateTaskForm = ({
                         <span>Creating...</span>
                       </>
                     ) : (
-                      "Create Workspace"
+                      "Create Task"
                     )}
                   </span>
                   {/* Interactive background effect */}

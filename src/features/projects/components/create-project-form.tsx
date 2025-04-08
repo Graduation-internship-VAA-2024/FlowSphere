@@ -232,18 +232,18 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
 
               {/* Action Buttons */}
               <div className="flex items-center justify-between gap-4 pt-2">
-  {onCancel && (
-    <Button
-      type="button"
-      onClick={onCancel}
-      variant="secondary"
-      size="lg"
-      disabled={isPending}
-      className="hover:bg-neutral-100/80 transition duration-300"
-    >
-      Cancel
-    </Button>
-  )}
+                {onCancel && (
+                  <Button
+                    type="button"
+                    onClick={onCancel}
+                    variant="secondary"
+                    size="lg"
+                    disabled={isPending}
+                    className="hover:bg-neutral-100/80 transition duration-300"
+                  >
+                    Cancel
+                  </Button>
+                )}
                 <Button
                   type="submit"
                   size="lg"
@@ -270,7 +270,7 @@ export const CreateProjectForm = ({ onCancel }: CreateProjectFormProps) => {
                         <span>Creating...</span>
                       </>
                     ) : (
-                      "Create Workspace"
+                      "Create Project"
                     )}
                   </span>
                   {/* Interactive background effect */}

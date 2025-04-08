@@ -24,7 +24,16 @@ function convertTimeToSeconds(timeString: string): number {
     totalSeconds += parseInt(minutesMatch[1]) * 60;
   }
 
-  return totalSeconds;
+  // If no hours or minutes found, try to parse as minutes
+  if (!hoursMatch && !minutesMatch) {
+    const minutes = parseInt(timeString);
+    if (!isNaN(minutes)) {
+      totalSeconds = minutes * 60;
+    }
+  }
+
+  // Ensure the result is within the valid range (0-1000)
+  return Math.min(Math.max(totalSeconds, 0), 1000);
 }
 
 // Function to check if user is member of workspace (reused)
