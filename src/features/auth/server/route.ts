@@ -31,20 +31,29 @@ const app = new Hono()
     return c.json({ success: true });
   })
   .post("/register", zValidator("json", registerSchema), async (c) => {
-    const { name, email, password } = c.req.valid("json");
-
-    const { account, users } = await createAdminClient();
+    const { account } = await createAdminClient();
+    const { email, password, name } = c.req.valid("json");
 
     try {
-      // Tạo account trước
+      // Try to create a session to check if email exists
+      try {
+        await account.createEmailPasswordSession(email, password);
+        return c.json({ error: "Email already registered" }, 400);
+      } catch (error: any) {
+        // Email doesn't exist, continue with registration
+        if (error?.code !== 401) {
+          throw error;
+        }
+      }
+
+      // Create account
       const userId = ID.unique();
       await account.create(userId, email, password, name);
 
-      // Tạo user với cùng ID
-      await users.create(userId, email, name);
-
-      // Tạo session
+      // Create session
       const session = await account.createEmailPasswordSession(email, password);
+
+      // Set session cookie
       setCookie(c, AUTH_COOKIE, session.secret, {
         path: "/",
         httpOnly: true,
@@ -54,9 +63,12 @@ const app = new Hono()
       });
 
       return c.json({ success: true });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration error:", error);
-      return c.json({ error: "Registration failed" }, 500);
+      if (error?.code === 409) {
+        return c.json({ error: "Email already registered" }, 400);
+      }
+      return c.json({ error: "Failed to register" }, 500);
     }
   })
   .post("/logout", sessionMiddleware, async (c) => {
