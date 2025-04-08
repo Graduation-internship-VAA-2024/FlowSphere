@@ -32,10 +32,12 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
     value: project.$id,
     label: project.name,
   }));
-  const memberOptions = members?.documents.map((member) => ({
-    value: member.$id,
-    label: member.name,
-  }));
+  const memberOptions = members?.documents.map(
+    (member: { $id: string; name?: string; email?: string }) => ({
+      value: member.$id,
+      label: member.name || member.email || "Unknown User",
+    })
+  );
 
   const [{ status, assigneeId, projectId, dueDate }, setFilters] =
     useTaskFilters();
@@ -94,9 +96,9 @@ export const DataFilters = ({ hideProjectFilter }: DataFiltersProps) => {
         <SelectContent>
           <SelectItem value="all">All assignees</SelectItem>
           <SelectSeparator />
-          {memberOptions?.map((member) => (
+          {memberOptions?.map((member: { value: string; label: string }) => (
             <SelectItem key={member.value} value={member.value}>
-              {member.label}
+              {member.label || "Unknown User"}
             </SelectItem>
           ))}
         </SelectContent>

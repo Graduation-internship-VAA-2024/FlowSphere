@@ -4,6 +4,7 @@ import { useGetProjects } from "@/features/projects/api/use-get-projects";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { Loader } from "lucide-react";
 import { CreateTaskForm } from "./create-task-form";
+import { Member } from "@/features/members/types";
 
 interface CreateTaskFormWrapperProps {
   onCancel: () => void;
@@ -24,9 +25,9 @@ export const CreateTaskFormWrapper = ({
     name: project.name,
     imageUrl: project.imageUrl,
   }));
-  const memberOptions = members?.documents.map((project) => ({
-    id: project.$id,
-    name: project.name,
+  const memberOptions = members?.documents.map((member: Member) => ({
+    id: member.$id,
+    name: member.name,
   }));
   const isLoading = isLoadingProjects || isLoadingMembers;
   if (isLoading) {

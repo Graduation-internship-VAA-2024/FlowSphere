@@ -125,11 +125,23 @@ const app = new Hono()
 
       const assignees = await Promise.all(
         members.documents.map(async (member) => {
-          return {
-            ...member,
-            name: member.name || "Unknown User",
-            email: member.email || "unknown@example.com",
-          };
+          try {
+            const user = await users.get(member.userId);
+            return {
+              ...member,
+              name: user.name || user.email || "Unknown User",
+              email: user.email || "unknown@example.com",
+            };
+          } catch (error: any) {
+            if (error.type !== "user_not_found") {
+              console.error("Error fetching user:", error);
+            }
+            return {
+              ...member,
+              name: "Unknown User",
+              email: "unknown@example.com",
+            };
+          }
         })
       );
 

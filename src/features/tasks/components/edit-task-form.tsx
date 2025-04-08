@@ -30,6 +30,7 @@ import { MemberAvatar } from "@/features/members/components/member-avatar";
 import { Task, TaskStatus } from "../types";
 import { ProjectAvatar } from "@/features/projects/components/project-avatar";
 import { useUpdateTask } from "../api/use-update-task";
+import { formatMemberName } from "@/features/members/utils";
 
 interface EditTaskFormProps {
   onCancel?: () => void;
@@ -59,8 +60,17 @@ export const EditTaskForm = ({
   });
 
   const onSubmit = (values: z.infer<typeof createTaskSchema>) => {
+    // Extract only the fields that updateTask accepts
+    const updateData = {
+      name: values.name,
+      assigneeId: values.assigneeId,
+      projectId: values.projectId,
+      status: values.status,
+      dueDate: values.dueDate ? values.dueDate.toISOString() : undefined,
+    };
+
     mutate(
-      { json: values, param: { taskId: initialValues.$id } },
+      { json: updateData, param: { taskId: initialValues.$id } },
       {
         onSuccess: () => {
           form.reset();
@@ -202,10 +212,12 @@ export const EditTaskForm = ({
                           <SelectItem key={member.id} value={member.id}>
                             <div className="flex items-center gap-x-2">
                               <MemberAvatar
-                                name={member.name}
+                                name={formatMemberName({ name: member.name })}
                                 className="size-6"
                               />
-                              <span>{member.name}</span>
+                              <span>
+                                {formatMemberName({ name: member.name })}
+                              </span>
                             </div>
                           </SelectItem>
                         ))}

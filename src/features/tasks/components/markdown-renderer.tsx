@@ -6,6 +6,7 @@ import remarkGfm from "remark-gfm";
 import { cn } from "@/lib/utils";
 import { useGetMembers } from "@/features/members/api/use-get-members";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+import { formatMemberName } from "@/features/members/utils";
 
 interface MarkdownRendererProps {
   content: string;
@@ -64,7 +65,9 @@ export const MarkdownRenderer: FC<MarkdownRendererProps> = ({
       // Thay thế các thẻ mention bằng HTML sẽ hiển thị
       newContent = newContent.replace(mentionPattern, (match, name, id) => {
         // Tìm member trong danh sách theo $id
-        const member = members.find((m) => m.$id === id);
+        const member = members.find(
+          (m: { $id: string; name?: string; email?: string }) => m.$id === id
+        );
         console.log(
           `Checking mention: @${name}(${id})`,
           member ? "Found member" : "Member not found"
@@ -72,7 +75,9 @@ export const MarkdownRenderer: FC<MarkdownRendererProps> = ({
 
         if (member) {
           // Nếu tìm thấy, tạo span với định dạng mention và màu nổi bật hơn
-          return `<span class="inline-flex items-center bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md text-sm font-medium">@${name}</span>`;
+          return `<span class="inline-flex items-center bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-md text-sm font-medium">@${formatMemberName(
+            member
+          )}</span>`;
         }
 
         // Nếu không tìm thấy, giữ nguyên text

@@ -8,6 +8,7 @@ import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { MemberRole } from "@/features/members/types";
+import { formatMemberName } from "@/features/members/utils";
 import {
   Bold,
   Italic,
@@ -61,8 +62,10 @@ export function MarkdownEditor({
 
   // Lọc danh sách thành viên dựa trên từ khóa tìm kiếm
   const filteredMembers = mentionFilter
-    ? members.filter((member) =>
-        member.name.toLowerCase().includes(mentionFilter.toLowerCase())
+    ? members.filter((member: AppwriteDocument) =>
+        formatMemberName(member)
+          .toLowerCase()
+          .includes(mentionFilter.toLowerCase())
       )
     : members;
 
@@ -72,6 +75,16 @@ export function MarkdownEditor({
       console.log("Available members:", members);
     }
   }, [members]);
+
+  // Debug: log filteredMembers
+  useEffect(() => {
+    if (mentionFilter) {
+      console.log(
+        `Filtering members with query "${mentionFilter}":`,
+        filteredMembers
+      );
+    }
+  }, [mentionFilter, filteredMembers]);
 
   // Hàm định dạng văn bản
   const applyStyle = useCallback(
@@ -157,7 +170,7 @@ export function MarkdownEditor({
       console.log("Member clicked:", member);
 
       // Tạo text mention với định dạng @name(id)
-      const mentionText = `@${member.name}(${member.$id})`;
+      const mentionText = `@${formatMemberName(member)}(${member.$id})`;
       console.log("Generated mention text:", mentionText);
 
       if (!textareaRef.current) {
@@ -285,7 +298,7 @@ export function MarkdownEditor({
 
           // Xử lý trực tiếp thay vì gọi handleMemberClick để tránh vấn đề với event loop
           const member = filteredMembers[0];
-          const mentionText = `@${member.name}(${member.$id})`;
+          const mentionText = `@${formatMemberName(member)}(${member.$id})`;
 
           if (!textareaRef.current) return;
 
@@ -549,7 +562,7 @@ export function MarkdownEditor({
                 </h4>
                 {filteredMembers.length > 0 ? (
                   <div className="space-y-1">
-                    {filteredMembers.map((member) => (
+                    {filteredMembers.map((member: AppwriteDocument) => (
                       <Button
                         key={member.$id}
                         variant="ghost"
@@ -558,10 +571,10 @@ export function MarkdownEditor({
                       >
                         <div className="flex items-center gap-2 w-full">
                           <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium">
-                            {member.name.charAt(0).toUpperCase()}
+                            {member.name?.charAt(0).toUpperCase() || "?"}
                           </div>
                           <span className="flex-1 text-left">
-                            {member.name}
+                            {formatMemberName(member)}
                           </span>
                           <span className="text-xs bg-muted px-1.5 py-0.5 rounded-sm text-muted-foreground flex-shrink-0">
                             Click to add

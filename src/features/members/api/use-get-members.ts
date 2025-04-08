@@ -9,7 +9,7 @@ interface UseGetMembersProps {
 
 // API cho thành viên
 export const membersApi = {
-  getMembers: (workspaceId: string) => 
+  getMembers: (workspaceId: string) =>
     rpc({
       method: "GET",
       path: `/api/members`,
@@ -17,7 +17,11 @@ export const membersApi = {
     }),
 };
 
-export const useGetMembers = ({ workspaceId, initialData, enabled = true }: UseGetMembersProps) => {
+export const useGetMembers = ({
+  workspaceId,
+  initialData,
+  enabled = true,
+}: UseGetMembersProps) => {
   return useQuery({
     queryKey: ["members", workspaceId],
     queryFn: async () => {
@@ -28,6 +32,6 @@ export const useGetMembers = ({ workspaceId, initialData, enabled = true }: UseG
       return response.data;
     },
     initialData,
-    enabled: !!workspaceId && enabled
+    enabled: !!workspaceId && enabled,
   });
 };

@@ -89,14 +89,14 @@ export const sendInviteEmail = async (
               </tr>
             </table>
           </div>
-          
+
           <!-- Action Button -->
           <div style="text-align: center; margin: 30px 0;">
             <a href="${inviteUrl}" style="display: inline-block; background: #8B5CF6; color: white; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
               Accept Invitation
             </a>
           </div>
-          
+
           <!-- Alternative Link -->
           <div style="text-align: center; margin-top: 16px;">
             <p style="font-size: 14px; color: #6B7280; margin: 0 0 5px 0;">
@@ -106,13 +106,13 @@ export const sendInviteEmail = async (
               ${inviteUrl}
             </a>
           </div>
-        </div>
-        
-        <!-- Footer -->
+          </div>
+
+          <!-- Footer -->
         <div style="padding: 20px; border-top: 1px solid #E5E7EB; text-align: center;">
           <p style="font-size: 13px; color: #9CA3AF; margin: 0; line-height: 1.5;">
-            This invitation was sent through FlowSphere.<br>
-            If you weren't expecting this invitation, you can safely ignore this email.
+              This invitation was sent through FlowSphere.<br>
+              If you weren't expecting this invitation, you can safely ignore this email.
           </p>
         </div>
       </div>
@@ -346,8 +346,8 @@ export const sendTaskUnassignmentEmail = async (
             <a href="${taskLink}" style="display: inline-block; background: #6B7280; color: white; font-weight: 600; font-size: 16px; padding: 12px 24px; border-radius: 8px; text-decoration: none;">
               View Task Details
             </a>
-          </div>
-          
+      </div>
+
           <!-- Alternative Link -->
           <div style="text-align: center; margin-top: 16px;">
             <p style="font-size: 14px; color: #6B7280; margin: 0 0 5px 0;">
@@ -364,9 +364,9 @@ export const sendTaskUnassignmentEmail = async (
           <p style="font-size: 13px; color: #9CA3AF; margin: 0; line-height: 1.5;">
             This notification was sent automatically from FlowSphere.<br>
             You received this email because you were previously assigned to this task.
-          </p>
-        </div>
+        </p>
       </div>
+    </div>
     </body>
     </html>
     `,

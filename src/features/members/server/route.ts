@@ -30,16 +30,27 @@ const app = new Hono()
           return c.json({ error: "Member not found" }, 404);
         }
 
-        // Get user details
-        const userDetails = await users.get(user.$id);
+        try {
+          // Get user details
+          const userDetails = await users.get(user.$id);
 
-        return c.json({
-          data: {
-            ...member,
-            name: userDetails.name,
-            email: userDetails.email,
-          },
-        });
+          return c.json({
+            data: {
+              ...member,
+              name: userDetails.name,
+              email: userDetails.email,
+            },
+          });
+        } catch (userError) {
+          console.error("Error fetching user details:", userError);
+          return c.json({
+            data: {
+              ...member,
+              name: "Unknown User",
+              email: "unknown@example.com",
+            },
+          });
+        }
       } catch (error) {
         console.error("Error fetching member:", error);
         return c.json({ error: "Failed to get member information" }, 500);
@@ -79,41 +90,16 @@ const app = new Hono()
             const user = await users.get(member.userId);
             return {
               ...member,
-              name: user.name || user.email,
-              email: user.email,
+              name: user.name || user.email || "Unknown User",
+              email: user.email || "unknown@example.com",
             };
           } catch (error) {
             console.error(`Failed to get user ${member.userId}:`, error);
-
-            // Nếu không tìm thấy user, tạo user mới
-            try {
-              // Lấy thông tin từ account
-              const { account } = await createAdminClient();
-              const accountInfo = await account.get(member.userId);
-
-              // Tạo user mới với thông tin từ account
-              await users.create(
-                member.userId,
-                accountInfo.email,
-                accountInfo.name
-              );
-
-              return {
-                ...member,
-                name: accountInfo.name || accountInfo.email,
-                email: accountInfo.email,
-              };
-            } catch (createError) {
-              console.error(
-                `Failed to create user ${member.userId}:`,
-                createError
-              );
-              return {
-                ...member,
-                name: "Unknown User",
-                email: "unknown@example.com",
-              };
-            }
+            return {
+              ...member,
+              name: "Unknown User",
+              email: "unknown@example.com",
+            };
           }
         })
       );
@@ -142,16 +128,27 @@ const app = new Hono()
         return c.json({ error: "Member not found" }, 404);
       }
 
-      // Lấy thông tin user tương ứng
-      const userDetails = await users.get(member.userId);
+      try {
+        // Lấy thông tin user tương ứng
+        const userDetails = await users.get(member.userId);
 
-      return c.json({
-        data: {
-          ...member,
-          name: userDetails.name,
-          email: userDetails.email,
-        },
-      });
+        return c.json({
+          data: {
+            ...member,
+            name: userDetails.name,
+            email: userDetails.email,
+          },
+        });
+      } catch (userError) {
+        console.error("Error fetching user:", userError);
+        return c.json({
+          data: {
+            ...member,
+            name: "Unknown User",
+            email: "unknown@example.com",
+          },
+        });
+      }
     } catch (error: any) {
       console.error("Error fetching member:", error);
 
