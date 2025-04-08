@@ -33,8 +33,13 @@ const app = new Hono()
   .post("/register", zValidator("json", registerSchema), async (c) => {
     const { name, email, password } = c.req.valid("json");
 
-    const { account } = await createAdminClient();
-    await account.create(ID.unique(), email, password, name);
+    const { account, users } = await createAdminClient();
+
+    // Tạo account và user
+    const userId = ID.unique();
+    await account.create(userId, email, password, name);
+    await users.create(userId, email, name);
+
     const session = await account.createEmailPasswordSession(email, password);
     setCookie(c, AUTH_COOKIE, session.secret, {
       path: "/",

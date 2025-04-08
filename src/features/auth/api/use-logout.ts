@@ -23,8 +23,7 @@ export const useLogout = () => {
       router.push("/sign-in");
       // Xóa cache của các queries liên quan
       queryClient.clear();
-      queryClient.invalidateQueries({ queryKey: ["current"] });
-      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+      queryClient.invalidateQueries();
     },
     onError: () => {
       toast.error("Logout failed");
