@@ -1,19 +1,20 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Messages } from "../type";
 import { Button } from "@/components/ui/button";
 import { Download, File, Image as ImageIcon } from "lucide-react";
-import { bytesToSize } from "@/lib/utils";
+import { bytesToSize, cn } from "@/lib/utils";
 import { ImageViewer } from "./image-viewer";
-import { cn } from "@/lib/utils";
 
 interface MediaGallerySidebarContentProps {
   messages: Messages[];
+  chatsId?: string;
 }
 
 export const MediaGallerySidebarContent = ({
   messages,
+  chatsId,
 }: MediaGallerySidebarContentProps) => {
   const [selectedTab, setSelectedTab] = useState<"images" | "files">("images");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -73,6 +74,14 @@ export const MediaGallerySidebarContent = ({
   const openImageViewer = (imageUrl: string) => {
     setSelectedImage(imageUrl);
   };
+
+  // Xử lý hiệu ứng loading hoặc sự kiện đặc biệt khi có chatsId
+  useEffect(() => {
+    if (chatsId) {
+      console.log(`Media gallery loaded for chat: ${chatsId}`);
+      // Tại đây bạn có thể sử dụng chatsId để loading thêm media nếu cần
+    }
+  }, [chatsId]);
 
   return (
     <>

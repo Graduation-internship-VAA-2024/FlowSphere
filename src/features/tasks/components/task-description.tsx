@@ -291,7 +291,7 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
 
           <TooltipProvider>
             <Tooltip content="Max file size info">
-              <TooltipTrigger asChild>
+              <TooltipTrigger>
                 <div className="inline-flex items-center ml-2 text-muted-foreground">
                   <Info className="h-4 w-4" />
                 </div>

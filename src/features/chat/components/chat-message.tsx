@@ -13,9 +13,10 @@ interface ChatMessageProps {
   message: Messages;
   currentMemberId: string;
   memberName?: string;
-  chatsId: string;
+  chatsId?: string;
   totalMembers?: number;
   allMessages?: Messages[];
+  highlighted?: boolean;
 }
 
 // Function to get appropriate icon based on file type
@@ -27,6 +28,7 @@ export const ChatMessage = ({
   totalMembers = 1,
   chatsId,
   allMessages = [],
+  highlighted,
 }: ChatMessageProps) => {
   const [senderName, setSenderName] = useState<string>(memberName || "");
   const [viewerOpen, setViewerOpen] = useState<boolean>(false);
@@ -157,7 +159,9 @@ export const ChatMessage = ({
     <div
       className={cn(
         "flex gap-2 mb-4",
-        isCurrentUser ? "flex-row-reverse" : "flex-row"
+        isCurrentUser ? "flex-row-reverse" : "flex-row",
+        highlighted &&
+          "bg-accent/40 p-2 rounded-xl -mx-2 transition-colors duration-500"
       )}
     >
       <div className="flex-shrink-0 mt-1">

@@ -1,25 +1,51 @@
 import { Button } from "@/components/ui/button";
-import { Image as ImageIcon, Search } from "lucide-react";
+import { Image as ImageIcon, Search, Users, WifiOff } from "lucide-react";
 
 interface ChatHeaderProps {
   name: string;
+  isGroup?: boolean;
+  membersCount?: number;
+  totalWorkspaceMembers?: number;
   onToggleMediaGallery?: () => void;
   isMediaGalleryOpen?: boolean;
   onSearch?: () => void;
   syncNotification?: string | null;
+  isRealtimeConnected?: boolean;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
   name,
+  isGroup,
+  membersCount = 0,
+  totalWorkspaceMembers = 0,
   onToggleMediaGallery,
   isMediaGalleryOpen,
   onSearch,
   syncNotification,
+  isRealtimeConnected = true,
 }) => {
   return (
     <div className="border-b p-4 flex justify-between items-center">
       <div className="flex items-center space-x-2">
-        <h3 className="font-medium text-lg truncate ml-8">{name || "Chat"}</h3>
+        <h3 className="font-medium text-lg truncate">{name || "Chat"}</h3>
+
+        {/* Hiển thị thông tin về nhóm */}
+        {isGroup && (
+          <div className="flex items-center text-xs text-muted-foreground ml-2">
+            <Users className="h-3.5 w-3.5 mr-1" />
+            <span>
+              {membersCount}/{totalWorkspaceMembers} members
+            </span>
+          </div>
+        )}
+
+        {/* Hiển thị trạng thái kết nối realtime */}
+        {!isRealtimeConnected && (
+          <div className="ml-2 flex items-center text-xs text-amber-500">
+            <WifiOff className="h-3.5 w-3.5 mr-1" />
+            <span>Offline</span>
+          </div>
+        )}
 
         {/* Hiển thị thông báo đồng bộ */}
         {syncNotification && (

@@ -1,18 +1,26 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Paperclip, ImageIcon, Send, File } from "lucide-react";
+import { Paperclip, ImageIcon, Send, File, X } from "lucide-react";
 import { FileUploadPreview } from "./file-upload-preview";
 
 interface ChatInputProps {
   onSend: (message: string, file?: File) => void;
   isLoading?: boolean;
+  chatsId?: string;
+  memberId?: string;
+  onToggleMediaGallery?: () => void;
+  mediaGalleryOpen?: boolean;
   onOpenSearch?: () => void;
 }
 
 export const ChatInput = ({
   onSend,
   isLoading,
+  chatsId,
+  memberId,
+  onToggleMediaGallery,
+  mediaGalleryOpen,
   onOpenSearch,
 }: ChatInputProps) => {
   const [message, setMessage] = useState("");
@@ -20,6 +28,18 @@ export const ChatInput = ({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
+
+  // Track typing activity for specific chat
+  useEffect(() => {
+    if (chatsId && memberId) {
+      // Có thể gửi event "đang nhập..." đến server
+      console.log(`User ${memberId} is typing in chat ${chatsId}`);
+      return () => {
+        // Cleanup typing notification khi component unmount
+        console.log(`User ${memberId} stopped typing in chat ${chatsId}`);
+      };
+    }
+  }, [message, chatsId, memberId]);
 
   const handleSend = async () => {
     if (message.trim() || selectedFile) {
@@ -82,7 +102,7 @@ export const ChatInput = ({
             className="flex items-center gap-1 h-10 px-3"
           >
             <Paperclip className="h-4 w-4" />
-            <span className="hidden sm:inline">Tệp</span>
+            <span className="hidden sm:inline">File</span>
           </Button>
 
           <Button
@@ -93,8 +113,30 @@ export const ChatInput = ({
             className="flex items-center gap-1 h-10 px-3"
           >
             <ImageIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">Ảnh</span>
+            <span className="hidden sm:inline">Image</span>
           </Button>
+
+          {onToggleMediaGallery && (
+            <Button
+              variant={mediaGalleryOpen ? "primary" : "outline"}
+              size="sm"
+              onClick={onToggleMediaGallery}
+              disabled={isLoading || isUploading}
+              className="flex items-center gap-1 h-10 px-3"
+            >
+              {mediaGalleryOpen ? (
+                <>
+                  <X className="h-4 w-4" />
+                  <span className="hidden sm:inline">Close Gallery</span>
+                </>
+              ) : (
+                <>
+                  <File className="h-4 w-4" />
+                  <span className="hidden sm:inline">Media Gallery</span>
+                </>
+              )}
+            </Button>
+          )}
 
           <input
             type="file"
