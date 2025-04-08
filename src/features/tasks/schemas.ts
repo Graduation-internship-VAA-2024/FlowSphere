@@ -40,3 +40,15 @@ export const updateTaskSchema = z.object({
   imageUrls: z.array(taskImageSchema).optional(),
   fileUrls: z.array(taskFileSchema).optional(),
 });
+
+export const logWorkSchema = z.object({
+  taskId: z.string().min(1, "Task ID is required"),
+  timeSpent: z.string().min(1, "Time spent is required"),
+  dateStarted: z.string().min(1, "Start date is required"),
+  description: z.string().optional(),
+});
+
+export const updateEstimateSchema = z.object({
+  taskId: z.string().min(1, "Task ID is required"),
+  remainingEstimate: z.string().min(1, "Remaining estimate is required"),
+});

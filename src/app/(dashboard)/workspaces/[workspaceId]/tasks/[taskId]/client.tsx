@@ -11,7 +11,12 @@ import { useTaskId } from "@/features/tasks/hooks/use-task-id";
 
 export const TaskIdClient = () => {
   const taskId = useTaskId();
-  const { data, isLoading } = useGetTask({ taskId });
+  const { data, isLoading, refetch } = useGetTask({ taskId });
+
+  const handleTaskUpdated = () => {
+    refetch();
+  };
+
   if (isLoading) {
     return <PageLoader />;
   }
@@ -23,7 +28,7 @@ export const TaskIdClient = () => {
       <TaskBreadcrumbs project={data.project} task={data} />
       <DottedSeparator className="my-6" />
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <TaskOverview task={data} />
+        <TaskOverview task={data} onTaskUpdated={handleTaskUpdated} />
         <TaskDescription task={data} />
       </div>
     </div>

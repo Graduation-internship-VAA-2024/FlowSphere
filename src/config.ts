@@ -11,3 +11,5 @@ export const CHAT_MEMBERS_ID =
   process.env.NEXT_PUBLIC_APPWRITE_CHAT_MEMBERS_ID!;
 export const MESSAGE_READS_ID =
   process.env.NEXT_PUBLIC_APPWRITE_MESSAGE_READS_ID || "message_reads";
+export const WORK_LOGS_ID =
+  process.env.NEXT_PUBLIC_APPWRITE_WORK_LOGS_ID || "work_logs";

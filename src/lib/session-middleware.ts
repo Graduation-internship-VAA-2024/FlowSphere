@@ -15,6 +15,7 @@ import { getCookie } from "hono/cookie";
 
 import { createMiddleware } from "hono/factory";
 import { AUTH_COOKIE } from "@/features/auth/constants";
+import { createAdminClient } from "@/lib/appwrite";
 
 type AdditionalContext = {
   Variables: {
@@ -23,6 +24,10 @@ type AdditionalContext = {
     storage: StorageType;
     users: UsersType;
     user: Models.User<Models.Preferences>;
+    admin: {
+      databases: DatabasesType;
+      storage: StorageType;
+    };
   };
 };
 
@@ -58,13 +63,17 @@ export const sessionMiddleware = createMiddleware<AdditionalContext>(
         // Tạo storage service với API key
         const storage = new Storage(storageClient);
 
-        // Không kiểm tra quyền buckets.read nữa vì API key có thể không có quyền này
-        // Nhưng vẫn có thể tải lên files
+        // Tạo admin client có quyền truy cập đầy đủ
+        const admin = createAdminClient();
 
         c.set("account", account);
         c.set("databases", databases);
         c.set("storage", storage);
         c.set("user", user);
+        c.set("admin", {
+          databases: admin.databases,
+          storage: admin.storage,
+        });
       } catch (authError) {
         console.error("Authentication error:", authError);
         return c.json({ error: "Authentication failed", status: 401 });

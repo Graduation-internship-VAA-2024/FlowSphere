@@ -20,6 +20,8 @@ export type Task = Models.Document & {
   imageUrl?: string;
   fileUrl?: string;
   fileName?: string;
+  remainingEstimate?: string;
+  originalEstimate?: string;
 };
 
 export interface TaskImage {
@@ -32,3 +34,13 @@ export interface TaskFile {
   url: string;
   name: string;
 }
+
+export type WorkLog = Models.Document & {
+  taskId: string;
+  userId: string;
+  timeSpent: string; // Human-readable format (e.g., "2h 30m")
+  timeSpentSeconds: number; // Time in seconds for calculations
+  dateStarted: string;
+  remainingEstimate?: string;
+  description?: string;
+};
