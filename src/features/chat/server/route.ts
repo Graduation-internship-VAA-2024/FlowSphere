@@ -296,16 +296,23 @@ const app = new Hono()
         // Lấy thành viên chat cho mỗi chat
         const chatsWithMembers = await Promise.all(
           chats.documents.map(async (chat) => {
-            const members = await databases.listDocuments(
+            const chatMembers = await databases.listDocuments(
               DATABASE_ID,
               CHAT_MEMBERS_ID,
               [Query.equal("chatsId", chat.$id)]
             );
 
+            // Lọc ra danh sách thành viên duy nhất trong chat (không trùng lặp)
+            const uniqueMemberIds = new Set();
+            chatMembers.documents.forEach((member) => {
+              uniqueMemberIds.add(member.memberId);
+            });
+
             return {
               ...chat,
-              members: members.documents,
+              members: chatMembers.documents,
               totalWorkspaceMembers: workspaceMembers.total,
+              uniqueMembersCount: uniqueMemberIds.size, // Số lượng thành viên duy nhất
             };
           })
         );

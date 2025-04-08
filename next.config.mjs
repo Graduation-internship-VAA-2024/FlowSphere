@@ -17,6 +17,9 @@ const nextConfig = {
     // Tắt ESLint trong quá trình build để đảm bảo có thể deploy được
     ignoreDuringBuilds: true,
   },
+  images: {
+    domains: ["cloud.appwrite.io"],
+  },
 };
 
 export default nextConfig;

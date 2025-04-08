@@ -6,6 +6,7 @@ interface ChatHeaderProps {
   isGroup?: boolean;
   membersCount?: number;
   totalWorkspaceMembers?: number;
+  uniqueMembersCount?: number;
   onToggleMediaGallery?: () => void;
   isMediaGalleryOpen?: boolean;
   onSearch?: () => void;
@@ -18,6 +19,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   isGroup,
   membersCount = 0,
   totalWorkspaceMembers = 0,
+  uniqueMembersCount,
   onToggleMediaGallery,
   isMediaGalleryOpen,
   onSearch,
@@ -33,9 +35,7 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         {isGroup && (
           <div className="flex items-center text-xs text-muted-foreground ml-2">
             <Users className="h-3.5 w-3.5 mr-1" />
-            <span>
-              {membersCount}/{totalWorkspaceMembers} members
-            </span>
+            <span>{uniqueMembersCount || membersCount} members</span>
           </div>
         )}
 

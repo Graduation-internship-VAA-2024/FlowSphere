@@ -31,6 +31,7 @@ interface ChatAreaProps {
       };
     })[];
     totalWorkspaceMembers?: number;
+    uniqueMembersCount?: number;
   };
   memberId: string;
   onSyncMembers?: () => void;
@@ -365,6 +366,7 @@ export const ChatArea = React.memo(
           name={chats?.name || "Select a chat"}
           isGroup={chats?.isGroup}
           membersCount={chats?.members?.length || 0}
+          uniqueMembersCount={chats?.uniqueMembersCount || 0}
           totalWorkspaceMembers={chats?.totalWorkspaceMembers || 0}
           syncNotification={syncNotification || addMembersNotification}
           onToggleMediaGallery={() =>

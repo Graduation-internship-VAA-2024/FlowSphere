@@ -259,6 +259,20 @@ interface ProjectListProps {
 export const ProjectList = ({ data, total }: ProjectListProps) => {
   const workspaceId = useWorkspaceId();
   const { open: createProject } = useCreateProjectModal();
+  const { data: tasks } = useGetTasks({ workspaceId });
+
+  // Tính toán số task cho mỗi project
+  const projectTaskCount = React.useMemo(() => {
+    if (!tasks?.documents) return {};
+
+    const counts: Record<string, number> = {};
+    tasks.documents.forEach((task) => {
+      if (task.projectId) {
+        counts[task.projectId] = (counts[task.projectId] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [tasks]);
 
   return (
     <motion.div
@@ -328,7 +342,7 @@ export const ProjectList = ({ data, total }: ProjectListProps) => {
                               {project.name}
                             </p>
                             <p className="text-sm text-muted-foreground truncate">
-                              {project.tasks?.length || 0} tasks
+                              {projectTaskCount[project.$id] || 0} tasks
                             </p>
                           </div>
                           <ChevronRightIcon className="h-5 w-5 text-muted-foreground" />
@@ -341,19 +355,6 @@ export const ProjectList = ({ data, total }: ProjectListProps) => {
             </div>
           </div>
         )}
-
-        <div className="mt-6">
-          <Button
-            variant="outline"
-            className="w-full hover:bg-gray-50 dark:hover:bg-gray-800"
-            asChild
-          >
-            <Link href={`/workspaces/${workspaceId}/projects`}>
-              View All Projects
-              <ArrowRightIcon className="ml-2 h-4 w-4" />
-            </Link>
-          </Button>
-        </div>
       </div>
     </motion.div>
   );
