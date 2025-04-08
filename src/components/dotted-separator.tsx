@@ -34,10 +34,7 @@ export const DottedSeparator = ({
 
   const getBackgroundStyle = () => {
     return colors
-      .map(
-        (color, index) =>
-          `radial-gradient(circle, ${color} 25%, transparent 25%)`
-      )
+      .map((color) => `radial-gradient(circle, ${color} 25%, transparent 25%)`)
       .join(", ");
   };
 

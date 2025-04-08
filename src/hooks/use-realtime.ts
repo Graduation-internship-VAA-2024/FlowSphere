@@ -18,12 +18,10 @@ interface RealtimeMessage {
   senderName?: string;
 }
 
-interface RealtimeResponse {
-  events: string[];
-  payload: RealtimeMessage;
-}
-
-export function useRealtimeMessages(chatId: string | null, onNewMessage?: (message: RealtimeMessage) => void) {
+export function useRealtimeMessages(
+  chatId: string | null,
+  onNewMessage?: (message: RealtimeMessage) => void
+) {
   const [isConnected, setIsConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -35,101 +33,114 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
   const messageQueueRef = useRef<RealtimeMessage[]>([]);
   const connectionReadyRef = useRef<boolean>(false);
   const memberNameCacheRef = useRef<Record<string, string>>({});
-  
+
   // Fetch member name asynchronously
-  const fetchMemberName = useCallback(async (memberId: string): Promise<string | null> => {
-    try {
-      const response = await fetch(`/api/members/${memberId}`);
-      if (response.ok) {
-        const data = await response.json();
-        if (data.data && data.data.name) {
-          return data.data.name;
+  const fetchMemberName = useCallback(
+    async (memberId: string): Promise<string | null> => {
+      try {
+        const response = await fetch(`/api/members/${memberId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data && data.data.name) {
+            return data.data.name;
+          }
         }
+        return null;
+      } catch (error) {
+        console.error("Error fetching member name:", error);
+        return null;
       }
-      return null;
-    } catch (error) {
-      console.error("Error fetching member name:", error);
-      return null;
-    }
-  }, []);
-  
+    },
+    []
+  );
+
   // Process received message - tối ưu hóa để giảm độ trễ
-  const processMessage = useCallback(async (payload: RealtimeMessage) => {
-    if (!payload || !payload.chatsId || !payload.$id) {
-      console.warn("⚠️ Nhận được payload không hợp lệ:", payload);
-      return null;
-    }
-    
-    // Kiểm tra kết nối WebSocket - nếu không kết nối, đưa vào hàng đợi
-    if (!connectionReadyRef.current) {
-      console.log(`⏳ Kết nối chưa sẵn sàng, đưa tin nhắn vào hàng đợi: ${payload.$id}`);
-      // Giới hạn kích thước hàng đợi để tránh tràn bộ nhớ
-      if (messageQueueRef.current.length < 50) {
-        messageQueueRef.current.push(payload);
+  const processMessage = useCallback(
+    async (payload: RealtimeMessage) => {
+      if (!payload || !payload.chatsId || !payload.$id) {
+        console.warn("⚠️ Nhận được payload không hợp lệ:", payload);
+        return null;
       }
-      return null;
-    }
-    
-    // Fix: Tạo ID duy nhất cho tin nhắn để kiểm tra trùng lặp tốt hơn
-    // Sử dụng nhiều thuộc tính hơn để đảm bảo tin nhắn thực sự là duy nhất
-    const messageUniqueId = `${payload.$id}_${payload.chatsId}`;
-    
-    // Kiểm tra xem tin nhắn đã được xử lý chưa - tối ưu hóa với Set
-    if (processedMessagesRef.current.has(messageUniqueId)) {
-      return null;
-    }
-    
-    // Kiểm tra nếu tin nhắn quá cũ (hơn 5 phút) thì bỏ qua để giảm tải xử lý
-    const messageTime = new Date(payload.$createdAt || payload.CreatedAt).getTime();
-    const currentTime = Date.now();
-    const fiveMinutesMs = 5 * 60 * 1000; // Giảm từ 10 phút xuống 5 phút
-    
-    if (currentTime - messageTime > fiveMinutesMs) {
-      return null;
-    }
-    
-    // Đánh dấu tin nhắn đã được xử lý
-    processedMessagesRef.current.add(messageUniqueId);
-    
-    // Giới hạn kích thước của tập hợp đã xử lý để tránh rò rỉ bộ nhớ
-    if (processedMessagesRef.current.size > 300) { // Giảm từ 500 xuống 300
-      // Xóa 100 phần tử cũ nhất (giảm từ 200 xuống 100)
-      const processedArray = Array.from(processedMessagesRef.current);
-      processedMessagesRef.current = new Set(processedArray.slice(100));
-    }
-    
-    // Thêm tên người gửi nếu thiếu - tối ưu hóa bằng caching
-    if (!payload.senderName && payload.memberId) {
-      // Kiểm tra xem đã có trong cache chưa
-      if (memberNameCacheRef.current[payload.memberId]) {
-        payload.senderName = memberNameCacheRef.current[payload.memberId];
-      } else {
-        const name = await fetchMemberName(payload.memberId);
-        if (name) {
-          payload.senderName = name;
-          // Lưu vào cache
-          memberNameCacheRef.current[payload.memberId] = name;
+
+      // Kiểm tra kết nối WebSocket - nếu không kết nối, đưa vào hàng đợi
+      if (!connectionReadyRef.current) {
+        console.log(
+          `⏳ Kết nối chưa sẵn sàng, đưa tin nhắn vào hàng đợi: ${payload.$id}`
+        );
+        // Giới hạn kích thước hàng đợi để tránh tràn bộ nhớ
+        if (messageQueueRef.current.length < 50) {
+          messageQueueRef.current.push(payload);
+        }
+        return null;
+      }
+
+      // Fix: Tạo ID duy nhất cho tin nhắn để kiểm tra trùng lặp tốt hơn
+      // Sử dụng nhiều thuộc tính hơn để đảm bảo tin nhắn thực sự là duy nhất
+      const messageUniqueId = `${payload.$id}_${payload.chatsId}`;
+
+      // Kiểm tra xem tin nhắn đã được xử lý chưa - tối ưu hóa với Set
+      if (processedMessagesRef.current.has(messageUniqueId)) {
+        return null;
+      }
+
+      // Kiểm tra nếu tin nhắn quá cũ (hơn 5 phút) thì bỏ qua để giảm tải xử lý
+      const messageTime = new Date(
+        payload.$createdAt || payload.CreatedAt
+      ).getTime();
+      const currentTime = Date.now();
+      const fiveMinutesMs = 5 * 60 * 1000; // Giảm từ 10 phút xuống 5 phút
+
+      if (currentTime - messageTime > fiveMinutesMs) {
+        return null;
+      }
+
+      // Đánh dấu tin nhắn đã được xử lý
+      processedMessagesRef.current.add(messageUniqueId);
+
+      // Giới hạn kích thước của tập hợp đã xử lý để tránh rò rỉ bộ nhớ
+      if (processedMessagesRef.current.size > 300) {
+        // Giảm từ 500 xuống 300
+        // Xóa 100 phần tử cũ nhất (giảm từ 200 xuống 100)
+        const processedArray = Array.from(processedMessagesRef.current);
+        processedMessagesRef.current = new Set(processedArray.slice(100));
+      }
+
+      // Thêm tên người gửi nếu thiếu - tối ưu hóa bằng caching
+      if (!payload.senderName && payload.memberId) {
+        // Kiểm tra xem đã có trong cache chưa
+        if (memberNameCacheRef.current[payload.memberId]) {
+          payload.senderName = memberNameCacheRef.current[payload.memberId];
+        } else {
+          const name = await fetchMemberName(payload.memberId);
+          if (name) {
+            payload.senderName = name;
+            // Lưu vào cache
+            memberNameCacheRef.current[payload.memberId] = name;
+          }
         }
       }
-    }
-    
-    // Cập nhật thời gian tin nhắn cuối cùng
-    lastMessageTimestampRef.current = Date.now();
-    
-    // Return processed message
-    return payload;
-  }, [fetchMemberName]);
-  
+
+      // Cập nhật thời gian tin nhắn cuối cùng
+      lastMessageTimestampRef.current = Date.now();
+
+      // Return processed message
+      return payload;
+    },
+    [fetchMemberName]
+  );
+
   // Process queued messages when connection is ready
   const processQueuedMessages = useCallback(() => {
     if (messageQueueRef.current.length > 0 && connectionReadyRef.current) {
-      console.log(`🔄 Xử lý ${messageQueueRef.current.length} tin nhắn trong hàng đợi`);
-      
+      console.log(
+        `🔄 Xử lý ${messageQueueRef.current.length} tin nhắn trong hàng đợi`
+      );
+
       // Tạo bản sao của hàng đợi
       const queuedMessages = [...messageQueueRef.current];
       // Xóa hàng đợi
       messageQueueRef.current = [];
-      
+
       // Xử lý từng tin nhắn trong hàng đợi
       queuedMessages.forEach(async (message) => {
         const processedMessage = await processMessage(message);
@@ -139,300 +150,370 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       });
     }
   }, [processMessage, onNewMessage]);
-  
+
   // Function to establish realtime connection
-  const connectRealtime = useCallback((chatIdToConnect: string) => {
-    if (isConnectingRef.current) {
-      console.log("⚠️ Đang trong quá trình kết nối, bỏ qua yêu cầu mới");
-      return null;
-    }
-    
-    try {
-      isConnectingRef.current = true;
-      connectionReadyRef.current = false; // Reset connection status
-      console.log(`🔄 Đang kết nối Realtime cho chat ${chatIdToConnect}...`);
-      
-      let subscriptions: Array<() => void> = [];
-      
-      // Hàm đăng ký kênh khi đã sẵn sàng
-      const subscribeWhenReady = (channelId: string, callback: (response: any) => void) => {
-        try {
-          console.log(`📡 Đăng ký kênh: ${channelId}`);
-          
-          // Access the internal WebSocket from appwriteClient
-          const socket = (appwriteClient as any).socketConnection?.socket;
-          
-          // Check if WebSocket is open before subscribing
-          if (socket && socket.readyState !== WebSocket.OPEN) {
-            console.log(`⚠️ WebSocket not ready for channel ${channelId}, delaying subscription`);
-            
-            // Implement exponential backoff for retries
-            const retryWithBackoff = (attempt = 1, maxAttempts = 10) => {
-              if (attempt > maxAttempts) {
-                console.error(`❌ Max retry attempts reached for channel ${channelId}`);
-                return () => {};
-              }
-              
-              // Calculate delay with exponential backoff (starting at 500ms)
-              const delay = Math.min(500 * Math.pow(1.5, attempt - 1), 10000);
-              
-              console.log(`⏱️ Retry attempt ${attempt}/${maxAttempts} after ${delay}ms for channel ${channelId}`);
-              
-              setTimeout(() => {
-                // Check socket status again before retry
-                const currentSocket = (appwriteClient as any).socketConnection?.socket;
-                
-                if (!currentSocket) {
-                  console.log(`⚠️ No socket found, retrying... (attempt ${attempt})`);
-                  retryWithBackoff(attempt + 1, maxAttempts);
-                  return;
-                }
-                
-                if (currentSocket.readyState === WebSocket.OPEN) {
-                  // Socket is now open, subscribe
-                  try {
-                    const unsubscribe = appwriteClient.subscribe(channelId, callback);
-                    subscriptions.push(unsubscribe);
-                    console.log(`✅ Successfully subscribed to ${channelId} on attempt ${attempt}`);
-                  } catch (err) {
-                    console.error(`❌ Error subscribing to ${channelId} on attempt ${attempt}:`, err);
-                    retryWithBackoff(attempt + 1, maxAttempts);
-                  }
-                } else if (currentSocket.readyState === WebSocket.CONNECTING) {
-                  // Still connecting, retry
-                  console.log(`🔄 Socket still connecting, retry later (attempt ${attempt})`);
-                  retryWithBackoff(attempt + 1, maxAttempts);
-                } else if (currentSocket.readyState === WebSocket.CLOSED || currentSocket.readyState === WebSocket.CLOSING) {
-                  // Socket closed or closing, retry with new connection
-                  console.log(`🔄 Socket closed/closing, attempt to reconnect (attempt ${attempt})`);
-                  
-                  // Force reconnect
-                  try {
-                    // Ping a simple event to force socket creation
-                    appwriteClient.subscribe('ping-event', () => {});
-                    retryWithBackoff(attempt + 1, maxAttempts);
-                  } catch (error) {
-                    console.error('Error forcing reconnect:', error);
-                    retryWithBackoff(attempt + 1, maxAttempts);
-                  }
-                }
-              }, delay);
-            };
-            
-            // Start retry process
-            retryWithBackoff();
-            return () => {};
-          }
-          
+  const connectRealtime = useCallback(
+    (chatIdToConnect: string) => {
+      if (isConnectingRef.current) {
+        console.log("⚠️ Đang trong quá trình kết nối, bỏ qua yêu cầu mới");
+        return null;
+      }
+
+      try {
+        isConnectingRef.current = true;
+        connectionReadyRef.current = false; // Reset connection status
+        console.log(`🔄 Đang kết nối Realtime cho chat ${chatIdToConnect}...`);
+
+        let subscriptions: Array<() => void> = [];
+
+        // Hàm đăng ký kênh khi đã sẵn sàng
+        const subscribeWhenReady = (
+          channelId: string,
+          callback: (response: any) => void
+        ) => {
           try {
-            const unsubscribe = appwriteClient.subscribe(channelId, callback);
-            subscriptions.push(unsubscribe);
-            return unsubscribe;
-          } catch (error) {
-            console.error(`❌ Error subscribing to ${channelId}, retrying with backoff:`, error);
-            
-            // Start retry process if immediate subscription fails
-            const retryWithBackoff = (attempt = 1, maxAttempts = 5) => {
-              if (attempt > maxAttempts) return;
-              
-              const delay = Math.min(500 * Math.pow(1.5, attempt - 1), 5000);
-              setTimeout(() => {
-                try {
-                  const unsubscribe = appwriteClient.subscribe(channelId, callback);
-                  subscriptions.push(unsubscribe);
-                } catch (err) {
-                  console.error(`Retry ${attempt} failed:`, err);
-                  retryWithBackoff(attempt + 1, maxAttempts);
-                }
-              }, delay);
-            };
-            
-            retryWithBackoff();
-            return () => {};
-          }
-        } catch (error) {
-          console.error(`❌ Lỗi khi đăng ký kênh ${channelId}:`, error);
-          return () => {};
-        }
-      };
-      
-      // Sử dụng Promise để đảm bảo kết nối được thiết lập trước
-      const testConnectionPromise = new Promise<void>((resolve) => {
-        let connectionTimeout: NodeJS.Timeout;
-        
-        // Set timeout để không chờ quá lâu
-        connectionTimeout = setTimeout(() => {
-          console.log("⏱️ Timeout khi chờ kết nối WebSocket - tiếp tục với trạng thái hiện tại");
-          resolve(); // Vẫn tiếp tục mặc dù có timeout
-        }, 3000);
-        
-        // Tạo kênh test
-        try {
-          const testChannel = 'connection-test';
-          
-          // Check WebSocket readyState before subscribing
-          const checkAndSubscribe = () => {
+            console.log(`📡 Đăng ký kênh: ${channelId}`);
+
             // Access the internal WebSocket from appwriteClient
             const socket = (appwriteClient as any).socketConnection?.socket;
-            if (!socket || socket.readyState !== WebSocket.OPEN) {
-              // WebSocket not ready yet, wait a bit and try again
-              console.log("🔄 WebSocket not ready yet, waiting...");
-              setTimeout(checkAndSubscribe, 300);
-              return;
-            }
-            
-            // WebSocket is ready, subscribe
-            const testSubscription = appwriteClient.subscribe(testChannel, () => {
-              // Kết nối đã sẵn sàng
-              console.log("✅ WebSocket đã sẵn sàng");
-              clearTimeout(connectionTimeout);
-              
-              // Hủy kênh test
-              setTimeout(() => {
-                try {
-                  testSubscription();
-                } catch (err) {
-                  console.error("Lỗi khi hủy kênh test:", err);
+
+            // Check if WebSocket is open before subscribing
+            if (socket && socket.readyState !== WebSocket.OPEN) {
+              console.log(
+                `⚠️ WebSocket not ready for channel ${channelId}, delaying subscription`
+              );
+
+              // Implement exponential backoff for retries
+              const retryWithBackoff = (attempt = 1, maxAttempts = 10) => {
+                if (attempt > maxAttempts) {
+                  console.error(
+                    `❌ Max retry attempts reached for channel ${channelId}`
+                  );
+                  return () => {};
                 }
-              }, 100);
-              
-              resolve();
-            });
-          };
-          
-          // Start checking WebSocket state
-          checkAndSubscribe();
-          
-          // Thêm handler lỗi
-          setTimeout(() => {
-            clearTimeout(connectionTimeout);
-            resolve(); // Resolve after timeout
-          }, 2500); // Hủy sau 2.5s nếu không nhận được callback
-          
-        } catch (err) {
-          console.error("Lỗi khi kiểm tra kết nối:", err);
-          clearTimeout(connectionTimeout);
-          resolve(); // Vẫn tiếp tục mặc dù có lỗi
-        }
-      });
-      
-      // Chờ kết nối sẵn sàng
-      testConnectionPromise.then(() => {
-        // Cải thiện: Đăng ký nhiều kênh khác nhau để chắc chắn nhận được tất cả sự kiện
-        
-        // 1. Kênh cho tất cả documents trong MESSAGES_ID collection
-        const messagesChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents`;
-        subscribeWhenReady(messagesChannelId, async (response: any) => {
-          console.log(`📢 Nhận sự kiện từ kênh messages: ${response.events?.join(', ')}`);
-          
-          if (!response || !response.payload) return;
-          
-          // Kiểm tra xem tin nhắn có phải thuộc chat hiện tại không
-          if (response.payload.chatsId === chatIdToConnect) {
-            const processedMessage = await processMessage(response.payload);
-            if (processedMessage && onNewMessage) {
-              console.log(`🔔 Gửi tin nhắn qua callback (messages): ${processedMessage.$id}`);
-              onNewMessage(processedMessage);
+
+                // Calculate delay with exponential backoff (starting at 500ms)
+                const delay = Math.min(500 * Math.pow(1.5, attempt - 1), 10000);
+
+                console.log(
+                  `⏱️ Retry attempt ${attempt}/${maxAttempts} after ${delay}ms for channel ${channelId}`
+                );
+
+                setTimeout(() => {
+                  // Check socket status again before retry
+                  const currentSocket = (appwriteClient as any).socketConnection
+                    ?.socket;
+
+                  if (!currentSocket) {
+                    console.log(
+                      `⚠️ No socket found, retrying... (attempt ${attempt})`
+                    );
+                    retryWithBackoff(attempt + 1, maxAttempts);
+                    return;
+                  }
+
+                  if (currentSocket.readyState === WebSocket.OPEN) {
+                    // Socket is now open, subscribe
+                    try {
+                      const unsubscribe = appwriteClient.subscribe(
+                        channelId,
+                        callback
+                      );
+                      subscriptions.push(unsubscribe);
+                      console.log(
+                        `✅ Successfully subscribed to ${channelId} on attempt ${attempt}`
+                      );
+                    } catch (err) {
+                      console.error(
+                        `❌ Error subscribing to ${channelId} on attempt ${attempt}:`,
+                        err
+                      );
+                      retryWithBackoff(attempt + 1, maxAttempts);
+                    }
+                  } else if (
+                    currentSocket.readyState === WebSocket.CONNECTING
+                  ) {
+                    // Still connecting, retry
+                    console.log(
+                      `🔄 Socket still connecting, retry later (attempt ${attempt})`
+                    );
+                    retryWithBackoff(attempt + 1, maxAttempts);
+                  } else if (
+                    currentSocket.readyState === WebSocket.CLOSED ||
+                    currentSocket.readyState === WebSocket.CLOSING
+                  ) {
+                    // Socket closed or closing, retry with new connection
+                    console.log(
+                      `🔄 Socket closed/closing, attempt to reconnect (attempt ${attempt})`
+                    );
+
+                    // Force reconnect
+                    try {
+                      // Ping a simple event to force socket creation
+                      appwriteClient.subscribe("ping-event", () => {});
+                      retryWithBackoff(attempt + 1, maxAttempts);
+                    } catch (error) {
+                      console.error("Error forcing reconnect:", error);
+                      retryWithBackoff(attempt + 1, maxAttempts);
+                    }
+                  }
+                }, delay);
+              };
+
+              // Start retry process
+              retryWithBackoff();
+              return () => {};
             }
-          }
-        });
-        
-        // 2. Kênh cụ thể cho chat này (sử dụng cú pháp Appwrite mới)
-        const chatSpecificChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents?queries[]=equal(chatsId,"${chatIdToConnect}")`;
-        subscribeWhenReady(chatSpecificChannelId, async (response: any) => {
-          console.log(`📢 Nhận sự kiện từ kênh chat cụ thể: ${response.events?.join(', ')}`);
-          
-          if (!response || !response.payload) return;
-          
-          const processedMessage = await processMessage(response.payload);
-          if (processedMessage && onNewMessage) {
-            console.log(`🔔 Gửi tin nhắn qua callback (chat specific): ${processedMessage.$id}`);
-            onNewMessage(processedMessage);
-          }
-        });
-        
-        // 3. Kênh tạo document mới
-        const createDocumentChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents.*.create`;
-        subscribeWhenReady(createDocumentChannelId, async (response: any) => {
-          console.log(`📢 Nhận sự kiện tạo document mới: ${response.events?.join(', ')}`);
-          
-          if (!response || !response.payload) return;
-          
-          // Kiểm tra xem tin nhắn có phải thuộc chat hiện tại không
-          if (response.payload.chatsId === chatIdToConnect) {
-            const processedMessage = await processMessage(response.payload);
-            if (processedMessage && onNewMessage) {
-              console.log(`🔔 Gửi tin nhắn qua callback (document create): ${processedMessage.$id}`);
-              onNewMessage(processedMessage);
+
+            try {
+              const unsubscribe = appwriteClient.subscribe(channelId, callback);
+              subscriptions.push(unsubscribe);
+              return unsubscribe;
+            } catch (error) {
+              console.error(
+                `❌ Error subscribing to ${channelId}, retrying with backoff:`,
+                error
+              );
+
+              // Start retry process if immediate subscription fails
+              const retryWithBackoff = (attempt = 1, maxAttempts = 5) => {
+                if (attempt > maxAttempts) return;
+
+                const delay = Math.min(500 * Math.pow(1.5, attempt - 1), 5000);
+                setTimeout(() => {
+                  try {
+                    const unsubscribe = appwriteClient.subscribe(
+                      channelId,
+                      callback
+                    );
+                    subscriptions.push(unsubscribe);
+                  } catch (err) {
+                    console.error(`Retry ${attempt} failed:`, err);
+                    retryWithBackoff(attempt + 1, maxAttempts);
+                  }
+                }, delay);
+              };
+
+              retryWithBackoff();
+              return () => {};
             }
+          } catch (error) {
+            console.error(`❌ Lỗi khi đăng ký kênh ${channelId}:`, error);
+            return () => {};
           }
-        });
-        
-        // Đánh dấu kết nối thành công
-        setIsConnected(true);
-        isConnectingRef.current = false;
-        connectionReadyRef.current = true;
-        console.log(`✅ Kết nối Realtime thành công cho chat ${chatIdToConnect}`);
-        
-        // Xử lý tin nhắn trong hàng đợi sau khi kết nối thành công
-        processQueuedMessages();
-      });
-      
-      // Lưu lại hàm unsubscribe để có thể gọi khi cần
-      const combinedUnsubscribe = () => {
-        subscriptions.forEach(unsubscribe => {
+        };
+
+        // Sử dụng Promise để đảm bảo kết nối được thiết lập trước
+        const testConnectionPromise = new Promise<void>((resolve) => {
+          let connectionTimeout: NodeJS.Timeout;
+
+          // Set timeout để không chờ quá lâu
+          connectionTimeout = setTimeout(() => {
+            console.log(
+              "⏱️ Timeout khi chờ kết nối WebSocket - tiếp tục với trạng thái hiện tại"
+            );
+            resolve(); // Vẫn tiếp tục mặc dù có timeout
+          }, 3000);
+
+          // Tạo kênh test
           try {
-            unsubscribe();
+            const testChannel = "connection-test";
+
+            // Check WebSocket readyState before subscribing
+            const checkAndSubscribe = () => {
+              // Access the internal WebSocket from appwriteClient
+              const socket = (appwriteClient as any).socketConnection?.socket;
+              if (!socket || socket.readyState !== WebSocket.OPEN) {
+                // WebSocket not ready yet, wait a bit and try again
+                console.log("🔄 WebSocket not ready yet, waiting...");
+                setTimeout(checkAndSubscribe, 300);
+                return;
+              }
+
+              // WebSocket is ready, subscribe
+              const testSubscription = appwriteClient.subscribe(
+                testChannel,
+                () => {
+                  // Kết nối đã sẵn sàng
+                  console.log("✅ WebSocket đã sẵn sàng");
+                  clearTimeout(connectionTimeout);
+
+                  // Hủy kênh test
+                  setTimeout(() => {
+                    try {
+                      testSubscription();
+                    } catch (err) {
+                      console.error("Lỗi khi hủy kênh test:", err);
+                    }
+                  }, 100);
+
+                  resolve();
+                }
+              );
+            };
+
+            // Start checking WebSocket state
+            checkAndSubscribe();
+
+            // Thêm handler lỗi
+            setTimeout(() => {
+              clearTimeout(connectionTimeout);
+              resolve(); // Resolve after timeout
+            }, 2500); // Hủy sau 2.5s nếu không nhận được callback
           } catch (err) {
-            console.error("Lỗi khi hủy đăng ký:", err);
+            console.error("Lỗi khi kiểm tra kết nối:", err);
+            clearTimeout(connectionTimeout);
+            resolve(); // Vẫn tiếp tục mặc dù có lỗi
           }
         });
-        subscriptions = [];
+
+        // Chờ kết nối sẵn sàng
+        testConnectionPromise.then(() => {
+          // Cải thiện: Đăng ký nhiều kênh khác nhau để chắc chắn nhận được tất cả sự kiện
+
+          // 1. Kênh cho tất cả documents trong MESSAGES_ID collection
+          const messagesChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents`;
+          subscribeWhenReady(messagesChannelId, async (response: any) => {
+            console.log(
+              `📢 Nhận sự kiện từ kênh messages: ${response.events?.join(", ")}`
+            );
+
+            if (!response || !response.payload) return;
+
+            // Kiểm tra xem tin nhắn có phải thuộc chat hiện tại không
+            if (response.payload.chatsId === chatIdToConnect) {
+              const processedMessage = await processMessage(response.payload);
+              if (processedMessage && onNewMessage) {
+                console.log(
+                  `🔔 Gửi tin nhắn qua callback (messages): ${processedMessage.$id}`
+                );
+                onNewMessage(processedMessage);
+              }
+            }
+          });
+
+          // 2. Kênh cụ thể cho chat này (sử dụng cú pháp Appwrite mới)
+          const chatSpecificChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents?queries[]=equal(chatsId,"${chatIdToConnect}")`;
+          subscribeWhenReady(chatSpecificChannelId, async (response: any) => {
+            console.log(
+              `📢 Nhận sự kiện từ kênh chat cụ thể: ${response.events?.join(
+                ", "
+              )}`
+            );
+
+            if (!response || !response.payload) return;
+
+            const processedMessage = await processMessage(response.payload);
+            if (processedMessage && onNewMessage) {
+              console.log(
+                `🔔 Gửi tin nhắn qua callback (chat specific): ${processedMessage.$id}`
+              );
+              onNewMessage(processedMessage);
+            }
+          });
+
+          // 3. Kênh tạo document mới
+          const createDocumentChannelId = `databases.${DATABASE_ID}.collections.${MESSAGES_ID}.documents.*.create`;
+          subscribeWhenReady(createDocumentChannelId, async (response: any) => {
+            console.log(
+              `📢 Nhận sự kiện tạo document mới: ${response.events?.join(", ")}`
+            );
+
+            if (!response || !response.payload) return;
+
+            // Kiểm tra xem tin nhắn có phải thuộc chat hiện tại không
+            if (response.payload.chatsId === chatIdToConnect) {
+              const processedMessage = await processMessage(response.payload);
+              if (processedMessage && onNewMessage) {
+                console.log(
+                  `🔔 Gửi tin nhắn qua callback (document create): ${processedMessage.$id}`
+                );
+                onNewMessage(processedMessage);
+              }
+            }
+          });
+
+          // Đánh dấu kết nối thành công
+          setIsConnected(true);
+          isConnectingRef.current = false;
+          connectionReadyRef.current = true;
+          console.log(
+            `✅ Kết nối Realtime thành công cho chat ${chatIdToConnect}`
+          );
+
+          // Xử lý tin nhắn trong hàng đợi sau khi kết nối thành công
+          processQueuedMessages();
+        });
+
+        // Lưu lại hàm unsubscribe để có thể gọi khi cần
+        const combinedUnsubscribe = () => {
+          subscriptions.forEach((unsubscribe) => {
+            try {
+              unsubscribe();
+            } catch (err) {
+              console.error("Lỗi khi hủy đăng ký:", err);
+            }
+          });
+          subscriptions = [];
+          connectionReadyRef.current = false;
+        };
+
+        unsubscribeRef.current = combinedUnsubscribe;
+
+        return combinedUnsubscribe;
+      } catch (err) {
+        console.error("❌ Lỗi kết nối Realtime:", err);
+        setError(
+          err instanceof Error ? err.message : "Không thể kết nối Realtime"
+        );
+        setIsConnected(false);
+        isConnectingRef.current = false;
         connectionReadyRef.current = false;
-      };
-      
-      unsubscribeRef.current = combinedUnsubscribe;
-      
-      return combinedUnsubscribe;
-    } catch (err) {
-      console.error("❌ Lỗi kết nối Realtime:", err);
-      setError(err instanceof Error ? err.message : "Không thể kết nối Realtime");
-      setIsConnected(false);
-      isConnectingRef.current = false;
-      connectionReadyRef.current = false;
-      return null;
-    }
-  }, [processMessage, onNewMessage, processQueuedMessages]);
-  
-  // Cải thiện cơ chế reconnect
-  const reconnect = useCallback((chatIdToReconnect: string) => {
-    if (reconnectAttemptRef.current >= maxReconnectAttempts || isConnectingRef.current) {
-      console.log("❌ Đã đạt giới hạn số lần thử kết nối lại hoặc đang trong quá trình kết nối");
-      return;
-    }
-    
-    reconnectAttemptRef.current += 1;
-    console.log(`🔄 Đang thử kết nối lại (lần ${reconnectAttemptRef.current}/${maxReconnectAttempts})...`);
-    
-    // Thử kết nối lại sau 2 giây
-    setTimeout(() => {
-      if (unsubscribeRef.current) {
-        try {
-          unsubscribeRef.current();
-        } catch (err) {
-          console.error("Lỗi khi hủy đăng ký cũ:", err);
-        }
-        unsubscribeRef.current = null;
+        return null;
       }
-      
-      // Đặt lại trạng thái kết nối
-      connectionReadyRef.current = false;
-      
-      // Kết nối lại
-      connectRealtime(chatIdToReconnect);
-    }, 2000);
-  }, [connectRealtime]);
-  
+    },
+    [processMessage, onNewMessage, processQueuedMessages]
+  );
+
+  // Cải thiện cơ chế reconnect
+  const reconnect = useCallback(
+    (chatIdToReconnect: string) => {
+      if (
+        reconnectAttemptRef.current >= maxReconnectAttempts ||
+        isConnectingRef.current
+      ) {
+        console.log(
+          "❌ Đã đạt giới hạn số lần thử kết nối lại hoặc đang trong quá trình kết nối"
+        );
+        return;
+      }
+
+      reconnectAttemptRef.current += 1;
+      console.log(
+        `🔄 Đang thử kết nối lại (lần ${reconnectAttemptRef.current}/${maxReconnectAttempts})...`
+      );
+
+      // Thử kết nối lại sau 2 giây
+      setTimeout(() => {
+        if (unsubscribeRef.current) {
+          try {
+            unsubscribeRef.current();
+          } catch (err) {
+            console.error("Lỗi khi hủy đăng ký cũ:", err);
+          }
+          unsubscribeRef.current = null;
+        }
+
+        // Đặt lại trạng thái kết nối
+        connectionReadyRef.current = false;
+
+        // Kết nối lại
+        connectRealtime(chatIdToReconnect);
+      }, 2000);
+    },
+    [connectRealtime]
+  );
+
   useEffect(() => {
     if (!chatId) {
       // Nếu không có chatId, hủy kết nối nếu đang có
@@ -444,34 +525,41 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       connectionReadyRef.current = false;
       return;
     }
-    
+
     // Reset số lần thử kết nối lại
     reconnectAttemptRef.current = 0;
-    
+
     // Reset danh sách tin nhắn đã xử lý
     processedMessagesRef.current.clear();
-    
+
     // Reset timestamp
     lastMessageTimestampRef.current = 0;
-    
+
     // Reset message queue
     messageQueueRef.current = [];
-    
+
     // Hủy kết nối cũ nếu có
     if (unsubscribeRef.current) {
       unsubscribeRef.current();
       unsubscribeRef.current = null;
     }
-    
+
     // Thiết lập kết nối mới
     const cleanup = connectRealtime(chatId);
-    
+
     // Heartbeat để giữ kết nối
     const heartbeatInterval = setInterval(() => {
-      if (isConnected && !isConnectingRef.current && connectionReadyRef.current) {
+      if (
+        isConnected &&
+        !isConnectingRef.current &&
+        connectionReadyRef.current
+      ) {
         console.log("💓 Gửi heartbeat để giữ kết nối...");
         try {
-          const tempSubscription = appwriteClient.subscribe('heartbeat', () => {});
+          const tempSubscription = appwriteClient.subscribe(
+            "heartbeat",
+            () => {}
+          );
           setTimeout(() => {
             try {
               tempSubscription();
@@ -487,19 +575,23 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
         }
       }
     }, 45000); // Tăng từ 20 giây lên 45 giây
-    
+
     // Kiểm tra kết nối định kỳ
     const checkConnectionInterval = setInterval(() => {
       if (!isConnected && chatId && !isConnectingRef.current) {
         reconnect(chatId);
       }
-      
+
       // Nếu đã kết nối nhưng có tin nhắn trong hàng đợi, thử xử lý lại
-      if (isConnected && connectionReadyRef.current && messageQueueRef.current.length > 0) {
+      if (
+        isConnected &&
+        connectionReadyRef.current &&
+        messageQueueRef.current.length > 0
+      ) {
         processQueuedMessages();
       }
     }, 20000); // Tăng từ 8 giây lên 20 giây
-    
+
     // Cleanup khi component unmount hoặc chatId thay đổi
     return () => {
       clearInterval(heartbeatInterval);
@@ -517,6 +609,6 @@ export function useRealtimeMessages(chatId: string | null, onNewMessage?: (messa
       connectionReadyRef.current = false;
     };
   }, [chatId, connectRealtime, reconnect, isConnected, processQueuedMessages]);
-  
+
   return { isConnected, error };
-} 
+}

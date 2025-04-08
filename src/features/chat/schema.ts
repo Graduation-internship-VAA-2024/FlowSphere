@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { MemberRole } from "./type";
 
 // Schema for creating a new chat/group
 export const createChatSchema = z.object({

@@ -131,7 +131,7 @@ export function TaskBarChart({
               }
             />
             <Bar dataKey="tasks" radius={[4, 4, 4, 4]} fill="currentColor">
-              {chartData.map((entry, index) => (
+              {chartData.map((entry) => (
                 <Cell
                   key={entry.status}
                   fill={entry.fill}

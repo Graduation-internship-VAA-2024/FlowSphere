@@ -1,18 +1,16 @@
 "use client";
 import { ChatUI } from "@/features/chat/components/chat-ui";
-import { useParams } from "next/navigation";
 import { Suspense, useState, useEffect, useRef } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Chats, ChatMembers } from "@/features/chat/type";
 import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
-import { chatApi } from "@/features/chat/api";
 import { useRealtimeMessages } from "@/hooks/use-realtime";
 import { toast } from "sonner";
+import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 
 export default function ChatPage() {
-  const params = useParams();
-  const workspaceId = params.workspaceId as string;
+  const workspaceId = useWorkspaceId();
   const [selectedChat, setSelectedChat] = useState<
     (Chats & { members?: ChatMembers[] }) | null
   >(null);
@@ -23,13 +21,11 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isChatsLoading, setIsChatsLoading] = useState(true);
-  const [isSyncing, setIsSyncing] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState<string>("");
   const [isInitializing, setIsInitializing] = useState(false);
-  const [syncNotification, setSyncNotification] = useState<string | null>(null);
-  const [realtimeStatus, setRealtimeStatus] = useState<string | null>(null);
+  const [syncNotification] = useState<string | null>(null);
   const [newMessageNotification, setNewMessageNotification] = useState<
     string | null
   >(null);
@@ -43,9 +39,6 @@ export default function ChatPage() {
   const [createChatError, setCreateChatError] = useState<string | null>(null);
   const lastFetchTimeRef = useRef<number>(0);
   const isInitializingRef = useRef(false);
-  const scrollRef = useRef<HTMLDivElement | null>(null);
-  const [lastScrollPosition, setLastScrollPosition] = useState<number>(0);
-  const [showReturnBanner, setShowReturnBanner] = useState<boolean>(false);
 
   // Tạo client cho fetch API
   const fetchClient = {
@@ -699,82 +692,6 @@ export default function ChatPage() {
     setSelectedChat(chat);
   };
 
-  const handleSyncMembers = async () => {
-    if (!selectedChat?.$id || isSyncing) return;
-
-    setIsSyncing(true);
-    setSyncNotification(null);
-
-    console.log("Đang đồng bộ thành viên cho chat:", {
-      chatId: selectedChat.$id,
-      chatName: selectedChat.name,
-      currentMembers: selectedChat.members,
-      workspaceId,
-    });
-
-    try {
-      const response = await chatApi.syncMembers(selectedChat.$id, workspaceId);
-
-      if (!response.data) {
-        throw new Error("Failed to sync members");
-      }
-
-      console.log("Kết quả đồng bộ thành viên:", response.data);
-
-      setSyncNotification(response.data.message || "Đã đồng bộ thành viên.");
-
-      const chatsData = await chatApi.getChats(workspaceId);
-
-      if (chatsData?.data?.documents) {
-        // Loại bỏ các chat trùng lặp
-        const uniqueChats = Array.from(
-          new Map(
-            chatsData.data.documents.map((chat: Chats) => [chat.$id, chat])
-          ).values()
-        );
-
-        console.log("Danh sách chat sau khi đồng bộ:", {
-          total: uniqueChats.length,
-          chats: uniqueChats.map((chat: any) => ({
-            id: chat.$id,
-            name: chat.name,
-            isGroup: chat.isGroup,
-            membersCount: chat.members?.length || 0,
-          })),
-        });
-
-        setChats(uniqueChats);
-
-        const updatedSelectedChat = uniqueChats.find(
-          (chat: Chats) => chat.$id === selectedChat.$id
-        );
-
-        if (updatedSelectedChat) {
-          console.log("Cập nhật chat được chọn sau khi đồng bộ:", {
-            id: updatedSelectedChat.$id,
-            name: updatedSelectedChat.name,
-            membersCount: updatedSelectedChat.members?.length || 0,
-          });
-
-          setSelectedChat(updatedSelectedChat);
-        }
-      }
-
-      setTimeout(() => {
-        setSyncNotification(null);
-      }, 5000);
-    } catch (error) {
-      console.error("Error syncing members:", error);
-      setError(
-        `Failed to sync members: ${
-          error instanceof Error ? error.message : "Unknown error"
-        }`
-      );
-    } finally {
-      setIsSyncing(false);
-    }
-  };
-
   const handleSendMessage = async (content: string, file?: File) => {
     if (!selectedChat?.$id || (!content.trim() && !file)) return;
 
@@ -954,11 +871,8 @@ export default function ChatPage() {
   };
 
   // Hàm tạo chat mới
-  const handleCreateChat = async (name: string, isGroup: boolean) => {
+  const handleCreateChat = async (name: string) => {
     if (!workspaceId || !name) return;
-
-    // Luôn đặt isGroup = true để chỉ tạo nhóm chat
-    isGroup = true;
 
     setIsCreatingChat(true);
     isInitializingRef.current = true;

@@ -1,45 +1,32 @@
 import { useState, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Paperclip, ImageIcon, Send, X, FileText, File as FileIcon, Images, Search } from "lucide-react";
-import { Tooltip } from "@/components/ui/tooltip";
-import { bytesToSize } from "@/lib/utils";
+import { Paperclip, ImageIcon, Send, File } from "lucide-react";
 import { FileUploadPreview } from "./file-upload-preview";
-import { cn } from "@/lib/utils";
 
 interface ChatInputProps {
   onSend: (message: string, file?: File) => void;
-  onFileUpload?: (file: File) => void;
   isLoading?: boolean;
-  chatsId?: string;
-  memberId?: string;
-  onToggleMediaGallery?: () => void;
-  mediaGalleryOpen?: boolean;
   onOpenSearch?: () => void;
 }
 
-export const ChatInput = ({ 
-  onSend, 
-  onFileUpload, 
-  isLoading, 
-  chatsId, 
-  memberId,
-  onToggleMediaGallery,
-  mediaGalleryOpen,
-  onOpenSearch
+export const ChatInput = ({
+  onSend,
+  isLoading,
+  onOpenSearch,
 }: ChatInputProps) => {
   const [message, setMessage] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
-  
+
   const handleSend = async () => {
     if (message.trim() || selectedFile) {
       if (selectedFile) {
         setIsUploading(true);
       }
-      
+
       onSend(message, selectedFile || undefined);
       setMessage("");
       setSelectedFile(null);
@@ -60,14 +47,14 @@ export const ChatInput = ({
 
   const handleFileClear = () => {
     setSelectedFile(null);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (imageInputRef.current) imageInputRef.current.value = '';
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (imageInputRef.current) imageInputRef.current.value = "";
   };
 
   // Xử lý phím tắt Ctrl+F để mở tìm kiếm
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Kiểm tra Ctrl+F (hoặc Command+F trên macOS)
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+    if ((e.ctrlKey || e.metaKey) && e.key === "f") {
       e.preventDefault(); // Ngăn chặn hành vi mặc định của trình duyệt
       if (onOpenSearch) {
         onOpenSearch();
@@ -78,17 +65,17 @@ export const ChatInput = ({
   return (
     <div className="p-4 border-t">
       {selectedFile && (
-        <FileUploadPreview 
+        <FileUploadPreview
           file={selectedFile}
           onClear={handleFileClear}
           isUploading={isUploading}
         />
       )}
-      
+
       <div className="flex items-center gap-2">
         <div className="flex gap-1">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => fileInputRef.current?.click()}
             disabled={isLoading || isUploading}
@@ -97,9 +84,9 @@ export const ChatInput = ({
             <Paperclip className="h-4 w-4" />
             <span className="hidden sm:inline">Tệp</span>
           </Button>
-          
-          <Button 
-            variant="outline" 
+
+          <Button
+            variant="outline"
             size="sm"
             onClick={() => imageInputRef.current?.click()}
             disabled={isLoading || isUploading}
@@ -108,41 +95,43 @@ export const ChatInput = ({
             <ImageIcon className="h-4 w-4" />
             <span className="hidden sm:inline">Ảnh</span>
           </Button>
-          
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            onChange={handleFileSelect} 
-            className="hidden" 
+
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
             accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.csv,.json"
           />
-          
-          <input 
-            type="file" 
-            ref={imageInputRef} 
-            onChange={handleFileSelect} 
-            className="hidden" 
+
+          <input
+            type="file"
+            ref={imageInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
             accept="image/*"
           />
         </div>
-        
-        <Input 
+
+        <Input
           value={message}
           onChange={handleInputChange}
           onKeyDown={(e) => {
             handleKeyDown(e);
-            if (e.key === 'Enter' && !e.shiftKey) handleSend();
+            if (e.key === "Enter" && !e.shiftKey) handleSend();
           }}
-          placeholder="Enter message..." 
+          placeholder="Enter message..."
           className="flex-1"
           disabled={isLoading || isUploading}
         />
-        
-        <Button 
+
+        <Button
           variant="primary"
           size="icon"
           onClick={handleSend}
-          disabled={(!message.trim() && !selectedFile) || isLoading || isUploading}
+          disabled={
+            (!message.trim() && !selectedFile) || isLoading || isUploading
+          }
           className="h-10 w-10"
         >
           <Send className="h-5 w-5" />

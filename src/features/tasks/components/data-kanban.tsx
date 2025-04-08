@@ -119,7 +119,7 @@ export const DataKanban = ({ data, onChange }: DataKanbanProps) => {
           position: Math.min((destination.index + 1) * 1000, 1_000_000),
         });
 
-        newTasks[destStatus].forEach((task, index) => {
+        newTasks[destStatus].forEach((task) => {
           if (task && task.$id !== updatedMovedTask.$id) {
             const newPosition = Math.min(
               (destination.index + 1) * 1000,

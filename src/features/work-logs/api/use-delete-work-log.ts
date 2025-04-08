@@ -11,7 +11,7 @@ export const useDeleteWorkLog = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ workLogId, taskId }: DeleteWorkLogParams) => {
+    mutationFn: async ({ workLogId }: DeleteWorkLogParams) => {
       const response = await client.api["work-logs"].delete[
         ":workLogId"
       ].$delete({

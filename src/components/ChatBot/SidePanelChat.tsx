@@ -1,46 +1,46 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import { MessageCircle, ChevronRight, Send } from 'lucide-react';
-import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import { useCreateWorkspace } from '@/features/workspaces/api/use-create-workspace';
-import { useWorkspaceId } from '@/features/workspaces/hooks/use-workspace-id';
-import { useCurrentUser } from './hooks/userCurrent';
-import { IntentAnalyzer } from './utils/intentAnalyzer';
-import { SYSTEM_PROMPT } from './constants/prompts';
-import { useCreateProject } from '@/features/projects/api/use-create-project';
-import { usePersistentChat } from './hooks/usePersistentChat';
+import { useState, useRef, useEffect } from "react";
+import { MessageCircle, ChevronRight, Send } from "lucide-react";
+import Image from "next/image";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { useCreateWorkspace } from "@/features/workspaces/api/use-create-workspace";
+import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
+import { useCurrentUser } from "./hooks/userCurrent";
+import { IntentAnalyzer } from "./utils/intentAnalyzer";
+import { SYSTEM_PROMPT } from "./constants/prompts";
+import { useCreateProject } from "@/features/projects/api/use-create-project";
+import { usePersistentChat } from "./hooks/usePersistentChat";
 
 const intentAnalyzer = new IntentAnalyzer();
 
 const exampleSuggestions = [
   "Tạo workspace mới",
   "Cách tạo project?",
-  "Các tính năng của FlowSphere"
+  "Các tính năng của FlowSphere",
 ];
 
 export const SidePanelChat = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const { user, isLoading } = useCurrentUser();
+  const { user } = useCurrentUser();
   const router = useRouter();
   const createWorkspace = useCreateWorkspace();
   const createProject = useCreateProject();
   const workspaceId = useWorkspaceId();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  
-  const { 
-    messages, 
-    addMessage, 
-    showIntro, 
+
+  const {
+    messages,
+    addMessage,
+    showIntro,
     setShowIntro,
     hasWelcomed,
-    setHasWelcomed
+    setHasWelcomed,
   } = usePersistentChat();
 
   const [workspaceIntent, setWorkspaceIntent] = useState<{
@@ -48,7 +48,7 @@ export const SidePanelChat = () => {
     name?: string;
   }>({
     isCreating: false,
-    name: undefined
+    name: undefined,
   });
 
   const [projectIntent, setProjectIntent] = useState<{
@@ -56,7 +56,7 @@ export const SidePanelChat = () => {
     name?: string;
   }>({
     isCreating: false,
-    name: undefined
+    name: undefined,
   });
 
   const [isMounted, setIsMounted] = useState(false);
@@ -64,15 +64,15 @@ export const SidePanelChat = () => {
   // Thêm class vào body khi mở chatbot để co trang web lại
   useEffect(() => {
     if (!isMounted) return;
-    
+
     if (isChatOpen) {
-      document.body.classList.add('chatbot-open');
+      document.body.classList.add("chatbot-open");
     } else {
-      document.body.classList.remove('chatbot-open');
+      document.body.classList.remove("chatbot-open");
     }
 
     return () => {
-      document.body.classList.remove('chatbot-open');
+      document.body.classList.remove("chatbot-open");
     };
   }, [isChatOpen, isMounted]);
 
@@ -87,14 +87,14 @@ export const SidePanelChat = () => {
   // Xử lý phím tắt Ctrl+I
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "i") {
         e.preventDefault();
-        setIsChatOpen(prev => !prev);
+        setIsChatOpen((prev) => !prev);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   // Hiển thị tin nhắn chào mừng
@@ -103,16 +103,23 @@ export const SidePanelChat = () => {
       addMessage({
         content: `Xin chào ${user.name}! Tôi là trợ lý ảo của FlowSphere. 
         Tôi có thể giúp gì cho bạn?`,
-        role: 'assistant'
+        role: "assistant",
       });
       setHasWelcomed(true);
     }
-  }, [isChatOpen, user, hasWelcomed, messages.length, addMessage, setHasWelcomed]);
+  }, [
+    isChatOpen,
+    user,
+    hasWelcomed,
+    messages.length,
+    addMessage,
+    setHasWelcomed,
+  ]);
 
   // Cuộn xuống cuối cuộc trò chuyện
   useEffect(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages, isTyping]);
 
@@ -137,12 +144,12 @@ export const SidePanelChat = () => {
 
     addMessage({
       content: messageContent.trim(),
-      role: 'user'
+      role: "user",
     });
-    
-    setInput('');
+
+    setInput("");
     setIsTyping(true);
-    
+
     if (showIntro) {
       setShowIntro(false);
     }
@@ -152,8 +159,8 @@ export const SidePanelChat = () => {
       if (projectIntent.isCreating && !projectIntent.name) {
         if (!workspaceId) {
           addMessage({
-            content: 'Bạn cần chọn workspace trước khi tạo project.',
-            role: 'assistant'
+            content: "Bạn cần chọn workspace trước khi tạo project.",
+            role: "assistant",
           });
           setProjectIntent({ isCreating: false, name: undefined });
           setIsTyping(false);
@@ -162,24 +169,26 @@ export const SidePanelChat = () => {
 
         const projectName = messageContent.trim();
         setProjectIntent({ isCreating: true, name: projectName });
-        
+
         // Create project
         const response = await createProject.mutateAsync({
-          form: { 
+          form: {
             name: projectName,
-            workspaceId 
-          }
+            workspaceId,
+          },
         });
 
         // Add confirmation message
         addMessage({
           content: `Đã tạo project "${projectName}" thành công! Đang chuyển hướng...`,
-          role: 'assistant'
+          role: "assistant",
         });
 
         // Redirect to new project
         setTimeout(() => {
-          router.push(`/workspaces/${workspaceId}/projects/${response.data.$id}`);
+          router.push(
+            `/workspaces/${workspaceId}/projects/${response.data.$id}`
+          );
           setIsChatOpen(false);
         }, 2000);
 
@@ -192,16 +201,16 @@ export const SidePanelChat = () => {
       if (workspaceIntent.isCreating && !workspaceIntent.name) {
         const workspaceName = messageContent.trim();
         setWorkspaceIntent({ isCreating: true, name: workspaceName });
-        
+
         // Tạo workspace và lấy response
         const response = await createWorkspace.mutateAsync({
-          form: { name: workspaceName }
+          form: { name: workspaceName },
         });
 
         // Thêm tin nhắn xác nhận
         addMessage({
           content: `Đã tạo workspace "${workspaceName}" thành công! Đang chuyển hướng...`,
-          role: 'assistant'
+          role: "assistant",
         });
 
         setTimeout(() => {
@@ -218,14 +227,17 @@ export const SidePanelChat = () => {
       const intentAnalysis = intentAnalyzer.analyzeIntent(messageContent);
 
       // Xử lý ý định tạo project
-      if (intentAnalysis.type === 'create_project' && intentAnalysis.confidence > 0.6) {
+      if (
+        intentAnalysis.type === "create_project" &&
+        intentAnalysis.confidence > 0.6
+      ) {
         if (!workspaceId) {
           addMessage({
             content: `Bạn đang ở ngoài workspace. Vui lòng:
 1. Chọn một workspace từ menu điều hướng
 2. Hoặc tạo workspace mới nếu chưa có
 3. Sau đó quay lại đây để tạo project`,
-            role: 'assistant'
+            role: "assistant",
           });
           setIsTyping(false);
           return;
@@ -241,56 +253,60 @@ Gợi ý đặt tên:
 • Ngắn gọn và dễ nhớ
 • Phản ánh mục đích của project
 • Không sử dụng ký tự đặc biệt`,
-          role: 'assistant'
+          role: "assistant",
         });
         setIsTyping(false);
         return;
       }
 
       // Nếu phát hiện ý định tạo workspace với độ tin cậy cao
-      if (intentAnalysis.type === 'create_workspace' && intentAnalysis.confidence > 0.6) {
+      if (
+        intentAnalysis.type === "create_workspace" &&
+        intentAnalysis.confidence > 0.6
+      ) {
         setWorkspaceIntent({ isCreating: true, name: undefined });
         const response = intentAnalyzer.generateResponse(intentAnalysis);
 
         addMessage({
           content: response,
-          role: 'assistant'
+          role: "assistant",
         });
         setIsTyping(false);
         return;
       }
 
       // Gọi OpenRouter API với context phong phú hơn
-      const aiResponse = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+      const aiResponse = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           messages: [
             {
-              role: 'system',
-              content: SYSTEM_PROMPT
+              role: "system",
+              content: SYSTEM_PROMPT,
             },
             ...messages,
             {
-              role: 'user',
+              role: "user",
               content: `
 Người dùng: ${user?.name}
 Email: ${user?.email}
-Workspace hiện tại: ${workspaceId || 'Chưa có'}
+Workspace hiện tại: ${workspaceId || "Chưa có"}
 Phân tích ý định: ${JSON.stringify(intentAnalysis)}
 Yêu cầu: ${messageContent}
-              `
-            }
-          ]
-        })
+              `,
+            },
+          ],
+        }),
       });
 
       const data = await aiResponse.json();
-      
+
       // Phân tích phản hồi từ AI
       const aiMessage = data.response;
-      const hasWorkspaceIntent = aiMessage.toLowerCase().includes('tạo workspace') ||
-                                aiMessage.toLowerCase().includes('đặt tên workspace');
+      const hasWorkspaceIntent =
+        aiMessage.toLowerCase().includes("tạo workspace") ||
+        aiMessage.toLowerCase().includes("đặt tên workspace");
 
       if (hasWorkspaceIntent) {
         setWorkspaceIntent({ isCreating: true, name: undefined });
@@ -305,7 +321,7 @@ Một số gợi ý cho tên workspace:
 • Không sử dụng ký tự đặc biệt
 
 Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
-          role: 'assistant'
+          role: "assistant",
         });
         setIsTyping(false);
         return;
@@ -314,14 +330,13 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
       // Thêm tin nhắn từ AI
       addMessage({
         content: aiMessage,
-        role: 'assistant'
+        role: "assistant",
       });
-
     } catch (error) {
-      console.error('Error:', error);
+      console.error("Error:", error);
       addMessage({
-        content: 'Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.',
-        role: 'assistant'
+        content: "Xin lỗi, đã có lỗi xảy ra. Vui lòng thử lại sau.",
+        role: "assistant",
       });
       setWorkspaceIntent({ isCreating: false, name: undefined });
     } finally {
@@ -380,10 +395,10 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
                 <div className="flex items-center justify-between p-4 border-b">
                   <div className="flex items-center">
                     <div className="h-8 w-8 mr-3 bg-gray-50 rounded-full flex items-center justify-center overflow-hidden">
-                      <Image 
-                        src="/logo.svg" 
-                        alt="FlowSphere Logo" 
-                        width={20} 
+                      <Image
+                        src="/logo.svg"
+                        alt="FlowSphere Logo"
+                        width={20}
                         height={20}
                         className="object-contain"
                       />
@@ -401,35 +416,41 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
                 {/* Messages Area */}
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {messages.map((message) => (
-                    <div 
-                      key={message.id} 
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-3`}
+                    <div
+                      key={message.id}
+                      className={`flex ${
+                        message.role === "user"
+                          ? "justify-end"
+                          : "justify-start"
+                      } mb-3`}
                     >
-                      {message.role === 'assistant' && (
+                      {message.role === "assistant" && (
                         <div className="h-8 w-8 mr-2 flex-shrink-0 rounded-full bg-gray-50 flex items-center justify-center">
-                          <Image 
-                            src="/logo.svg" 
-                            alt="Assistant" 
-                            width={16} 
+                          <Image
+                            src="/logo.svg"
+                            alt="Assistant"
+                            width={16}
                             height={16}
                             className="object-contain"
                           />
                         </div>
                       )}
-                      
-                      <div 
+
+                      <div
                         className={`max-w-[85%] p-3 rounded-lg ${
-                          message.role === 'user' 
-                            ? 'bg-primary text-white rounded-tr-none ml-2' 
-                            : 'bg-gray-100 text-gray-800 rounded-tl-none'
+                          message.role === "user"
+                            ? "bg-primary text-white rounded-tr-none ml-2"
+                            : "bg-gray-100 text-gray-800 rounded-tl-none"
                         }`}
                       >
-                        <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                        <p className="text-sm whitespace-pre-wrap break-words">
+                          {message.content}
+                        </p>
                       </div>
-                      
-                      {message.role === 'user' && (
+
+                      {message.role === "user" && (
                         <div className="h-8 w-8 ml-2 flex-shrink-0 rounded-full bg-primary flex items-center justify-center text-white text-xs font-medium">
-                          {user?.name?.[0]?.toUpperCase() || 'U'}
+                          {user?.name?.[0]?.toUpperCase() || "U"}
                         </div>
                       )}
                     </div>
@@ -439,10 +460,10 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
                   {isTyping && (
                     <div className="flex justify-start mb-3">
                       <div className="h-8 w-8 mr-2 rounded-full bg-gray-50 flex items-center justify-center">
-                        <Image 
-                          src="/logo.svg" 
-                          alt="Assistant" 
-                          width={16} 
+                        <Image
+                          src="/logo.svg"
+                          alt="Assistant"
+                          width={16}
                           height={16}
                           className="object-contain"
                         />
@@ -452,36 +473,36 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
                           <motion.div
                             animate={{
                               scale: [1, 1.2, 1],
-                              opacity: [0.4, 1, 0.4]
+                              opacity: [0.4, 1, 0.4],
                             }}
                             transition={{
                               duration: 1,
                               repeat: Infinity,
-                              delay: 0
+                              delay: 0,
                             }}
                             className="w-2 h-2 rounded-full bg-gray-400"
                           />
                           <motion.div
                             animate={{
                               scale: [1, 1.2, 1],
-                              opacity: [0.4, 1, 0.4]
+                              opacity: [0.4, 1, 0.4],
                             }}
                             transition={{
                               duration: 1,
                               repeat: Infinity,
-                              delay: 0.2
+                              delay: 0.2,
                             }}
                             className="w-2 h-2 rounded-full bg-gray-400"
                           />
                           <motion.div
                             animate={{
                               scale: [1, 1.2, 1],
-                              opacity: [0.4, 1, 0.4]
+                              opacity: [0.4, 1, 0.4],
                             }}
                             transition={{
                               duration: 1,
                               repeat: Infinity,
-                              delay: 0.4
+                              delay: 0.4,
                             }}
                             className="w-2 h-2 rounded-full bg-gray-400"
                           />
@@ -489,18 +510,21 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
                       </div>
                     </div>
                   )}
-                  
+
                   {/* Nếu không có tin nhắn, hiển thị màn hình giới thiệu */}
                   {messages.length === 0 && (
                     <div className="py-8 flex flex-col items-center justify-center h-full">
                       <div className="w-16 h-16 mb-4 bg-violet-100 rounded-full flex items-center justify-center">
                         <MessageCircle className="w-8 h-8 text-primary" />
                       </div>
-                      <h3 className="text-lg font-medium mb-2">Trợ lý FlowSphere</h3>
+                      <h3 className="text-lg font-medium mb-2">
+                        Trợ lý FlowSphere
+                      </h3>
                       <p className="text-gray-500 text-center mb-6 max-w-xs">
-                        Hỏi bất cứ điều gì về ứng dụng, tạo workspace hoặc project mới.
+                        Hỏi bất cứ điều gì về ứng dụng, tạo workspace hoặc
+                        project mới.
                       </p>
-                      
+
                       <div className="space-y-2 w-full">
                         {exampleSuggestions.map((suggestion, index) => (
                           <button
@@ -515,7 +539,7 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
                       </div>
                     </div>
                   )}
-                  
+
                   <div ref={messagesEndRef} />
                 </div>
 
@@ -533,7 +557,11 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
                     <button
                       type="submit"
                       disabled={!input.trim()}
-                      className={`p-1.5 rounded-full ${input.trim() ? 'bg-primary text-white' : 'bg-gray-300 text-gray-500'}`}
+                      className={`p-1.5 rounded-full ${
+                        input.trim()
+                          ? "bg-primary text-white"
+                          : "bg-gray-300 text-gray-500"
+                      }`}
                     >
                       <Send className="w-4 h-4" />
                     </button>
@@ -549,4 +577,4 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
       )}
     </>
   );
-}; 
+};

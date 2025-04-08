@@ -2,9 +2,8 @@
 // Thay vì dùng webworker-threads, mình có thể tận dụng worker_threads, một API gốc của Node.js.
 // Hiện tại chưa fix được nên để đây, nữa fix
 // worker_threads có thể giúp chatbot phản hồi nhanh hơn
-import { parentPort, workerData } from 'worker_threads';
-import * as natural from 'natural';
-import { EventEmitter } from 'events';
+import { parentPort, workerData } from "worker_threads";
+import * as natural from "natural";
 
 const { documents } = workerData;
 const tfidf = new natural.TfIdf();

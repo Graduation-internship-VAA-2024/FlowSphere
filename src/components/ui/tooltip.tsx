@@ -1,8 +1,7 @@
+"use client";
 
-"use client"
-
-import * as React from "react"
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { cn } from "@/lib/utils";
 
 interface TooltipProps {
   children: React.ReactNode;
@@ -11,22 +10,22 @@ interface TooltipProps {
   align?: "start" | "center" | "end";
 }
 
-const TooltipProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const TooltipProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   return <>{children}</>;
 };
 
-const TooltipTrigger: React.FC<{ asChild?: boolean; children: React.ReactNode }> = ({ 
-  children, 
-  asChild = false 
-}) => {
+const TooltipTrigger: React.FC<{
+  children: React.ReactNode;
+}> = ({ children }) => {
   return <>{children}</>;
 };
 
 const TooltipContent: React.FC<{
   className?: string;
   children: React.ReactNode;
-  sideOffset?: number;
-}> = ({ className, children, sideOffset = 4 }) => {
+}> = ({ className, children }) => {
   return (
     <div
       className={cn(
@@ -39,11 +38,11 @@ const TooltipContent: React.FC<{
   );
 };
 
-const Tooltip: React.FC<TooltipProps> = ({ 
-  children, 
-  content, 
-  side = "top", 
-  align = "center" 
+const Tooltip: React.FC<TooltipProps> = ({
+  children,
+  content,
+  side = "top",
+  align = "center",
 }) => {
   const [isOpen, setIsOpen] = React.useState(false);
   const triggerRef = React.useRef<HTMLDivElement>(null);
@@ -84,4 +83,4 @@ const Tooltip: React.FC<TooltipProps> = ({
   );
 };
 
-export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }; 
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider };

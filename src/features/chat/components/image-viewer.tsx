@@ -1,9 +1,21 @@
-import { X, ZoomIn, ZoomOut, RotateCw, Download, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
-import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import {
+  X,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Download,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useState, useEffect } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { VisuallyHidden } from "@/components/ui/visually-hidden";
 
 interface ImageViewerProps {
   isOpen: boolean;
@@ -13,12 +25,12 @@ interface ImageViewerProps {
   currentIndex?: number;
 }
 
-export function ImageViewer({ 
-  isOpen, 
-  onClose, 
-  imageUrl, 
-  allImages = [], 
-  currentIndex = 0 
+export function ImageViewer({
+  isOpen,
+  onClose,
+  imageUrl,
+  allImages = [],
+  currentIndex = 0,
 }: ImageViewerProps) {
   const [scale, setScale] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -33,7 +45,11 @@ export function ImageViewer({
 
   // Tạo hàm để lấy URL của ảnh hiện tại
   const getCurrentImageUrl = () => {
-    if (allImages.length > 0 && currentImageIndex >= 0 && currentImageIndex < allImages.length) {
+    if (
+      allImages.length > 0 &&
+      currentImageIndex >= 0 &&
+      currentImageIndex < allImages.length
+    ) {
       return allImages[currentImageIndex];
     }
     return imageUrl;
@@ -65,28 +81,28 @@ export function ImageViewer({
     if (!imgUrl) return;
 
     fetch(imgUrl)
-      .then(response => response.blob())
-      .then(blob => {
+      .then((response) => response.blob())
+      .then((blob) => {
         // Tạo URL object từ blob
         const blobUrl = URL.createObjectURL(blob);
-        
+
         // Lấy tên file từ URL hoặc dùng tên mặc định
-        const fileName = imgUrl.split('/').pop() || 'image.jpg';
-        
+        const fileName = imgUrl.split("/").pop() || "image.jpg";
+
         // Tạo một thẻ a tạm thời để tải xuống
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = blobUrl;
         link.download = fileName;
         document.body.appendChild(link);
         link.click();
-        
+
         // Dọn dẹp
         setTimeout(() => {
           document.body.removeChild(link);
           URL.revokeObjectURL(blobUrl);
         }, 100);
       })
-      .catch(error => {
+      .catch((error) => {
         console.error("Lỗi khi tải ảnh:", error);
       });
   };
@@ -98,7 +114,9 @@ export function ImageViewer({
       <DialogContent className="max-w-screen-lg w-[95vw] h-[90vh] p-0 overflow-hidden bg-black/95 border-none sm:rounded-xl">
         <VisuallyHidden>
           <DialogTitle>Image Viewer</DialogTitle>
-          <DialogDescription>View and interact with the full-size image</DialogDescription>
+          <DialogDescription>
+            View and interact with the full-size image
+          </DialogDescription>
         </VisuallyHidden>
         {/* Thanh công cụ phía trên */}
         <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/70 to-transparent">
@@ -110,51 +128,51 @@ export function ImageViewer({
               </span>
             )}
           </div>
-          
+
           <div className="flex items-center gap-3">
             {/* Nút phóng to */}
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               onClick={() => setScale(scale + 0.2)}
               className="h-9 w-9 text-white hover:bg-white/20 rounded-full"
             >
               <ZoomIn className="h-5 w-5" />
             </Button>
-            
+
             {/* Nút thu nhỏ */}
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               onClick={() => setScale(Math.max(0.5, scale - 0.2))}
               className="h-9 w-9 text-white hover:bg-white/20 rounded-full"
             >
               <ZoomOut className="h-5 w-5" />
             </Button>
-            
+
             {/* Nút xoay */}
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               onClick={() => setRotation(rotation + 90)}
               className="h-9 w-9 text-white hover:bg-white/20 rounded-full"
             >
               <RotateCw className="h-5 w-5" />
             </Button>
-            
+
             {/* Nút tải xuống */}
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               onClick={handleDownload}
               className="h-9 w-9 text-white hover:bg-white/20 rounded-full"
             >
               <Download className="h-5 w-5" />
             </Button>
-            
+
             {/* Nút đóng */}
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               onClick={onClose}
               className="h-9 w-9 text-white hover:bg-white/20 rounded-full"
@@ -163,7 +181,7 @@ export function ImageViewer({
             </Button>
           </div>
         </div>
-        
+
         {/* Nút điều hướng */}
         {allImages.length > 1 && (
           <>
@@ -178,7 +196,7 @@ export function ImageViewer({
                 <ChevronLeft className="h-6 w-6" />
               </Button>
             )}
-            
+
             {/* Nút tiếp theo */}
             {currentImageIndex < allImages.length - 1 && (
               <Button
@@ -192,20 +210,20 @@ export function ImageViewer({
             )}
           </>
         )}
-        
+
         {/* Vùng hiển thị ảnh */}
         <div className="h-full w-full flex items-center justify-center p-8 overflow-hidden">
           <img
-            src={getCurrentImageUrl() || ''}
+            src={getCurrentImageUrl() || ""}
             alt="Hình ảnh đính kèm"
             className="object-contain max-h-full max-w-full transition-transform duration-200"
-            style={{ 
+            style={{
               transform: `scale(${scale}) rotate(${rotation}deg)`,
-              pointerEvents: 'auto'
+              pointerEvents: "auto",
             }}
           />
         </div>
       </DialogContent>
     </Dialog>
   );
-} 
+}

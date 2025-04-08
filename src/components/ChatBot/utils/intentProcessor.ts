@@ -1,4 +1,4 @@
-import { IntentAnalyzer } from './intentAnalyzer';
+import { IntentAnalyzer } from "./intentAnalyzer";
 
 interface IntentMatch {
   intent: string;
@@ -15,26 +15,45 @@ export class IntentProcessor {
   private commonPhrases = {
     workspace: {
       create: [
-        'tạo workspace', 'tạo một workspace', 'create workspace',
-        'tạo không gian làm việc', 'thiết lập workspace',
-        'muốn có workspace', 'cần workspace', 'workspace mới'
+        "tạo workspace",
+        "tạo một workspace",
+        "create workspace",
+        "tạo không gian làm việc",
+        "thiết lập workspace",
+        "muốn có workspace",
+        "cần workspace",
+        "workspace mới",
       ],
       name: [
-        'tên là', 'đặt tên', 'gọi là', 'named', 'called',
-        'có tên', 'tên workspace', 'workspace name'
-      ]
+        "tên là",
+        "đặt tên",
+        "gọi là",
+        "named",
+        "called",
+        "có tên",
+        "tên workspace",
+        "workspace name",
+      ],
     },
     project: {
       create: [
-        'tạo project', 'tạo một project', 'create project',
-        'tạo dự án', 'thiết lập project', 'project mới',
-        'muốn có project', 'cần project'
+        "tạo project",
+        "tạo một project",
+        "create project",
+        "tạo dự án",
+        "thiết lập project",
+        "project mới",
+        "muốn có project",
+        "cần project",
       ],
       name: [
-        'tên project là', 'đặt tên project', 'project tên là',
-        'project name', 'tên dự án'
-      ]
-    }
+        "tên project là",
+        "đặt tên project",
+        "project tên là",
+        "project name",
+        "tên dự án",
+      ],
+    },
   };
 
   constructor() {
@@ -43,10 +62,7 @@ export class IntentProcessor {
 
   processIntent(message: string): IntentMatch {
     const normalizedMessage = message.toLowerCase();
-    
-    // Phân tích ý định cơ bản
-    const basicIntent = this.intentAnalyzer.analyzeIntent(message);
-    
+
     // Xử lý ý định tạo workspace
     const workspaceMatch = this.processWorkspaceIntent(normalizedMessage);
     if (workspaceMatch.confidence > 0.6) {
@@ -67,8 +83,8 @@ export class IntentProcessor {
 
     // Trả về ý định không xác định
     return {
-      intent: 'unknown',
-      confidence: 0
+      intent: "unknown",
+      confidence: 0,
     };
   }
 
@@ -97,14 +113,17 @@ export class IntentProcessor {
     }
 
     // Phân tích ngữ cảnh bổ sung
-    if (message.includes('workspace') || message.includes('không gian làm việc')) {
+    if (
+      message.includes("workspace") ||
+      message.includes("không gian làm việc")
+    ) {
       confidence += 0.2;
     }
 
     return {
-      intent: 'create_workspace',
+      intent: "create_workspace",
       confidence,
-      entities: name ? { name } : undefined
+      entities: name ? { name } : undefined,
     };
   }
 
@@ -133,50 +152,50 @@ export class IntentProcessor {
     }
 
     // Phân tích ngữ cảnh bổ sung
-    if (message.includes('project') || message.includes('dự án')) {
+    if (message.includes("project") || message.includes("dự án")) {
       confidence += 0.2;
     }
 
     return {
-      intent: 'create_project',
+      intent: "create_project",
       confidence,
-      entities: name ? { name } : undefined
+      entities: name ? { name } : undefined,
     };
   }
 
   private processNamingIntent(message: string): IntentMatch {
     const namePatterns = [
       /(?:tên là|đặt tên|gọi là|named|called|có tên)\s+["']?([^"']+)["']?/i,
-      /["']([^"']+)["']\s+(?:là tên|is the name)/i
+      /["']([^"']+)["']\s+(?:là tên|is the name)/i,
     ];
 
     for (const pattern of namePatterns) {
       const match = message.match(pattern);
       if (match && match[1]) {
         return {
-          intent: 'set_name',
+          intent: "set_name",
           confidence: 0.8,
           entities: {
-            name: match[1].trim()
-          }
+            name: match[1].trim(),
+          },
         };
       }
     }
 
     // Nếu tin nhắn ngắn và không có từ khóa đặc biệt, có thể là tên
-    if (message.split(' ').length <= 3 && !/[<>\/\\]/.test(message)) {
+    if (message.split(" ").length <= 3 && !/[<>\/\\]/.test(message)) {
       return {
-        intent: 'set_name',
+        intent: "set_name",
         confidence: 0.6,
         entities: {
-          name: message.trim()
-        }
+          name: message.trim(),
+        },
       };
     }
 
     return {
-      intent: 'unknown',
-      confidence: 0
+      intent: "unknown",
+      confidence: 0,
     };
   }
 }

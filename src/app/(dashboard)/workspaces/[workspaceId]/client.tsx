@@ -95,7 +95,7 @@ export const WorkspaceIdClient = () => {
 
         <BoxReveal key={`overview-${key}`} boxColor="#4f46e5" duration={0.7}>
           <p className="text-lg text-gray-600 dark:text-gray-300">
-            Here's your workspace overview
+            Here &apos's your workspace overview
           </p>
         </BoxReveal>
 

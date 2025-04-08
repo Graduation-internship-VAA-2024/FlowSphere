@@ -1,11 +1,6 @@
 import React from "react";
 
-interface LoadingProps {
-  size?: number;
-  className?: string;
-}
-
-const PageLoader = ({ size = 24, className }: LoadingProps) => {
+const PageLoader = () => {
   return (
     <div className="flex items-center justify-center min-h-screen">
       <div className="flex flex-col items-center gap-2">

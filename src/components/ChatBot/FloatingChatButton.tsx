@@ -1,24 +1,24 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { MessageCircle, X, Send, ChevronRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useCurrentUser } from './hooks/userCurrent';
-import { usePersistentChat } from './hooks/usePersistentChat';
-import Image from 'next/image';
+import { useState, useEffect } from "react";
+import { MessageCircle, Send, ChevronRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useCurrentUser } from "./hooks/userCurrent";
+import { usePersistentChat } from "./hooks/usePersistentChat";
+import Image from "next/image";
 
 export const FloatingChatButton = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const { user } = useCurrentUser();
-  const { 
-    messages, 
-    addMessage, 
-    showIntro, 
+  const {
+    messages,
+    addMessage,
+    showIntro,
     setShowIntro,
     hasWelcomed,
-    setHasWelcomed
+    setHasWelcomed,
   } = usePersistentChat();
 
   // Hiển thị nút sau khi trang được tải để tránh hiệu ứng flash
@@ -33,14 +33,14 @@ export const FloatingChatButton = () => {
   // Xử lý phím tắt Ctrl+I để mở chatbot
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+      if ((e.ctrlKey || e.metaKey) && e.key === "i") {
         e.preventDefault();
-        setIsChatOpen(prev => !prev);
+        setIsChatOpen((prev) => !prev);
       }
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, []);
 
   // Hiển thị tin nhắn chào mừng khi người dùng mở chatbot lần đầu
@@ -49,11 +49,18 @@ export const FloatingChatButton = () => {
       addMessage({
         content: `Xin chào ${user.name}! Tôi là trợ lý ảo của FlowSphere. 
         Tôi có thể giúp gì cho bạn?`,
-        role: 'assistant'
+        role: "assistant",
       });
       setHasWelcomed(true);
     }
-  }, [isChatOpen, user, hasWelcomed, messages.length, addMessage, setHasWelcomed]);
+  }, [
+    isChatOpen,
+    user,
+    hasWelcomed,
+    messages.length,
+    addMessage,
+    setHasWelcomed,
+  ]);
 
   // Gửi tin nhắn
   const handleSendMessage = (e: React.FormEvent) => {
@@ -62,19 +69,20 @@ export const FloatingChatButton = () => {
 
     addMessage({
       content: input.trim(),
-      role: 'user'
+      role: "user",
     });
 
     // Giả lập phản hồi (trong thực tế, bạn sẽ gọi API)
     setTimeout(() => {
       addMessage({
-        content: "Tôi đã nhận được tin nhắn của bạn. Đây là một phản hồi mẫu. Trên ứng dụng thực tế, bạn sẽ kết nối với logic xử lý tin nhắn trong ChatBot.tsx.",
-        role: 'assistant'
+        content:
+          "Tôi đã nhận được tin nhắn của bạn. Đây là một phản hồi mẫu. Trên ứng dụng thực tế, bạn sẽ kết nối với logic xử lý tin nhắn trong ChatBot.tsx.",
+        role: "assistant",
       });
     }, 1000);
 
-    setInput('');
-    
+    setInput("");
+
     if (showIntro) {
       setShowIntro(false);
     }
@@ -120,10 +128,10 @@ export const FloatingChatButton = () => {
             <div className="flex items-center justify-between p-4 border-b">
               <div className="flex items-center">
                 <div className="h-8 w-8 mr-3 bg-gray-50 rounded-full flex items-center justify-center overflow-hidden">
-                  <Image 
-                    src="/logo.svg" 
-                    alt="FlowSphere Logo" 
-                    width={20} 
+                  <Image
+                    src="/logo.svg"
+                    alt="FlowSphere Logo"
+                    width={20}
                     height={20}
                     className="object-contain"
                   />
@@ -141,56 +149,63 @@ export const FloatingChatButton = () => {
             {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {messages.map((message) => (
-                <div 
-                  key={message.id} 
-                  className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'} mb-3`}
+                <div
+                  key={message.id}
+                  className={`flex ${
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  } mb-3`}
                 >
-                  {message.role === 'assistant' && (
+                  {message.role === "assistant" && (
                     <div className="h-8 w-8 mr-2 flex-shrink-0 rounded-full bg-gray-50 flex items-center justify-center">
-                      <Image 
-                        src="/logo.svg" 
-                        alt="Assistant" 
-                        width={16} 
+                      <Image
+                        src="/logo.svg"
+                        alt="Assistant"
+                        width={16}
                         height={16}
                         className="object-contain"
                       />
                     </div>
                   )}
-                  
-                  <div 
+
+                  <div
                     className={`max-w-[85%] p-3 rounded-lg ${
-                      message.role === 'user' 
-                        ? 'bg-primary text-white rounded-tr-none ml-2' 
-                        : 'bg-gray-100 text-gray-800 rounded-tl-none'
+                      message.role === "user"
+                        ? "bg-primary text-white rounded-tr-none ml-2"
+                        : "bg-gray-100 text-gray-800 rounded-tl-none"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {message.content}
+                    </p>
                   </div>
-                  
-                  {message.role === 'user' && (
+
+                  {message.role === "user" && (
                     <div className="h-8 w-8 ml-2 flex-shrink-0 rounded-full bg-primary flex items-center justify-center text-white text-xs font-medium">
-                      {user?.name?.[0]?.toUpperCase() || 'U'}
+                      {user?.name?.[0]?.toUpperCase() || "U"}
                     </div>
                   )}
                 </div>
               ))}
-              
+
               {/* Nếu không có tin nhắn, hiển thị màn hình giới thiệu */}
               {messages.length === 0 && (
                 <div className="py-8 flex flex-col items-center justify-center h-full">
                   <div className="w-16 h-16 mb-4 bg-violet-100 rounded-full flex items-center justify-center">
                     <MessageCircle className="w-8 h-8 text-primary" />
                   </div>
-                  <h3 className="text-lg font-medium mb-2">Assistant FlowSphere</h3>
+                  <h3 className="text-lg font-medium mb-2">
+                    Assistant FlowSphere
+                  </h3>
                   <p className="text-gray-500 text-center mb-6 max-w-xs">
-                    Hỏi bất cứ điều gì về ứng dụng, tạo workspace hoặc project mới.
+                    Hỏi bất cứ điều gì về ứng dụng, tạo workspace hoặc project
+                    mới.
                   </p>
-                  
+
                   <div className="space-y-2 w-full">
                     {[
                       "Tạo workspace mới",
                       "Cách tạo project?",
-                      "Các tính năng của FlowSphere"
+                      "Các tính năng của FlowSphere",
                     ].map((suggestion, index) => (
                       <button
                         key={index}
@@ -198,7 +213,7 @@ export const FloatingChatButton = () => {
                           setInput(suggestion);
                           addMessage({
                             content: suggestion,
-                            role: 'user'
+                            role: "user",
                           });
                           setShowIntro(false);
                         }}
@@ -226,7 +241,11 @@ export const FloatingChatButton = () => {
                 <button
                   type="submit"
                   disabled={!input.trim()}
-                  className={`p-1.5 rounded-full ${input.trim() ? 'bg-primary text-white' : 'bg-gray-300 text-gray-500'}`}
+                  className={`p-1.5 rounded-full ${
+                    input.trim()
+                      ? "bg-primary text-white"
+                      : "bg-gray-300 text-gray-500"
+                  }`}
                 >
                   <Send className="w-4 h-4" />
                 </button>
@@ -240,4 +259,4 @@ export const FloatingChatButton = () => {
       </AnimatePresence>
     </>
   );
-}; 
+};

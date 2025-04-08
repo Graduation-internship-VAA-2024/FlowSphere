@@ -28,7 +28,7 @@ const defaultMap = {
 export const Navbar = () => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const pathname = usePathname();
-  const pathnameParts = pathname.split("/");
+  const pathnameParts = pathname?.split("/") || [];
   const pathnameKey = pathnameParts[3] as keyof typeof pathnameMap;
   const { title, description } = pathnameMap[pathnameKey] || defaultMap;
   return (

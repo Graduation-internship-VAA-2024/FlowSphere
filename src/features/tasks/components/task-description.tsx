@@ -14,19 +14,6 @@ import {
   XCircle,
   Download,
   Info,
-  Bold,
-  Italic,
-  Underline,
-  List,
-  ListOrdered,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Link2,
-  Strikethrough,
-  Code,
-  Quote,
-  File,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import Image from "next/image";
@@ -36,22 +23,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+
 import { MarkdownEditor } from "./markdown-editor";
-import { Skeleton } from "@/components/ui/skeleton";
 
 interface TaskDescriptionProps {
   task: Task;
@@ -65,7 +38,6 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingImageRemoved, setExistingImageRemoved] = useState(false);
   const [existingFileRemoved, setExistingFileRemoved] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);

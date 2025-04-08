@@ -1,12 +1,4 @@
 import nodemailer from "nodemailer";
-import fs from "fs";
-import path from "path";
-
-// Read and convert logo to base64 at startup
-const logoPath = path.join(process.cwd(), "public", "logo.svg");
-const LOGO_BASE64 = `data:image/svg+xml;base64,${fs
-  .readFileSync(logoPath)
-  .toString("base64")}`;
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
@@ -141,16 +133,6 @@ export const sendTaskAssignmentEmail = async (
     month: "long",
     day: "numeric",
   });
-
-  // Map task status to meaningful colors
-  const statusColor =
-    {
-      BACKLOG: "#6366F1", // Indigo
-      TODO: "#F59E0B", // Amber
-      IN_PROGRESS: "#3B82F6", // Blue
-      IN_REVIEW: "#8B5CF6", // Violet
-      DONE: "#10B981", // Emerald
-    }[status] || "#6366F1";
 
   const mailOptions = {
     from: `"${senderName} via FlowSphere" <${process.env.GMAIL_USER}>`,

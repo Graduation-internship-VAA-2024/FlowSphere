@@ -1,6 +1,8 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { useGetMembers } from "@/features/members/api/use-get-members";
+import { Member } from "@/features/members/types";
 import { useGetProjects } from "@/features/projects/api/use-get-projects";
+import { Project } from "@/features/projects/type";
 import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { Loader } from "lucide-react";
 import { useGetTask } from "../api/use-get-task";
@@ -27,14 +29,14 @@ export const EditTaskFormWrapper = ({
     workspaceId,
   });
 
-  const projectOptions = projects?.documents.map((project) => ({
+  const projectOptions = projects?.documents.map((project: Project) => ({
     id: project.$id,
     name: project.name,
     imageUrl: project.imageUrl,
   }));
-  const memberOptions = members?.documents.map((project) => ({
-    id: project.$id,
-    name: project.name,
+  const memberOptions = members?.documents.map((member: Member) => ({
+    id: member.$id,
+    name: member.name,
   }));
   const isLoading = isLoadingProjects || isLoadingMembers || isLoadingTask;
   if (isLoading) {
