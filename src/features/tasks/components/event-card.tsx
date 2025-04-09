@@ -1,78 +1,99 @@
-import { Project } from "@/features/projects/type";
-import { TaskStatus } from "../types";
-import { cn } from "@/lib/utils";
-import { MemberAvatar } from "@/features/members/components/member-avatar";
-import { ProjectAvatar } from "@/features/projects/components/project-avatar";
-import { useWorkspaceId } from "@/features/workspaces/hooks/use-workspace-id";
 import { useRouter } from "next/navigation";
-import { User2, FolderKanban } from "lucide-react";
-import { Member } from "@/features/members/types";
+import { TaskStatus } from "../types";
+import { CheckCircle, CircleDashed, CircleDot, Clock } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
 
 interface EventCardProps {
-  title: string;
-  assignee: Member;
-  project: Project;
-  status: TaskStatus;
   id: string;
+  title: string;
+  project?: {
+    name: string;
+    workspaceId: string;
+  };
+  assignee?: {
+    name: string;
+    avatarUrl?: string;
+  };
+  status?: TaskStatus;
 }
 
-const statusColorMap: Record<TaskStatus, string> = {
-  [TaskStatus.BACKLOG]: "border-l-gray-500",
-  [TaskStatus.TODO]: "border-l-red-500",
-  [TaskStatus.IN_PROGRESS]: "border-l-yellow-500",
-  [TaskStatus.IN_REVIEW]: "border-l-blue-500",
-  [TaskStatus.DONE]: "border-l-green-500",
-};
-
 export const EventCard = ({
-  title,
-  assignee,
-  project,
-  status,
   id,
+  title,
+  project,
+  assignee,
+  status,
 }: EventCardProps) => {
-  const workspaceId = useWorkspaceId();
   const router = useRouter();
 
-  const onClick = (e: React.MouseEvent<HTMLDivElement>) => {
-    e.stopPropagation();
-    router.push(`/workspaces/${workspaceId}/tasks/${id}`);
+  const getStatusIcon = () => {
+    switch (status) {
+      case TaskStatus.DONE:
+        return (
+          <CheckCircle className="w-3.5 h-3.5 text-green-600 drop-shadow-sm" />
+        );
+      case TaskStatus.IN_PROGRESS:
+        return (
+          <CircleDot className="w-3.5 h-3.5 text-amber-600 drop-shadow-sm" />
+        );
+      case TaskStatus.TODO:
+        return (
+          <CircleDashed className="w-3.5 h-3.5 text-gray-600 drop-shadow-sm" />
+        );
+      case TaskStatus.IN_REVIEW:
+        return <Clock className="w-3.5 h-3.5 text-blue-600 drop-shadow-sm" />;
+      default:
+        return <Clock className="w-3.5 h-3.5 text-purple-600 drop-shadow-sm" />;
+    }
+  };
+
+  const getStatusClass = () => {
+    switch (status) {
+      case TaskStatus.DONE:
+        return "status-done";
+      case TaskStatus.IN_PROGRESS:
+        return "status-in-progress";
+      case TaskStatus.TODO:
+        return "status-todo";
+      case TaskStatus.IN_REVIEW:
+        return "status-in-review";
+      default:
+        return "status-backlog";
+    }
+  };
+
+  const handleClick = () => {
+    router.push(`/workspaces/${project?.workspaceId}/tasks/${id}`);
   };
 
   return (
-    <div className="px-2 py-1">
-      <div
-        onClick={onClick}
-        className={cn(
-          "p-3 text-sm bg-white text-primary border rounded-lg border-l-4 cursor-pointer transition",
-          statusColorMap[status]
-        )}
-      >
-        <p className="font-semibold truncate">{title}</p>
-        <div className="flex items-center gap-x-4 mt-2">
-          {/* Avatar người dùng với icon nhỏ overlay */}
-          <div className="relative">
-            <MemberAvatar
-              name={assignee?.name}
-              className="border border-gray-200"
-            />
-            <span className="absolute bottom-0 right-0  w-3 h-3 bg-white rounded-full flex items-center justify-center">
-              <User2 className="w-2 h-2 text-gray-500" />
-            </span>
-          </div>
-
-          {/* Avatar dự án với icon nhỏ overlay */}
-          <div className="relative">
-            <ProjectAvatar
-              name={project?.name}
-              image={project?.imageUrl}
-              className="border border-gray-200"
-            />
-            <span className="absolute bottom-0 right-0  w-3 h-3 bg-white rounded-full flex items-center justify-center">
-              <FolderKanban className="w-2 h-2 text-gray-500" />
-            </span>
-          </div>
+    <div
+      onClick={handleClick}
+      className={`p-2 rounded-md shadow-md hover:shadow-lg transition-all duration-300 cursor-pointer transform hover:scale-[1.02] overflow-hidden group ${getStatusClass()}`}
+    >
+      <div className="flex items-start gap-2">
+        <div className="mt-0.5 flex-shrink-0">{getStatusIcon()}</div>
+        <div className="flex-1 min-w-0">
+          <h4 className="text-xs font-semibold text-gray-800 truncate group-hover:text-primary transition-colors duration-200">
+            {title}
+          </h4>
+          {project && (
+            <div className="mt-0.5 flex items-center gap-1">
+              <span className="text-[10px] truncate text-gray-600 max-w-[80%] font-medium">
+                {project.name}
+              </span>
+            </div>
+          )}
         </div>
+        {assignee && (
+          <div className="flex-shrink-0">
+            <Avatar className="h-5 w-5 ring-1 ring-white shadow-sm">
+              <div className="bg-primary text-white w-full h-full flex items-center justify-center text-[8px] font-medium uppercase">
+                {assignee?.name?.charAt(0) || "U"}
+              </div>
+            </Avatar>
+          </div>
+        )}
       </div>
     </div>
   );

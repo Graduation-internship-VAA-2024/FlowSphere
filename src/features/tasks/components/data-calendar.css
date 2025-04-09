@@ -1,24 +1,45 @@
 .rbc-header {
   @apply text-sm;
-  @apply font-normal;
-  @apply text-muted-foreground;
+  @apply font-medium;
+  @apply text-gray-700;
   @apply pb-4;
   @apply border-b-0;
+  @apply transition-colors;
+  @apply duration-200;
+  @apply capitalize;
 }
 
 .rbc-header + .rbc-header {
   @apply border-l-0;
 }
+
 .rbc-button-link {
   @apply text-xs;
   @apply font-normal;
-  @apply text-muted-foreground;
+  @apply text-gray-600;
+  @apply hover:text-primary;
+  @apply transition-colors;
+  @apply duration-200;
+  @apply rounded-full;
+  @apply w-8;
+  @apply h-8;
+  @apply flex;
+  @apply items-center;
+  @apply justify-center;
+  @apply mx-auto;
+  @apply hover:bg-gray-50;
 }
 
 .rbc-month-row {
   @apply min-h-[180px];
-  @apply border-t;
-  @apply border-x;
+  @apply border-t-0;
+  @apply border-x-0;
+  @apply border-gray-100;
+  @apply mb-1;
+}
+
+.rbc-month-row:not(:last-child) {
+  @apply border-b-0;
 }
 
 :not(.rbc-month-row ~ .rbc-month-row).rbc-month-row {
@@ -26,18 +47,177 @@
 }
 
 .rbc-month-row:last-of-type {
-  @apply border-b;
+  @apply border-b-0;
   @apply rounded-b-md;
+  @apply border-gray-100;
 }
 
 .rbc-month-view {
   @apply border-none;
 }
 
-.rbc-data-cell {
-  @apply p-2;
+.rbc-date-cell {
+  @apply text-right;
+  @apply pr-3;
+  @apply py-2;
 }
 
-.rbc-today {
-  background: inherit;
+.rbc-date-cell.rbc-now {
+  @apply font-medium;
+  @apply text-primary;
+}
+
+/* Set white background for days in current month */
+.rbc-day-bg {
+  @apply bg-white;
+  @apply transition-all;
+  @apply duration-300;
+  @apply hover:bg-blue-50;
+  @apply border;
+  @apply border-gray-50;
+  @apply rounded-lg;
+  @apply m-0.5;
+  @apply shadow-sm;
+  @apply overflow-hidden;
+  @apply flex;
+  @apply flex-col;
+  @apply justify-start;
+  @apply min-h-[80px];
+}
+
+/* Darker background for out-of-range days */
+.rbc-off-range-bg {
+  @apply bg-gray-800/10;
+  @apply opacity-90;
+  @apply border-gray-300/20;
+  @apply shadow-none;
+}
+
+/* Special styling for today */
+.rbc-day-bg.rbc-today {
+  @apply bg-blue-50;
+  @apply border;
+  @apply border-primary/30;
+  @apply rounded-lg;
+  @apply shadow-md;
+  @apply relative;
+  @apply overflow-hidden;
+  @apply z-10;
+}
+
+/* Add shine effect to today */
+.rbc-day-bg.rbc-today::before {
+  content: "";
+  @apply absolute;
+  @apply inset-0;
+  @apply bg-gradient-to-r;
+  @apply from-transparent;
+  @apply via-white/30;
+  @apply to-transparent;
+  @apply opacity-0;
+  animation: shine 3s ease-in-out infinite;
+}
+
+@keyframes shine {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.6;
+  }
+  80% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+/* Styling for events */
+.rbc-event {
+  @apply rounded-md;
+  @apply shadow-md;
+  @apply border-l-4;
+  @apply bg-white;
+  @apply text-gray-800;
+  @apply transition-all;
+  @apply duration-300;
+  @apply hover:scale-105;
+  @apply overflow-hidden;
+  @apply max-w-[95%];
+  @apply mx-auto;
+  @apply scale-95;
+  @apply mt-1;
+  @apply z-20;
+}
+
+/* Fix z-index for events */
+.rbc-event-content {
+  @apply relative;
+  @apply z-20;
+}
+
+/* Override specific status colors in the task cards */
+.rbc-event.status-todo {
+  @apply border-l-gray-500;
+  @apply bg-gray-200;
+  @apply shadow-gray-300;
+}
+
+.rbc-event.status-in-progress {
+  @apply border-l-amber-500;
+  @apply bg-amber-200;
+  @apply shadow-amber-300;
+}
+
+.rbc-event.status-done {
+  @apply border-l-green-500;
+  @apply bg-green-200;
+  @apply shadow-green-300;
+}
+
+.rbc-event.status-in-review {
+  @apply border-l-blue-500;
+  @apply bg-blue-200;
+  @apply shadow-blue-300;
+}
+
+.rbc-event.status-backlog {
+  @apply border-l-purple-500;
+  @apply bg-purple-200;
+  @apply shadow-purple-300;
+}
+
+/* Improve day rendering */
+.rbc-row-bg {
+  @apply mx-0.5;
+}
+
+.rbc-date-cell > button {
+  @apply hover:bg-primary/10;
+  @apply font-normal;
+}
+
+.rbc-date-cell.rbc-now > button {
+  @apply bg-primary/20;
+  @apply text-primary;
+  @apply font-medium;
+}
+
+.rbc-row-content {
+  @apply z-20;
+}
+
+/* Improve responsiveness */
+@media (max-width: 640px) {
+  .rbc-toolbar {
+    @apply flex-col;
+    @apply gap-2;
+  }
+
+  .rbc-toolbar-label {
+    @apply text-sm;
+  }
 }
