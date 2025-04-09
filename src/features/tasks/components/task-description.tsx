@@ -27,6 +27,8 @@ import {
 
 import { MarkdownEditor } from "./markdown-editor";
 import { AIDescriptionGenerator } from "./ai-description-generator";
+import { AIOverlayButton } from "@/components/ui/ai-overlay-button";
+import { useChatContext } from "@/components/ChatBot/context/ChatContext";
 
 interface TaskDescriptionProps {
   task: Task;
@@ -45,6 +47,7 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { mutate, isPending } = useUpdateTask();
+  const chatContext = useChatContext();
 
   const handleSave = async () => {
     const updateData: Record<string, any> = {};
@@ -242,6 +245,16 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
     setSelectedFile(null);
     setExistingImageRemoved(false);
     setExistingFileRemoved(false);
+  };
+
+  // Xử lý phân tích nội dung
+  const handleAnalyzeContent = (
+    contentType: "image" | "file",
+    contentUrl: string,
+    fileName?: string,
+    taskTitle?: string
+  ) => {
+    chatContext.analyzeContent(contentType, contentUrl, fileName, taskTitle);
   };
 
   if (isEditing) {
@@ -514,7 +527,20 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
 
         {/* Hiển thị hình ảnh đính kèm nếu có */}
         {task.imageUrl && (
-          <div className="border rounded-lg overflow-hidden mt-2">
+          <div className="relative border rounded-lg overflow-hidden mt-2 group">
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors duration-200"></div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <AIOverlayButton
+                onClick={() =>
+                  handleAnalyzeContent(
+                    "image",
+                    task.imageUrl as string,
+                    undefined,
+                    task.name
+                  )
+                }
+              />
+            </div>
             <Image
               src={task.imageUrl}
               alt="Task image"
@@ -528,8 +554,22 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
 
         {/* Hiển thị file đính kèm nếu có */}
         {task.fileUrl && (
-          <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/50">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="relative flex items-center justify-between p-3 border rounded-lg bg-muted/50 group">
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 rounded-lg transition-colors duration-200"></div>
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <AIOverlayButton
+                onClick={() =>
+                  handleAnalyzeContent(
+                    "file",
+                    task.fileUrl as string,
+                    task.fileName,
+                    task.name
+                  )
+                }
+                className="top-1/2 -translate-y-1/2"
+              />
+            </div>
+            <div className="flex items-center gap-2 flex-1 min-w-0 z-10">
               <PaperclipIcon className="h-4 w-4 flex-shrink-0 text-primary" />
               <span className="text-sm font-medium truncate">
                 {task.fileName || getFileNameFromUrl(task.fileUrl)}
@@ -539,7 +579,7 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
               asChild
               size="sm"
               variant="outline"
-              className="flex-shrink-0 gap-1"
+              className="flex-shrink-0 gap-1 z-10"
             >
               <a
                 href={task.fileUrl}

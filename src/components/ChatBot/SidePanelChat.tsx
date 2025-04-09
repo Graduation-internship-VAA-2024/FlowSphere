@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { MessageCircle, ChevronRight, Send } from "lucide-react";
+import { ChevronRight, Send } from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -12,6 +12,10 @@ import { IntentAnalyzer } from "./utils/intentAnalyzer";
 import { SYSTEM_PROMPT } from "./constants/prompts";
 import { useCreateProject } from "@/features/projects/api/use-create-project";
 import { usePersistentChat } from "./hooks/usePersistentChat";
+import { useChatContext } from "./context/ChatContext";
+import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const intentAnalyzer = new IntentAnalyzer();
 
@@ -22,21 +26,29 @@ const exampleSuggestions = [
 ];
 
 export const SidePanelChat = () => {
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isVisible, setIsVisible] = useState(false);
+  const {
+    isOpen,
+    closeChat,
+    initialMessage,
+    setInitialMessage,
+    apiSource,
+    resetToDefaultApi,
+  } = useChatContext();
   const [input, setInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useCurrentUser();
   const router = useRouter();
   const createWorkspace = useCreateWorkspace();
   const createProject = useCreateProject();
   const workspaceId = useWorkspaceId();
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [isTyping, setIsTyping] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
   const {
     messages,
     addMessage,
+    clearMessages,
     showIntro,
     setShowIntro,
     hasWelcomed,
@@ -59,47 +71,26 @@ export const SidePanelChat = () => {
     name: undefined,
   });
 
-  const [isMounted, setIsMounted] = useState(false);
-
-  // Thêm class vào body khi mở chatbot để co trang web lại
   useEffect(() => {
-    if (!isMounted) return;
+    setIsMounted(true);
+  }, []);
 
-    if (isChatOpen) {
-      document.body.classList.add("chatbot-open");
-    } else {
-      document.body.classList.remove("chatbot-open");
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
+  }, [messages]);
 
-    return () => {
-      document.body.classList.remove("chatbot-open");
-    };
-  }, [isChatOpen, isMounted]);
-
-  // Hiển thị nút sau khi trang được tải
+  // Display welcome message when user opens chat for the first time
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(true);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Xử lý phím tắt Ctrl+I
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "i") {
-        e.preventDefault();
-        setIsChatOpen((prev) => !prev);
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
-
-  // Hiển thị tin nhắn chào mừng
-  useEffect(() => {
-    if (isChatOpen && user && !hasWelcomed && messages.length === 0) {
+    if (
+      isOpen &&
+      user &&
+      !hasWelcomed &&
+      messages.length === 0 &&
+      !initialMessage
+    ) {
       addMessage({
         content: `Xin chào ${user.name}! Tôi là trợ lý ảo của FlowSphere. 
         Tôi có thể giúp gì cho bạn?`,
@@ -108,29 +99,67 @@ export const SidePanelChat = () => {
       setHasWelcomed(true);
     }
   }, [
-    isChatOpen,
+    isOpen,
     user,
     hasWelcomed,
     messages.length,
     addMessage,
     setHasWelcomed,
+    initialMessage,
   ]);
 
-  // Cuộn xuống cuối cuộc trò chuyện
+  // Handle initial message from AI analysis
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (isOpen && initialMessage) {
+      // Clear existing conversation when starting a new AI analysis
+      clearMessages();
+      setShowIntro(false);
+
+      // Add the AI analysis as a message
+      addMessage({
+        content: initialMessage,
+        role: "assistant",
+      });
+
+      // Reset initial message
+      setInitialMessage("");
     }
-  }, [messages, isTyping]);
+  }, [
+    isOpen,
+    initialMessage,
+    addMessage,
+    clearMessages,
+    setShowIntro,
+    setInitialMessage,
+  ]);
+
+  // Thêm useEffect mới để theo dõi thay đổi apiSource
+  useEffect(() => {
+    // Khi chuyển từ gemini sang openrouter, hiển thị intro nếu không có tin nhắn
+    if (apiSource === "openrouter" && messages.length === 0) {
+      setShowIntro(true);
+    }
+  }, [apiSource, messages.length, setShowIntro]);
 
   // Focus vào ô input khi mở chatbot
   useEffect(() => {
-    if (isChatOpen && inputRef.current) {
+    if (isOpen && inputRef.current) {
       setTimeout(() => {
         inputRef.current?.focus();
       }, 300);
     }
-  }, [isChatOpen]);
+  }, [isOpen]);
+
+  // Apply body class when chat is open
+  useEffect(() => {
+    if (!isMounted) return;
+
+    if (isOpen) {
+      document.body.classList.add("chatbot-open");
+    } else {
+      document.body.classList.remove("chatbot-open");
+    }
+  }, [isOpen, isMounted]);
 
   const handleSuggestionClick = (suggestion: string) => {
     setInput(suggestion);
@@ -139,22 +168,51 @@ export const SidePanelChat = () => {
   };
 
   const handleSendMessage = async (content?: string) => {
-    const messageContent = content || input;
-    if (!messageContent.trim()) return;
+    const messageContent = content || input.trim();
+    if (!messageContent) return;
 
+    // Add user message
     addMessage({
-      content: messageContent.trim(),
+      content: messageContent,
       role: "user",
     });
 
     setInput("");
     setIsTyping(true);
-
-    if (showIntro) {
-      setShowIntro(false);
-    }
+    setShowIntro(false);
 
     try {
+      console.log("Current API source:", apiSource); // Thêm log để debug
+
+      // Phân nhánh theo nguồn API
+      if (apiSource === "gemini") {
+        console.log("Using Gemini API for continued analysis");
+        // Sử dụng Gemini API để tiếp tục phân tích
+        const geminiResponse = await fetch("/api/chat/gemini", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: [...messages, { role: "user", content: messageContent }],
+          }),
+        });
+
+        if (!geminiResponse.ok) {
+          throw new Error("Failed to get response from Gemini");
+        }
+
+        const data = await geminiResponse.json();
+        addMessage({
+          content: data.response,
+          role: "assistant",
+        });
+        setIsTyping(false);
+        return;
+      }
+
+      console.log("Using OpenRouter API for regular chat");
+      // Phân tích intent (chỉ áp dụng cho OpenRouter API)
+      const intentAnalysis = intentAnalyzer.analyzeIntent(messageContent);
+
       // Handle project creation
       if (projectIntent.isCreating && !projectIntent.name) {
         if (!workspaceId) {
@@ -163,7 +221,6 @@ export const SidePanelChat = () => {
             role: "assistant",
           });
           setProjectIntent({ isCreating: false, name: undefined });
-          setIsTyping(false);
           return;
         }
 
@@ -189,11 +246,10 @@ export const SidePanelChat = () => {
           router.push(
             `/workspaces/${workspaceId}/projects/${response.data.$id}`
           );
-          setIsChatOpen(false);
+          closeChat();
         }, 2000);
 
         setProjectIntent({ isCreating: false, name: undefined });
-        setIsTyping(false);
         return;
       }
 
@@ -215,16 +271,12 @@ export const SidePanelChat = () => {
 
         setTimeout(() => {
           router.push(`/workspaces/${response.data.$id}`);
-          setIsChatOpen(false);
+          closeChat();
         }, 2000);
 
         setWorkspaceIntent({ isCreating: false, name: undefined });
-        setIsTyping(false);
         return;
       }
-
-      // Phân tích ý định từ tin nhắn người dùng
-      const intentAnalysis = intentAnalyzer.analyzeIntent(messageContent);
 
       // Xử lý ý định tạo project
       if (
@@ -239,7 +291,6 @@ export const SidePanelChat = () => {
 3. Sau đó quay lại đây để tạo project`,
             role: "assistant",
           });
-          setIsTyping(false);
           return;
         }
 
@@ -255,7 +306,6 @@ Gợi ý đặt tên:
 • Không sử dụng ký tự đặc biệt`,
           role: "assistant",
         });
-        setIsTyping(false);
         return;
       }
 
@@ -271,7 +321,6 @@ Gợi ý đặt tên:
           content: response,
           role: "assistant",
         });
-        setIsTyping(false);
         return;
       }
 
@@ -323,7 +372,6 @@ Một số gợi ý cho tên workspace:
 Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
           role: "assistant",
         });
-        setIsTyping(false);
         return;
       }
 
@@ -344,237 +392,343 @@ Vui lòng cho tôi biết tên workspace bạn muốn tạo:`,
     }
   };
 
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    handleSendMessage();
+  // Thêm hàm handleResetApi để xóa tin nhắn khi chuyển API
+  const handleResetApi = () => {
+    console.log("Handling reset API request");
+    // Xóa tất cả tin nhắn hiện tại
+    clearMessages();
+
+    // Đặt lại các trạng thái
+    setInput("");
+    setIsTyping(false);
+    setWorkspaceIntent({ isCreating: false, name: undefined });
+    setProjectIntent({ isCreating: false, name: undefined });
+
+    // Làm mới intro sau khi reset
+    setShowIntro(true);
+    setHasWelcomed(false);
+
+    // Đặt lại API về mặc định
+    resetToDefaultApi();
+
+    // Thông báo người dùng
+    toast.success(
+      "Đã kết thúc phiên phân tích và chuyển về chatbot thông thường"
+    );
   };
 
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  // Render introduction screen
+  const renderIntro = () => (
+    <div className="py-8 flex flex-col items-center justify-center h-full">
+      <div className="w-16 h-16 mb-4 bg-violet-100 rounded-full flex items-center justify-center">
+        <Image
+          src="/logo.svg"
+          alt="FlowSphere Logo"
+          width={32}
+          height={32}
+          className="object-contain"
+        />
+      </div>
+      <h3 className="text-lg font-medium mb-2">Assistant FlowSphere</h3>
+      <p className="text-gray-500 text-center mb-6 max-w-xs">
+        Hỏi bất cứ điều gì về ứng dụng, tạo workspace hoặc project mới.
+      </p>
+
+      <div className="space-y-2 w-full">
+        {exampleSuggestions.map((suggestion, index) => (
+          <button
+            key={index}
+            onClick={() => handleSuggestionClick(suggestion)}
+            className="w-full p-2 rounded-lg border border-gray-200 bg-white
+              hover:bg-gray-50 text-left text-sm transition-colors"
+          >
+            {suggestion}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (!isOpen) return null;
 
   return (
-    <>
-      {isMounted && (
-        <>
-          {/* Nút mở chatbot */}
-          <AnimatePresence>
-            {isVisible && !isChatOpen && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.8, x: 20 }}
-                animate={{ opacity: 1, scale: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.8, x: 20 }}
-                onClick={() => setIsChatOpen(true)}
-                className="fixed top-1/2 -translate-y-1/2 right-0 z-[9998] flex items-center 
-                  bg-gradient-to-r from-primary via-violet-500 to-blue-500
-                  text-white rounded-l-full shadow-lg shadow-violet-500/30
-                  hover:shadow-violet-600/40 hover:pl-6 transition-all duration-300
-                  py-3 pl-4 pr-1 group"
-                whileHover={{ x: -5 }}
+    <AnimatePresence>
+      <motion.div
+        initial={{ opacity: 0, x: 400 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 400 }}
+        transition={{ type: "spring", damping: 25, stiffness: 200 }}
+        className="fixed top-0 right-0 bottom-0 z-50 w-[400px] flex flex-col
+          bg-white shadow-lg border-l border-gray-200"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b">
+          <div className="flex items-center">
+            <div className="h-8 w-8 mr-3 bg-gray-50 rounded-full flex items-center justify-center overflow-hidden">
+              <Image
+                src="/logo.svg"
+                alt="FlowSphere Logo"
+                width={20}
+                height={20}
+                className="object-contain"
+              />
+            </div>
+            <div>
+              <h2 className="font-medium">Trợ lý FlowSphere</h2>
+              {apiSource === "gemini" && (
+                <p className="text-xs text-blue-500">Đang sử dụng Gemini AI</p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {apiSource === "gemini" && (
+              <button
+                onClick={handleResetApi}
+                className="text-xs px-2 py-1 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-md"
               >
-                <MessageCircle className="w-5 h-5 mr-0 group-hover:mr-2 transition-all duration-300" />
-                <span className="w-0 overflow-hidden group-hover:w-auto transition-all duration-300 opacity-0 group-hover:opacity-100">
-                  Ask AI
-                </span>
-              </motion.button>
+                Kết thúc phân tích
+              </button>
             )}
-          </AnimatePresence>
+            <button
+              onClick={closeChat}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <ChevronRight className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+        </div>
 
-          {/* Panel chatbot kiểu Copilot */}
-          <AnimatePresence>
-            {isChatOpen && (
-              <motion.div
-                initial={{ opacity: 0, x: 400 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 400 }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="fixed top-0 right-0 bottom-0 z-[9999] w-[400px] flex flex-col
-                  bg-white shadow-lg border-l border-gray-200"
-              >
-                {/* Header */}
-                <div className="flex items-center justify-between p-4 border-b">
-                  <div className="flex items-center">
-                    <div className="h-8 w-8 mr-3 bg-gray-50 rounded-full flex items-center justify-center overflow-hidden">
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {showIntro && messages.length === 0 ? (
+            renderIntro()
+          ) : (
+            <div className="space-y-4">
+              {messages.map((message) => (
+                <motion.div
+                  key={message.id}
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 400,
+                    damping: 30,
+                  }}
+                  className={`flex ${
+                    message.role === "user" ? "justify-end" : "justify-start"
+                  }`}
+                >
+                  {message.role === "assistant" && (
+                    <div className="h-8 w-8 mr-2 rounded-full bg-gray-50 flex items-center justify-center">
                       <Image
                         src="/logo.svg"
-                        alt="FlowSphere Logo"
+                        alt="Assistant"
                         width={20}
                         height={20}
                         className="object-contain"
                       />
                     </div>
-                    <h2 className="font-medium">Assistant FlowSphere</h2>
-                  </div>
-                  <button
-                    onClick={() => setIsChatOpen(false)}
-                    className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                  )}
+
+                  <div
+                    className={`max-w-[85%] p-3 rounded-lg ${
+                      message.role === "user"
+                        ? "bg-primary text-white rounded-tr-none ml-2"
+                        : "bg-gray-100 text-gray-800 rounded-tl-none"
+                    }`}
                   >
-                    <ChevronRight className="w-5 h-5 text-gray-500" />
-                  </button>
-                </div>
-
-                {/* Messages Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {messages.map((message) => (
-                    <div
-                      key={message.id}
-                      className={`flex ${
-                        message.role === "user"
-                          ? "justify-end"
-                          : "justify-start"
-                      } mb-3`}
-                    >
-                      {message.role === "assistant" && (
-                        <div className="h-8 w-8 mr-2 flex-shrink-0 rounded-full bg-gray-50 flex items-center justify-center">
-                          <Image
-                            src="/logo.svg"
-                            alt="Assistant"
-                            width={16}
-                            height={16}
-                            className="object-contain"
-                          />
-                        </div>
-                      )}
-
-                      <div
-                        className={`max-w-[85%] p-3 rounded-lg ${
-                          message.role === "user"
-                            ? "bg-primary text-white rounded-tr-none ml-2"
-                            : "bg-gray-100 text-gray-800 rounded-tl-none"
-                        }`}
-                      >
-                        <p className="text-sm whitespace-pre-wrap break-words">
-                          {message.content}
-                        </p>
-                      </div>
-
-                      {message.role === "user" && (
-                        <div className="h-8 w-8 ml-2 flex-shrink-0 rounded-full bg-primary flex items-center justify-center text-white text-xs font-medium">
-                          {user?.name?.[0]?.toUpperCase() || "U"}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Typing indicator */}
-                  {isTyping && (
-                    <div className="flex justify-start mb-3">
-                      <div className="h-8 w-8 mr-2 rounded-full bg-gray-50 flex items-center justify-center">
-                        <Image
-                          src="/logo.svg"
-                          alt="Assistant"
-                          width={16}
-                          height={16}
-                          className="object-contain"
+                    <div className="text-sm whitespace-pre-wrap break-words prose prose-sm max-w-none dark:prose-invert">
+                      {message.role === "user" ? (
+                        <div
+                          dangerouslySetInnerHTML={{
+                            __html: message.content.replace(/\n/g, "<br />"),
+                          }}
                         />
-                      </div>
-                      <div className="p-3 rounded-lg bg-gray-100 rounded-tl-none">
-                        <div className="flex space-x-2">
-                          <motion.div
-                            animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [0.4, 1, 0.4],
+                      ) : (
+                        <div className="prose prose-sm max-w-none">
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                              // Styling cho các elements trong markdown
+                              h1: (props) => (
+                                <h1
+                                  {...props}
+                                  className="text-lg font-semibold my-2"
+                                />
+                              ),
+                              h2: (props) => (
+                                <h2
+                                  {...props}
+                                  className="text-base font-semibold my-1.5"
+                                />
+                              ),
+                              h3: (props) => (
+                                <h3
+                                  {...props}
+                                  className="text-sm font-semibold my-1"
+                                />
+                              ),
+                              ul: (props) => (
+                                <ul
+                                  className="pl-4 list-disc my-1"
+                                  {...props}
+                                />
+                              ),
+                              ol: (props) => (
+                                <ol
+                                  className="pl-4 list-decimal my-1"
+                                  {...props}
+                                />
+                              ),
+                              li: (props) => (
+                                <li className="my-0.5" {...props} />
+                              ),
+                              p: (props) => <p className="my-1" {...props} />,
+                              a: (props) => (
+                                <a
+                                  className="text-blue-500 hover:underline"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  {...props}
+                                />
+                              ),
+                              blockquote: (props) => (
+                                <blockquote
+                                  className="border-l-2 border-gray-300 pl-2 my-1 italic"
+                                  {...props}
+                                />
+                              ),
+                              code: ({ className, children, ...props }) => {
+                                const inline = !className;
+                                return inline ? (
+                                  <code
+                                    className="bg-gray-200 dark:bg-gray-700 px-1 py-0.5 rounded"
+                                    {...props}
+                                  >
+                                    {children}
+                                  </code>
+                                ) : (
+                                  <pre className="bg-gray-200 dark:bg-gray-700 p-2 rounded overflow-x-auto">
+                                    <code {...props} className={className}>
+                                      {children}
+                                    </code>
+                                  </pre>
+                                );
+                              },
                             }}
-                            transition={{
-                              duration: 1,
-                              repeat: Infinity,
-                              delay: 0,
-                            }}
-                            className="w-2 h-2 rounded-full bg-gray-400"
-                          />
-                          <motion.div
-                            animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [0.4, 1, 0.4],
-                            }}
-                            transition={{
-                              duration: 1,
-                              repeat: Infinity,
-                              delay: 0.2,
-                            }}
-                            className="w-2 h-2 rounded-full bg-gray-400"
-                          />
-                          <motion.div
-                            animate={{
-                              scale: [1, 1.2, 1],
-                              opacity: [0.4, 1, 0.4],
-                            }}
-                            transition={{
-                              duration: 1,
-                              repeat: Infinity,
-                              delay: 0.4,
-                            }}
-                            className="w-2 h-2 rounded-full bg-gray-400"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Nếu không có tin nhắn, hiển thị màn hình giới thiệu */}
-                  {messages.length === 0 && (
-                    <div className="py-8 flex flex-col items-center justify-center h-full">
-                      <div className="w-16 h-16 mb-4 bg-violet-100 rounded-full flex items-center justify-center">
-                        <MessageCircle className="w-8 h-8 text-primary" />
-                      </div>
-                      <h3 className="text-lg font-medium mb-2">
-                        Trợ lý FlowSphere
-                      </h3>
-                      <p className="text-gray-500 text-center mb-6 max-w-xs">
-                        Hỏi bất cứ điều gì về ứng dụng, tạo workspace hoặc
-                        project mới.
-                      </p>
-
-                      <div className="space-y-2 w-full">
-                        {exampleSuggestions.map((suggestion, index) => (
-                          <button
-                            key={index}
-                            onClick={() => handleSuggestionClick(suggestion)}
-                            className="w-full p-2 rounded-lg border border-gray-200 bg-white
-                              hover:bg-gray-50 text-left text-sm transition-colors"
                           >
-                            {suggestion}
-                          </button>
-                        ))}
-                      </div>
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {message.role === "user" && (
+                    <div className="h-8 w-8 ml-2 rounded-full bg-primary flex items-center justify-center text-white text-xs font-medium">
+                      {user?.name?.[0]?.toUpperCase() || "U"}
                     </div>
                   )}
+                </motion.div>
+              ))}
 
-                  <div ref={messagesEndRef} />
-                </div>
-
-                {/* Input Area */}
-                <form onSubmit={handleFormSubmit} className="border-t p-3">
-                  <div className="flex items-center bg-gray-100 rounded-lg overflow-hidden pr-3">
-                    <input
-                      ref={inputRef}
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      placeholder="Nhập tin nhắn..."
-                      className="flex-1 py-3 px-4 bg-transparent border-none outline-none text-sm"
+              {isTyping && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-start"
+                >
+                  <div className="h-8 w-8 mr-2 rounded-full bg-gray-50 flex items-center justify-center">
+                    <Image
+                      src="/logo.svg"
+                      alt="Assistant"
+                      width={20}
+                      height={20}
+                      className="object-contain"
                     />
-                    <button
-                      type="submit"
-                      disabled={!input.trim()}
-                      className={`p-1.5 rounded-full ${
-                        input.trim()
-                          ? "bg-primary text-white"
-                          : "bg-gray-300 text-gray-500"
-                      }`}
-                    >
-                      <Send className="w-4 h-4" />
-                    </button>
                   </div>
-                  <div className="text-xs text-gray-400 text-center mt-2">
-                    Nhấn Ctrl+I để mở/đóng trợ lý
+                  <div className="bg-gray-100 p-3 rounded-lg rounded-tl-none">
+                    <div className="flex space-x-2">
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.4, 1, 0.4],
+                        }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          delay: 0,
+                        }}
+                        className="w-2 h-2 rounded-full bg-gray-400"
+                      />
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.4, 1, 0.4],
+                        }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          delay: 0.2,
+                        }}
+                        className="w-2 h-2 rounded-full bg-gray-400"
+                      />
+                      <motion.div
+                        animate={{
+                          scale: [1, 1.2, 1],
+                          opacity: [0.4, 1, 0.4],
+                        }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          delay: 0.4,
+                        }}
+                        className="w-2 h-2 rounded-full bg-gray-400"
+                      />
+                    </div>
                   </div>
-                </form>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </>
-      )}
-    </>
+                </motion.div>
+              )}
+
+              <div ref={messagesEndRef} />
+            </div>
+          )}
+        </div>
+
+        {/* Input Area */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSendMessage();
+          }}
+          className="border-t p-3"
+        >
+          <div className="flex items-center bg-gray-100 rounded-lg overflow-hidden pr-3">
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Nhập tin nhắn..."
+              className="flex-1 py-3 px-4 bg-transparent border-none outline-none text-sm"
+            />
+            <button
+              type="submit"
+              disabled={!input.trim() || isTyping}
+              className={`p-1.5 rounded-full ${
+                input.trim() && !isTyping
+                  ? "bg-primary text-white"
+                  : "bg-gray-300 text-gray-500"
+              }`}
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="text-xs text-gray-400 text-center mt-2">
+            Nhấn Ctrl+I để mở/đóng trợ lý
+          </div>
+        </form>
+      </motion.div>
+    </AnimatePresence>
   );
 };
