@@ -14,6 +14,7 @@ import {
   XCircle,
   Download,
   Info,
+  Sparkles,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import Image from "next/image";
@@ -25,6 +26,7 @@ import {
 } from "@/components/ui/tooltip";
 
 import { MarkdownEditor } from "./markdown-editor";
+import { AIDescriptionGenerator } from "./ai-description-generator";
 
 interface TaskDescriptionProps {
   task: Task;
@@ -38,6 +40,7 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [existingImageRemoved, setExistingImageRemoved] = useState(false);
   const [existingFileRemoved, setExistingFileRemoved] = useState(false);
+  const [isAIDialogOpen, setIsAIDialogOpen] = useState(false);
 
   const imageInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -221,6 +224,16 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
     console.log("[handleDescriptionChange] setDescription called.");
   };
 
+  // Xử lý khi AI tạo ra mô tả
+  const handleAIGenerated = (generatedDescription: string) => {
+    setDescription(generatedDescription);
+  };
+
+  // Mở dialog AI generator
+  const openAIGenerator = () => {
+    setIsAIDialogOpen(true);
+  };
+
   // Hủy chỉnh sửa
   const cancelEdit = () => {
     setIsEditing(false);
@@ -247,6 +260,21 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
         </div>
 
         <div className="space-y-2">
+          <div className="flex justify-between items-center mb-2">
+            <div className="text-sm text-muted-foreground">
+              Use Markdown to format your description
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={openAIGenerator}
+              className="flex items-center gap-1.5 text-primary hover:text-primary/80"
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Generate with AI</span>
+            </Button>
+          </div>
           <MarkdownEditor
             value={description}
             onChange={handleDescriptionChange}
@@ -441,6 +469,14 @@ export function TaskDescription({ task, onTaskUpdated }: TaskDescriptionProps) {
             {isPending ? "Saving..." : "Save"}
           </Button>
         </div>
+
+        {/* AI Description Generator Dialog */}
+        <AIDescriptionGenerator
+          open={isAIDialogOpen}
+          onOpenChange={setIsAIDialogOpen}
+          taskTitle={task.name || ""}
+          onDescriptionGenerated={handleAIGenerated}
+        />
       </Card>
     );
   }
