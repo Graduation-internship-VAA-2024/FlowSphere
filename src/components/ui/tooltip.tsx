@@ -10,6 +10,18 @@ interface TooltipProps {
   align?: "start" | "center" | "end";
 }
 
+interface TooltipContextType {
+  isOpen: boolean;
+  setIsOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  content: React.ReactNode;
+  side: "top" | "right" | "bottom" | "left";
+  align: "start" | "center" | "end";
+}
+
+const TooltipContext = React.createContext<TooltipContextType | undefined>(
+  undefined
+);
+
 const TooltipProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -19,21 +31,53 @@ const TooltipProvider: React.FC<{ children: React.ReactNode }> = ({
 const TooltipTrigger: React.FC<{
   children: React.ReactNode;
 }> = ({ children }) => {
-  return <>{children}</>;
+  const context = React.useContext(TooltipContext);
+
+  if (!context) {
+    return <>{children}</>;
+  }
+
+  return (
+    <div
+      className="inline-block"
+      onMouseEnter={() => context.setIsOpen(true)}
+      onMouseLeave={() => context.setIsOpen(false)}
+      onClick={() => context.setIsOpen(!context.isOpen)}
+    >
+      {children}
+    </div>
+  );
 };
 
 const TooltipContent: React.FC<{
   className?: string;
-  children: React.ReactNode;
+  children?: React.ReactNode;
 }> = ({ className, children }) => {
+  const context = React.useContext(TooltipContext);
+
+  if (!context || !context.isOpen) {
+    return null;
+  }
+
   return (
     <div
       className={cn(
-        "z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md",
+        "absolute z-50 px-3 py-1.5 text-sm rounded-md border bg-popover text-popover-foreground shadow-md",
+        {
+          "-translate-y-full -mt-1": context.side === "top",
+          "translate-y-0 mt-1": context.side === "bottom",
+          "-translate-x-full -ml-1": context.side === "left",
+          "translate-x-0 ml-1": context.side === "right",
+        },
+        {
+          "left-0": context.align === "start",
+          "left-1/2 -translate-x-1/2": context.align === "center",
+          "right-0": context.align === "end",
+        },
         className
       )}
     >
-      {children}
+      {children || context.content}
     </div>
   );
 };
@@ -45,41 +89,13 @@ const Tooltip: React.FC<TooltipProps> = ({
   align = "center",
 }) => {
   const [isOpen, setIsOpen] = React.useState(false);
-  const triggerRef = React.useRef<HTMLDivElement>(null);
-  const contentRef = React.useRef<HTMLDivElement>(null);
 
   return (
-    <div className="relative inline-block">
-      <div
-        ref={triggerRef}
-        onMouseEnter={() => setIsOpen(true)}
-        onMouseLeave={() => setIsOpen(false)}
-        onClick={() => setIsOpen(!isOpen)}
-      >
-        {children}
-      </div>
-      {isOpen && (
-        <div
-          ref={contentRef}
-          className={cn(
-            "absolute z-50 px-3 py-1.5 text-sm rounded-md border bg-popover text-popover-foreground shadow-md",
-            {
-              "-translate-y-full -mt-1": side === "top",
-              "translate-y-0 mt-1": side === "bottom",
-              "-translate-x-full -ml-1": side === "left",
-              "translate-x-0 ml-1": side === "right",
-            },
-            {
-              "left-0": align === "start",
-              "left-1/2 -translate-x-1/2": align === "center",
-              "right-0": align === "end",
-            }
-          )}
-        >
-          {content}
-        </div>
-      )}
-    </div>
+    <TooltipContext.Provider
+      value={{ isOpen, setIsOpen, content, side, align }}
+    >
+      <div className="relative inline-block">{children}</div>
+    </TooltipContext.Provider>
   );
 };
 

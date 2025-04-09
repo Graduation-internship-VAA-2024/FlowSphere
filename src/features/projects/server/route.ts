@@ -184,9 +184,43 @@ const app = new Hono()
     if (!member) {
       return c.json({ error: "Member not found" }, 401);
     }
-    //TODO:
-    await databases.deleteDocument(DATABASE_ID, PROJECTS_ID, projectId);
-    return c.json({ data: { $id: existingProject.$id } });
+
+    // Thực hiện cascade delete:
+    // 1. Xóa tất cả task thuộc về project
+    try {
+      // Tìm tất cả task thuộc project
+      const tasks = await databases.listDocuments(DATABASE_ID, TASKS_ID, [
+        Query.equal("projectId", projectId),
+      ]);
+
+      // Xóa từng task
+      const deletePromises = tasks.documents.map((task) =>
+        databases.deleteDocument(DATABASE_ID, TASKS_ID, task.$id)
+      );
+
+      // Chờ tất cả các task được xóa
+      await Promise.all(deletePromises);
+
+      console.log(
+        `Deleted ${tasks.documents.length} tasks from project ${projectId}`
+      );
+
+      // 2. Xóa project
+      await databases.deleteDocument(DATABASE_ID, PROJECTS_ID, projectId);
+
+      return c.json({
+        data: {
+          $id: existingProject.$id,
+          tasksDeleted: tasks.documents.length,
+        },
+      });
+    } catch (error) {
+      console.error("Error during cascade delete:", error);
+      return c.json(
+        { error: "Failed to delete project and related tasks" },
+        500
+      );
+    }
   })
   .get("/:projectId/analytics", sessionMiddleware, async (c) => {
     const databases = c.get("databases");

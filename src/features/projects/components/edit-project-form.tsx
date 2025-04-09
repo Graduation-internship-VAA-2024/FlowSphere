@@ -70,7 +70,7 @@ export const EditProjectForm = ({
 
   const [DeleteDialog, confirmDelete] = useConfirm(
     "Delete Project",
-    "Are you sure you want to delete this project? This action cannot be undone.",
+    "Are you sure you want to delete this project? This action will also delete all tasks associated with this project. This action cannot be undone.",
     "destructive"
   );
 

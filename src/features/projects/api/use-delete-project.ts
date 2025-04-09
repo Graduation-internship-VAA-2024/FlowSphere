@@ -24,10 +24,17 @@ export const useDeleteProject = () => {
       return await response.json();
     },
     onSuccess: ({ data }) => {
-      toast.success("Project deleted");
+      if (data.tasksDeleted && data.tasksDeleted > 0) {
+        toast.success(
+          `Project deleted with ${data.tasksDeleted} related tasks`
+        );
+      } else {
+        toast.success("Project deleted");
+      }
 
       queryClient.invalidateQueries({ queryKey: ["projects"] });
       queryClient.invalidateQueries({ queryKey: ["project", data.$id] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
     onError: () => {
       toast.error("Failed to delete project. Please try again later.");
